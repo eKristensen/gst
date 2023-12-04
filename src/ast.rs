@@ -2,7 +2,7 @@
 
 #[derive(Debug)]
 pub struct Module {
-    pub name: String,
+    pub name: Atom,
     pub exports: Vec<FunHead>,
     pub attributes: Vec<Attribute>,
     pub body: Vec<FunDef>
@@ -11,20 +11,23 @@ pub struct Module {
 #[derive(Debug)]
 pub struct FunHead {
     pub name: Fname,
-    pub arity: u8
+    pub arity: Integer // TODO: Hmm Integer here does allow arity to be negative.....
 }
 
 #[derive(Debug)]
-pub struct Fname(pub String);
+pub struct Fname(pub Atom);
 
 #[derive(Debug)]
 pub struct Attribute {
-    name: Atom,
-    value: Const
+    pub name: Atom,
+    pub value: Const
 }
 
 #[derive(Debug)]
-pub struct Atom(String);
+pub struct Atom(pub String);
+
+#[derive(Debug)]
+pub struct Integer(pub i64);
 
 #[derive(Debug)]
 pub struct FunDef {
@@ -65,8 +68,8 @@ pub enum Expr {
 
 #[derive(Debug)]
 pub enum Lit {
-    Int(i64),
-    Float(f64),
+    Int(Integer),
+    Float(f32),
     Atom(Atom),
     Char(char),
     String(String),

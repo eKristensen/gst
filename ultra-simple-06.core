@@ -1,0 +1,6 @@
+module 'ultra-simple-06' []
+    attributes [
+        'test'=42,
+        'foo'="bar"
+    ]
+end 

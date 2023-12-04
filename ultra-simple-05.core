@@ -1,0 +1,3 @@
+module 'ultra-simple-05' []
+    attributes ['test'=42]
+end 
