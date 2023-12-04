@@ -1,9 +1,15 @@
-module 'simple' ['module_info'/0,
+module 'simple-01' ['foo'/0,
+		 'module_info'/0,
 		 'module_info'/1]
     attributes [%% Line 1
 		'file' =
 		    %% Line 1
 		    [{[115|[105|[109|[112|[108|[101|[46|[101|[114|[108]]]]]]]]]],1}]]
+'foo'/0 =
+    %% Line 3
+    ( fun () ->
+	  [98|[97|[114]]]
+      -| [{'function',{'foo',0}}] )
 'module_info'/0 =
     ( fun () ->
 	  call 'erlang':'get_module_info'
