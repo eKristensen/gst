@@ -10,12 +10,12 @@ pub struct Module {
 
 #[derive(Debug)]
 pub struct FunHead {
-    name: Fname,
-    arity: u8
+    pub name: Fname,
+    pub arity: u8
 }
 
 #[derive(Debug)]
-pub struct Fname(String);
+pub struct Fname(pub String);
 
 #[derive(Debug)]
 pub struct Attribute {

@@ -1,6 +1,6 @@
 
-use nom::{IResult, sequence::{delimited}, character::complete::{multispace0}};
-use crate::ast::Module;
+use nom::{IResult, sequence::{delimited, tuple}, character::complete::{multispace0, one_of, digit1}, multi::{many1, separated_list0}, combinator::{recognize, map_res, opt}};
+use crate::ast::{Module, FunHead, Fname};
 use nom::bytes::complete::{tag, take_until};
 
 
@@ -9,16 +9,27 @@ use nom::bytes::complete::{tag, take_until};
 fn atom(i: &str) -> IResult<&str, &str> {
     delimited(
         tag("'"),
-        take_until("'"),
+        take_until("'"), // TODO: Check for valid input here. Anything is accepted right now
         tag("'")
     )(i)
 }
 
+fn fname(i: &str) -> IResult<&str, FunHead> {
+    let (i, _) = multispace0(i)?; // TODO Less ugly/generic way to remove whitespace in between items in a list??
+    let (i,(name,_,arity)) = tuple((
+        take_until("/"), // TODO: Better char recognize than take_until
+        tag("/"),
+        digit1 // Parse: https://docs.rs/nom/latest/nom/character/complete/fn.digit1.html#parsing-an-integer
+    ))(i)?;
+    let arity: u8 = arity.parse().unwrap();
+    Ok((i,FunHead{name:Fname(name.to_string()), arity: arity}))
+}
+
 // TODO: Ignores content for now, should properly parse it
-fn from_list(i: &str) -> IResult<&str, &str> {
+fn from_list(i: &str) -> IResult<&str, Vec<FunHead>> {
     delimited(
         tag("["),
-        take_until("]"),
+        separated_list0(tag(","),fname),
         tag("]")
     )(i)
 }
@@ -36,7 +47,7 @@ pub fn module(i: &str) -> IResult<&str, Module> {
     let (i, _) = multispace0(i)?;
 
     // Get exports
-    let (i, _) = from_list(i)?;
+    let (i, exports) = from_list(i)?;
     let (i, _) = multispace0(i)?;
 
     // Require attributes keyword
@@ -54,7 +65,7 @@ pub fn module(i: &str) -> IResult<&str, Module> {
 
     Ok((i,Module {
         name: name.to_string(),
-        exports: vec![],
+        exports: exports,
         attributes: vec![],
         body: vec![]
     }))

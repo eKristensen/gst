@@ -5,9 +5,15 @@ use std::fs;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let src = fs::read_to_string("ultra-simple.core")?;
+    let src = fs::read_to_string("ultra-simple-00.core")?;
     println!("{:?}", parser::module(&src));
-    
-    println!("Hello, world!");
+    let src = fs::read_to_string("ultra-simple-01.core")?;
+    println!("{:?}", parser::module(&src));
+    let src = fs::read_to_string("ultra-simple-02.core")?;
+    println!("{:?}", parser::module(&src));
+    let src = fs::read_to_string("ultra-simple-03.core")?;
+    println!("{:?}", parser::module(&src));
+    let src = fs::read_to_string("ultra-simple-04.core")?;
+    println!("{:?}", parser::module(&src));
     Ok(())
 }
