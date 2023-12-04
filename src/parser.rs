@@ -17,11 +17,11 @@ fn atom(i: &str) -> IResult<&str, &str> {
 fn fname(i: &str) -> IResult<&str, FunHead> {
     let (i, _) = multispace0(i)?; // TODO Less ugly/generic way to remove whitespace in between items in a list??
     let (i,(name,_,arity)) = tuple((
-        take_until("/"), // TODO: Better char recognize than take_until
+        atom, // TODO: Better char recognize than take_until
         tag("/"),
-        digit1 // Parse: https://docs.rs/nom/latest/nom/character/complete/fn.digit1.html#parsing-an-integer
+        digit1 // TODO: Parse: https://docs.rs/nom/latest/nom/character/complete/fn.digit1.html#parsing-an-integer
     ))(i)?;
-    let arity: u8 = arity.parse().unwrap();
+    let arity: u8 = arity.parse().unwrap(); // TODO: parse int directly with that map function in nom - instead of this
     Ok((i,FunHead{name:Fname(name.to_string()), arity: arity}))
 }
 
