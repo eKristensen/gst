@@ -1,8 +1,5 @@
-
-use std::iter;
-
-use nom::{IResult, sequence::{delimited, tuple, Tuple}, character::complete::{multispace0, one_of, digit1, anychar}, multi::{many1, separated_list0}, combinator::{recognize, map_res, opt, value}, branch::alt, number::complete::float};
-use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Var, Expr};
+use nom::{IResult, sequence::{delimited, tuple}, character::complete::{multispace0, digit1, anychar}, multi::separated_list0, combinator::{map_res, opt, value, map}, branch::alt, number::complete::float};
+use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr};
 use nom::bytes::complete::{tag, take_until};
 use crate::ast::Const::List;
 use crate::parser::Lit::EmptyList;
@@ -22,8 +19,7 @@ fn atom(i: &str) -> IResult<&str, Atom> {
 }
 
 fn integer(i: &str) -> IResult<&str, Integer> {
-    let (i, integer) = map_res(digit1, str::parse)(i)?;
-    Ok((i, Integer(integer)))
+    map(map_res(digit1, str::parse),Integer)(i)
 }
 
 fn string(i: &str) -> IResult<&str, String> {
@@ -48,56 +44,21 @@ fn fname(i: &str) -> IResult<&str, FunHead> {
 // const is a keyword in rust, const_ is used instead
 fn const_(i: &str) -> IResult<&str, Const> {
     alt((
-        const_lit,
+        map(lit, crate::ast::Const::Lit),
         const_list,
         const_tuple
     ))(i)
 }
 
-fn const_lit(i: &str) -> IResult<&str, Const> {
-    let (i, val) = lit(i)?;
-    Ok((i, crate::ast::Const::Lit(val)))
-}
-
 fn lit(i: &str) -> IResult<&str, Lit> {
     alt((
-        lit_integer,
-        lit_float,
-        lit_atom,
-        lit_char,
-        lit_string,
+        map(integer, Int),
+        map(float, Float),
+        map(atom, crate::ast::Lit::Atom),
+        map(char_, crate::ast::Lit::Char),
+        map(string, crate::ast::Lit::String),
         empty_list
     ))(i)
-}
-
-// TODO: Stupid type conversion function....
-fn lit_integer(i: &str) -> IResult<&str, Lit> {
-    let (i, integer) = integer(i)?;
-    Ok((i, Int(integer)))
-}
-
-// TODO: Stupid type conversion function....
-fn lit_float(i: &str) -> IResult<&str, Lit> {
-    let (i, float) = float(i)?;
-    Ok((i, Float(float)))
-}
-
-// TODO: Stupid type conversion function....
-fn lit_atom(i: &str) -> IResult<&str, Lit> {
-    let (i, atom) = atom(i)?;
-    Ok((i, crate::ast::Lit::Atom(atom)))
-}
-
-// TODO: Stupid type conversion function....
-fn lit_char(i: &str) -> IResult<&str, Lit> {
-    let (i, char) = char_(i)?;
-    Ok((i, crate::ast::Lit::Char(char)))
-}
-
-// TODO: Stupid type conversion function....
-fn lit_string(i: &str) -> IResult<&str, Lit> {
-    let (i, string) = string(i)?;
-    Ok((i, crate::ast::Lit::String(string)))
 }
 
 fn char_(i: &str) -> IResult<&str, char> {
@@ -113,6 +74,7 @@ fn empty_list(i: &str) -> IResult<&str, Lit> {
     Ok((i, EmptyList))
 }
 
+// TODO: There should be a smarter way
 fn const_tuple(i: &str) -> IResult<&str, Const> {
     let (i, const_list) = delimited(
         tag("{"),
@@ -196,20 +158,10 @@ fn expr_list_tail_comma(i: &str) -> IResult<&str, Vec<Expr>> {
 
 }
 
-fn expr_fname(i: &str) -> IResult<&str, Expr> {
-    let (i, fname) = fname(i)?;
-    Ok((i, crate::ast::Expr::Fname(fname)))
-}
-
-fn expr_lit(i: &str) -> IResult<&str, Expr> {
-    let (i, lit) = lit(i)?;
-    Ok((i, crate::ast::Expr::Lit(lit)))
-}
-
 fn expr(i: &str) -> IResult<&str, Expr> {
     alt(( // TODO: Add var
-        expr_fname,
-        expr_lit,
+        map(fname, crate::ast::Expr::Fname),
+        map(lit, crate::ast::Expr::Lit),
         expr_fun,
         expr_list_head,
         expr_tuple,
@@ -286,6 +238,7 @@ fn fun(i: &str) -> IResult<&str, FunDef> {
     Ok((i, FunDef{head: head, args: vec![], body: exprs}))
 }
 
+// TODO: There should be a better way to wrap an option type...
 fn opt_fun(i: &str) -> IResult<&str, Vec<FunDef>> {
     let (i, maybe_body) = opt(fun)(i)?;
     match maybe_body {
