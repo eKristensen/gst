@@ -19,5 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("{:?}", parser::module(&src));
     let src = fs::read_to_string("ultra-simple-06.core")?;
     println!("{:?}", parser::module(&src));
+    let src = fs::read_to_string("ultra-simple-07.core")?;
+    println!("{:?}", parser::module(&src));
     Ok(())
 }

@@ -1,0 +1,6 @@
+module 'ultra-simple-07' []
+    attributes []
+'foo'/0 =
+    fun () ->
+	[98|[97|[114]]]
+end

@@ -8,13 +8,13 @@ pub struct Module {
     pub body: Vec<FunDef>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunHead {
     pub name: Fname,
     pub arity: Integer // TODO: Hmm Integer here does allow arity to be negative.....
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Fname(pub Atom);
 
 #[derive(Debug)]
@@ -23,17 +23,17 @@ pub struct Attribute {
     pub value: Const
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Atom(pub String);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Integer(pub i64);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunDef {
-    name: String,
-    args: Vec<Var>,
-    body: Vec<Expr>
+    pub head: FunHead,
+    pub args: Vec<Var>,
+    pub body: Expr
 }
 
 #[derive(Debug)]
@@ -43,15 +43,15 @@ pub enum Const {
     Tuple(Vec<Const>)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Var(String);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Var(Var),
-    Fname(Fname),
+    Fname(FunHead),
     Lit(Lit),
-    Fun(FunDef),
+    Fun(Box<FunDef>),
     List(Vec<Expr>),
     Tuple(Vec<Expr>),
     Let(Vec<Var>,Vec<Expr>,Vec<Expr>),
@@ -66,24 +66,24 @@ pub enum Expr {
     Catch(Vec<Expr>)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Lit {
     Int(Integer),
     Float(f32),
     Atom(Atom),
     Char(char),
     String(String),
-    EmptyList
+    EmptyList // TODO: Rename to nil
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Clause {
     pats:Vec<Pat>,
     when: Vec<Expr>,
     res: Vec<Expr>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Pat {
     Var(Var),
     Lit(Lit),
