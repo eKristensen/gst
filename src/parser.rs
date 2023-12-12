@@ -149,7 +149,7 @@ fn expr(i: &str) -> IResult<&str, Expr> {
         map(lit, crate::ast::Expr::Lit),
         expr_fun,
         expr_list_head,
-        expr_tuple,
+        map(comma_sep_list("{", "}", exprs), crate::ast::Expr::Tuple),
     ))(i)
 }
 
@@ -158,44 +158,10 @@ fn expr_fun(i: &str) -> IResult<&str, Expr> {
     Ok((i, crate::ast::Expr::Fun(Box::new(fun))))
 }
 
-fn expr_tuple(i: &str) -> IResult<&str, Expr> {
-    alt((
-        empty_expr_tuple,
-        some_expr_tuple
-    ))(i)
-}
-
-fn empty_expr_tuple(i: &str) -> IResult<&str, Expr> {
-    let (i, _) = ws(tag("{"))(i)?;
-    let (i, _) = ws(tag("}"))(i)?;
-    Ok((i, crate::ast::Expr::Tuple(vec![])))
-}
-
-// TODO: General from_list (pass fname function as a parameter, how to get it to work?)
-fn some_expr_tuple(i: &str) -> IResult<&str, Expr> {
-    let (i, expr_tuple) = delimited(
-        tag("{"),
-        separated_list0(tag(","),exprs),
-        tag("}")
-    )(i)?;
-    Ok((i, crate::ast::Expr::List(expr_tuple)))
-}
-
-
-// TODO: General from_list (pass fname function as a parameter, how to get it to work?)
-fn expr_value_list(i: &str) -> IResult<&str, Expr> {
-    let (i, expr_value_list) = delimited(
-        tag("<"),
-        separated_list0(tag(","),expr),
-        tag(">")
-    )(i)?;
-    Ok((i, crate::ast::Expr::List(expr_value_list)))
-}
-
 fn exprs(i: &str) -> IResult<&str, Expr> {
     alt((
         expr,
-        expr_value_list
+        map(comma_sep_list("<", ">", expr),crate::ast::Expr::List)
     ))(i)
 }
 
@@ -210,7 +176,7 @@ fn fun(i: &str) -> IResult<&str, FunDef> {
     let (i, _) = ws(tag("->"))(i)?;
 
     let (i, exprs) = ws(exprs)(i)?;
-    Ok((i, FunDef{head: head, args: vec![], body: exprs}))
+    Ok((i, FunDef{head, args: vec![], body: exprs}))
 }
 
 // TODO: There should be a better way to wrap an option type...
