@@ -61,7 +61,7 @@ fn fname(i: &str) -> IResult<&str, FunHead> {
 fn const_(i: &str) -> IResult<&str, Const> {
     alt((
         map(lit, crate::ast::Const::Lit),
-        const_list,
+        map(from_list("[", "]", const_),List),
         const_tuple
     ))(i)
 }
@@ -125,24 +125,15 @@ fn attribute_list(i: &str) -> IResult<&str, Vec<Attribute>> {
     )(i)
 }
 
-// TODO: General from_list (pass fname function as a parameter, how to get it to work?)
-fn const_list(i: &str) -> IResult<&str, Const> {
-    map(from_list(tag("["), tag(","), tag("]"), const_),List)(i)
-}
-
-fn from_list<I: std::clone::Clone + nom::InputLength, O1, O2, O3, O4, E: ParseError<I>, F, G, H, J>(
-    start: F,
-    separator: G,
-    end: H,
-    elements: J,
-  ) -> impl FnMut(I) -> IResult<I, Vec<O4>, E>
+fn from_list<'a, O, E: ParseError<&'a str>, F>(
+    start: &'a str,
+    end: &'a str,
+    elements: F,
+  ) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, E>
   where
-    F: Parser<I, O1, E>,
-    G: Parser<I, O2, E>,
-    H: Parser<I, O3, E>,
-    J: Parser<I, O4, E>,
+    F: Parser<&'a str, O, E>,
   {
-    delimited(start, separated_list0(separator, elements), end)
+    delimited(tag(start), separated_list0(tag(","), elements), tag(end))
   }
 
 fn expr_list_head(i: &str) -> IResult<&str, Expr> {
