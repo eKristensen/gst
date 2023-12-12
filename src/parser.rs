@@ -1,10 +1,27 @@
-use nom::{IResult, sequence::{delimited, tuple}, character::complete::{multispace0, digit1, anychar}, multi::separated_list0, combinator::{map_res, opt, value, map}, branch::alt, number::complete::float};
+use nom::{IResult, sequence::{delimited, tuple}, character::complete::{multispace0, digit1, anychar}, multi::separated_list0, combinator::{map_res, opt, value, map}, branch::alt, number::complete::float, error::ParseError, Parser, Compare};
 use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr};
 use nom::bytes::complete::{tag, take_until};
 use crate::ast::Const::List;
 use crate::parser::Lit::EmptyList;
 use crate::parser::Lit::Int;
 use crate::parser::Lit::Float;
+
+// Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#wrapper-combinators-that-eat-whitespace-before-and-after-a-parser
+/// A combinator that takes a parser `inner` and produces a parser that also consumes both leading and 
+/// trailing whitespace, returning the output of `inner`.
+fn ws<'a, F, I, O, E: ParseError<I>>(inner: F) -> impl FnMut(I) -> IResult<I, O, E>
+  where
+  F: Parser<I, O, E>,
+  I: nom::InputLength + nom::InputTakeAtPosition,
+  <I as nom::InputTakeAtPosition>::Item: nom::AsChar,
+  <I as nom::InputTakeAtPosition>::Item: Clone
+{
+  delimited(
+    multispace0,
+    inner,
+    multispace0
+  )
+}
 
 
 // TODO: Accept atoms with escaped chars
@@ -32,12 +49,11 @@ fn string(i: &str) -> IResult<&str, String> {
 }
 
 fn fname(i: &str) -> IResult<&str, FunHead> {
-    let (i, _) = multispace0(i)?; // TODO Less ugly/generic way to remove whitespace in between items in a list??
-    let (i,(name,_,arity)) = tuple((
+    let (i,(name,_,arity)) = ws(tuple((
         atom,
-        tag("/"),
+        tag("/"), // TODO: Check whether whitespace is allowed around this tag in this context
         integer
-    ))(i)?;
+    )))(i)?;
     Ok((i,FunHead{name:Fname(name), arity: arity}))
 }
 
@@ -67,10 +83,8 @@ fn char_(i: &str) -> IResult<&str, char> {
 }
 
 fn empty_list(i: &str) -> IResult<&str, Lit> {
-    let (i, _) = multispace0(i)?; // TODO Less ugly/generic way to remove whitespace in between items in a list??
-    let (i, _) = tag("[")(i)?;
-    let (i, _) = multispace0(i)?; // TODO Less ugly/generic way to remove whitespace in between items in a list??
-    let (i, _) = tag("]")(i)?;
+    let (i, _) = ws(tag("["))(i)?;
+    let (i, _) = ws(tag("]"))(i)?;
     Ok((i, EmptyList))
 }
 
@@ -85,13 +99,11 @@ fn const_tuple(i: &str) -> IResult<&str, Const> {
 }
 
 fn attribute(i: &str) -> IResult<&str, Attribute> {
-    let (i, _) = multispace0(i)?; // TODO Less ugly/generic way to remove whitespace in between items in a list??
-    let (i,(atom,_,val)) = tuple((
+    let (i,(atom,_,val)) = ws(tuple((
         atom,
         tag("="),
         const_
-    ))(i)?;
-    let (i, _) = multispace0(i)?; // TODO Less ugly/generic way to remove whitespace in between items in a list??
+    )))(i)?;
     Ok((i,Attribute{name:atom, value: val}))
 }
 
@@ -181,11 +193,8 @@ fn expr_tuple(i: &str) -> IResult<&str, Expr> {
 }
 
 fn empty_expr_tuple(i: &str) -> IResult<&str, Expr> {
-    let (i, _) = multispace0(i)?;
-    let (i, _) = tag("{")(i)?;
-    let (i, _) = multispace0(i)?;
-    let (i, _) = tag("}")(i)?;
-    let (i, _) = multispace0(i)?;
+    let (i, _) = ws(tag("{"))(i)?;
+    let (i, _) = ws(tag("}"))(i)?;
     Ok((i, crate::ast::Expr::Tuple(vec![])))
 }
 
@@ -219,22 +228,15 @@ fn exprs(i: &str) -> IResult<&str, Expr> {
 
 fn fun(i: &str) -> IResult<&str, FunDef> {
     let (i, head) = fname(i)?;
-    let (i, _) = multispace0(i)?;
-    let (i, _) = tag("=")(i)?;
-    let (i, _) = multispace0(i)?;
-    let (i, _) = tag("fun")(i)?;
-    let (i, _) = multispace0(i)?;
+    let (i, _) = ws(tag("="))(i)?;
+    let (i, _) = ws(tag("fun"))(i)?;
 
     // TODO: function arguments parsing, must be able to parse variables
-    let (i, _) = tag("(")(i)?;
-    let (i, _) = multispace0(i)?;
-    let (i, _) = tag(")")(i)?;
-    let (i, _) = multispace0(i)?;
-    let (i, _) = tag("->")(i)?;
-    let (i, _) = multispace0(i)?;
+    let (i, _) = ws(tag("("))(i)?;
+    let (i, _) = ws(tag(")"))(i)?;
+    let (i, _) = ws(tag("->"))(i)?;
 
-    let (i, exprs) = exprs(i)?;
-    let (i, _) = multispace0(i)?;
+    let (i, exprs) = ws(exprs)(i)?;
     Ok((i, FunDef{head: head, args: vec![], body: exprs}))
 }
 
@@ -251,33 +253,25 @@ fn opt_fun(i: &str) -> IResult<&str, Vec<FunDef>> {
 pub fn module(i: &str) -> IResult<&str, Module> {
     // TODO: Check that "tag" requires "module" and does not work with partial data such as "mod"
     // Scan module
-    let (i, _) = multispace0(i)?;
-    let (i, _) = tag("module")(i)?;
-    let (i, _) = multispace0(i)?;
+    let (i, _) = ws(tag("module"))(i)?;
 
     // Get module name.
-    let (i, name) = atom(i)?;
-    let (i, _) = multispace0(i)?;
+    let (i, name) = ws(atom)(i)?;
 
     // Get exports
-    let (i, exports) = fname_list(i)?;
-    let (i, _) = multispace0(i)?;
+    let (i, exports) = ws(fname_list)(i)?;
 
     // Require attributes keyword
-    let (i, _) = tag("attributes")(i)?;
-    let (i, _) = multispace0(i)?;
+    let (i, _) = ws(tag("attributes"))(i)?;
 
     // Get attributes
-    let (i, attributes) = attribute_list(i)?;
-    let (i, _) = multispace0(i)?;
+    let (i, attributes) = ws(attribute_list)(i)?;
 
     // Module Body - Function definitions
-    let (i, body) = opt_fun(i)?;
-    let (i, _) = multispace0(i)?;
+    let (i, body) = ws(opt_fun)(i)?;
 
     // Require end keyword
-    let (i, _) = tag("end")(i)?;
-    let (i, _) = multispace0(i)?;
+    let (i, _) = ws(tag("end"))(i)?;
 
 
     Ok((i,Module {
