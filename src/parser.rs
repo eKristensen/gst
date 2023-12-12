@@ -24,6 +24,7 @@ fn ws<'a, F, I, O, E: ParseError<I>>(inner: F) -> impl FnMut(I) -> IResult<I, O,
 }
 
 // General helper for comma-separated lists
+// TODO: Maybe too general? Some lists may require a least one element... e.g. is expr "<>" allowed? is "{}" allowed?
 fn comma_sep_list<'a, O, E: ParseError<&'a str>, F>(
     start: &'a str,
     end: &'a str,
@@ -108,39 +109,19 @@ fn attribute(i: &str) -> IResult<&str, Attribute> {
     Ok((i,Attribute{name:atom, value: val}))
 }
 
-fn expr_list_head(i: &str) -> IResult<&str, Expr> {
-    let (i, _) = tag("[")(i)?;
-    let (i, expr) = exprs(i)?;
+fn expr_nested_list(i: &str) -> IResult<&str, Expr> {
+    let (i, _) = ws(tag("["))(i)?;
+    let (i, expr) = ws(exprs)(i)?;
     let head = vec![expr];
-    let (i, tail) = expr_list_tail(i)?;
+    
+    let (i, _) = ws(tag("|"))(i)?;
+    let (i, expr) = ws(exprs)(i)?;
+    let tail = vec![expr];
+    let (i, _) = ws(tag("]"))(i)?;
+
     // TODO: Flatten nested lists. Does not work right now
     let cons = [&head[..], &tail[..]].concat();
     Ok((i, crate::ast::Expr::List(cons)))
-}
-
-fn expr_list_tail(i: &str) -> IResult<&str, Vec<Expr>> {
-    alt((
-        value(vec![], tag("]")),
-        expr_list_tail_bar,
-        expr_list_tail_comma
-    ))(i)
-}
-
-fn expr_list_tail_bar(i: &str) -> IResult<&str, Vec<Expr>> {
-    let (i, _) = tag("|")(i)?;
-    let (i, exprs) = exprs(i)?;
-    let (i, _) = tag("]")(i)?;
-    Ok((i, vec![exprs]))
-}
-
-fn expr_list_tail_comma(i: &str) -> IResult<&str, Vec<Expr>> {
-    let (i, _) = tag(",")(i)?;
-    let (i, expr) = exprs(i)?;
-    let head = vec![expr];
-    let (i, tail) = expr_list_tail(i)?;
-    let cons = [&head[..], &tail[..]].concat();
-    Ok((i, cons))
-
 }
 
 fn expr(i: &str) -> IResult<&str, Expr> {
@@ -148,7 +129,8 @@ fn expr(i: &str) -> IResult<&str, Expr> {
         map(fname, crate::ast::Expr::Fname),
         map(lit, crate::ast::Expr::Lit),
         expr_fun,
-        expr_list_head,
+        expr_nested_list,
+        map(comma_sep_list("[", "]", exprs), crate::ast::Expr::List),
         map(comma_sep_list("{", "}", exprs), crate::ast::Expr::Tuple),
     ))(i)
 }
