@@ -36,6 +36,8 @@ where
 delimited(tag(start), separated_list0(tag(","), elements), tag(end))
 }
 
+// General TODO: Maybe avoid manual OK((i, sth)) return use map instead?
+
 // TODO: Accept atoms with escaped chars
 // https://docs.rs/nom/latest/nom/recipes/index.html#escaped-strings
 fn atom(i: &str) -> IResult<&str, Atom> {
@@ -61,12 +63,11 @@ fn string(i: &str) -> IResult<&str, String> {
 }
 
 fn fname(i: &str) -> IResult<&str, FunHead> {
-    let (i,(name,_,arity)) = ws(tuple((
+    ws(map(tuple((
         atom,
         tag("/"), // TODO: Check whether whitespace is allowed around this tag in this context
         integer
-    )))(i)?;
-    Ok((i,FunHead{name:Fname(name), arity: arity}))
+    )),|(name,_,arity)| FunHead{name:Fname(name), arity: arity}))(i)
 }
 
 // const is a keyword in rust, const_ is used instead
@@ -101,12 +102,11 @@ fn empty_list(i: &str) -> IResult<&str, Lit> {
 }
 
 fn attribute(i: &str) -> IResult<&str, Attribute> {
-    let (i,(atom,_,val)) = ws(tuple((
+    ws(map(tuple((
         atom,
         tag("="),
         const_
-    )))(i)?;
-    Ok((i,Attribute{name:atom, value: val}))
+    )),|(atom,_,val)| Attribute{name:atom, value: val}))(i)
 }
 
 fn expr_nested_list(i: &str) -> IResult<&str, Expr> {
@@ -135,16 +135,11 @@ fn expr(i: &str) -> IResult<&str, Expr> {
     alt(( // TODO: Add var
         map(fname, crate::ast::Expr::Fname),
         map(lit, crate::ast::Expr::Lit),
-        expr_fun,
+        map(fun, |fun| crate::ast::Expr::Fun(Box::new(fun))),
         expr_nested_list,
         map(comma_sep_list("[", "]", exprs), crate::ast::Expr::List),
         map(comma_sep_list("{", "}", exprs), crate::ast::Expr::Tuple),
     ))(i)
-}
-
-fn expr_fun(i: &str) -> IResult<&str, Expr> {
-    let (i, fun) = fun(i)?;
-    Ok((i, crate::ast::Expr::Fun(Box::new(fun))))
 }
 
 fn exprs(i: &str) -> IResult<&str, Expr> {
