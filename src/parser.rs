@@ -1,4 +1,4 @@
-use nom::{IResult, sequence::{delimited, tuple}, character::complete::{multispace0, digit1, anychar}, multi::separated_list0, combinator::{map_res, opt, value, map}, branch::alt, number::complete::float, error::ParseError, Parser, Compare};
+use nom::{IResult, sequence::{delimited, tuple}, character::complete::{multispace0, digit1, anychar}, multi::separated_list0, combinator::{map_res, opt, value, map}, branch::alt, number::complete::float, error::ParseError, Parser};
 use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr};
 use nom::bytes::complete::{tag, take_until};
 use crate::ast::Const::List;
@@ -23,6 +23,17 @@ fn ws<'a, F, I, O, E: ParseError<I>>(inner: F) -> impl FnMut(I) -> IResult<I, O,
   )
 }
 
+// General helper for comma-separated lists
+fn comma_sep_list<'a, O, E: ParseError<&'a str>, F>(
+    start: &'a str,
+    end: &'a str,
+    elements: F,
+) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, E>
+where
+    F: Parser<&'a str, O, E>,
+{
+delimited(tag(start), separated_list0(tag(","), elements), tag(end))
+}
 
 // TODO: Accept atoms with escaped chars
 // https://docs.rs/nom/latest/nom/recipes/index.html#escaped-strings
@@ -61,8 +72,8 @@ fn fname(i: &str) -> IResult<&str, FunHead> {
 fn const_(i: &str) -> IResult<&str, Const> {
     alt((
         map(lit, crate::ast::Const::Lit),
-        map(from_list("[", "]", const_),List),
-        const_tuple
+        map(comma_sep_list("[", "]", const_),List),
+        map(comma_sep_list("{", "}", const_), crate::ast::Const::Tuple),
     ))(i)
 }
 
@@ -88,16 +99,6 @@ fn empty_list(i: &str) -> IResult<&str, Lit> {
     Ok((i, EmptyList))
 }
 
-// TODO: There should be a smarter way
-fn const_tuple(i: &str) -> IResult<&str, Const> {
-    let (i, const_list) = delimited(
-        tag("{"),
-        separated_list0(tag(","),const_),
-        tag("}")
-    )(i)?;
-    Ok((i, crate::ast::Const::Tuple(const_list)))
-}
-
 fn attribute(i: &str) -> IResult<&str, Attribute> {
     let (i,(atom,_,val)) = ws(tuple((
         atom,
@@ -106,35 +107,6 @@ fn attribute(i: &str) -> IResult<&str, Attribute> {
     )))(i)?;
     Ok((i,Attribute{name:atom, value: val}))
 }
-
-// TODO: General from_list (pass fname function as a parameter, how to get it to work?)
-fn fname_list(i: &str) -> IResult<&str, Vec<FunHead>> {
-    delimited(
-        tag("["),
-        separated_list0(tag(","),fname),
-        tag("]")
-    )(i)
-}
-
-// TODO: General from_list (pass fname function as a parameter, how to get it to work?)
-fn attribute_list(i: &str) -> IResult<&str, Vec<Attribute>> {
-    delimited(
-        tag("["),
-        separated_list0(tag(","),attribute),
-        tag("]")
-    )(i)
-}
-
-fn from_list<'a, O, E: ParseError<&'a str>, F>(
-    start: &'a str,
-    end: &'a str,
-    elements: F,
-  ) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, E>
-  where
-    F: Parser<&'a str, O, E>,
-  {
-    delimited(tag(start), separated_list0(tag(","), elements), tag(end))
-  }
 
 fn expr_list_head(i: &str) -> IResult<&str, Expr> {
     let (i, _) = tag("[")(i)?;
@@ -260,13 +232,13 @@ pub fn module(i: &str) -> IResult<&str, Module> {
     let (i, name) = ws(atom)(i)?;
 
     // Get exports
-    let (i, exports) = ws(fname_list)(i)?;
+    let (i, exports) = ws(comma_sep_list("[", "]", fname))(i)?;
 
     // Require attributes keyword
     let (i, _) = ws(tag("attributes"))(i)?;
 
     // Get attributes
-    let (i, attributes) = ws(attribute_list)(i)?;
+    let (i, attributes) = ws(comma_sep_list("[", "]", attribute))(i)?;
 
     // Module Body - Function definitions
     let (i, body) = ws(opt_fun)(i)?;
