@@ -1,4 +1,4 @@
-use nom::{IResult, sequence::{delimited, tuple}, character::complete::{multispace0, digit1, anychar}, multi::separated_list0, combinator::{map_res, opt, value, map}, branch::alt, number::complete::float, error::ParseError, Parser};
+use nom::{IResult, sequence::{delimited, tuple, pair}, character::complete::{multispace0, digit1, anychar}, multi::separated_list0, combinator::{map_res, opt, value, map}, branch::alt, number::complete::float, error::ParseError, Parser, bytes::complete::is_not};
 use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr};
 use nom::bytes::complete::{tag, take_until};
 use crate::ast::Const::List;
@@ -6,21 +6,39 @@ use crate::parser::Lit::EmptyList;
 use crate::parser::Lit::Int;
 use crate::parser::Lit::Float;
 
+// Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#-ceol-style-comments
+// Comment
+pub fn comment<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, (), E>
+{
+  value(
+    (), // Output is thrown away.
+    // TODO: Better to use char('%') instead of tag("%") ??
+    pair(tag("%"), is_not("\n\r")) // TODO: Better to use end of line instead of is_not ?
+  ).parse(i)
+}
+
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#wrapper-combinators-that-eat-whitespace-before-and-after-a-parser
 /// A combinator that takes a parser `inner` and produces a parser that also consumes both leading and 
 /// trailing whitespace, returning the output of `inner`.
-fn ws<'a, F, I, O, E: ParseError<I>>(inner: F) -> impl FnMut(I) -> IResult<I, O, E>
+// TODO: Stupid comment implementation maybe something better exists?
+fn ws<'a, F, O, E: ParseError<&'a str>>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
   where
-  F: Parser<I, O, E>,
-  I: nom::InputLength + nom::InputTakeAtPosition,
-  <I as nom::InputTakeAtPosition>::Item: nom::AsChar,
-  <I as nom::InputTakeAtPosition>::Item: Clone
+  F: Parser<&'a str, O, E>,
+  &'a str: nom::InputLength + nom::InputTakeAtPosition + Clone,
+  <&'a str as nom::InputTakeAtPosition>::Item: nom::AsChar,
+  <&'a str as nom::InputTakeAtPosition>::Item: Clone
 {
-  delimited(
+  map(
+  tuple((
+    multispace0,
+    opt(comment),
     multispace0,
     inner,
-    multispace0
-  )
+    multispace0,
+    opt(comment),
+    multispace0,
+  )),
+   |(_,_,_,o,_,_,_)| o)
 }
 
 // General helper for comma-separated lists
