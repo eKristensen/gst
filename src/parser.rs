@@ -112,14 +112,21 @@ fn attribute(i: &str) -> IResult<&str, Attribute> {
 fn expr_nested_list(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("["))(i)?;
     let (i, expr) = ws(exprs)(i)?;
-    let head = vec![expr];
-    
+    let head =
+        match expr {
+            Expr::List(inner_list) => inner_list,
+            _ => vec![expr]
+        };
+
     let (i, _) = ws(tag("|"))(i)?;
     let (i, expr) = ws(exprs)(i)?;
-    let tail = vec![expr];
+    let tail =
+        match expr {
+            Expr::List(inner_list) => inner_list,
+            _ => vec![expr]
+        };
     let (i, _) = ws(tag("]"))(i)?;
 
-    // TODO: Flatten nested lists. Does not work right now
     let cons = [&head[..], &tail[..]].concat();
     Ok((i, crate::ast::Expr::List(cons)))
 }
