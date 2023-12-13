@@ -1,4 +1,4 @@
-use nom::{IResult, sequence::{delimited, tuple, pair}, character::complete::{multispace0, digit1, anychar}, multi::separated_list0, combinator::{map_res, opt, value, map}, branch::alt, number::complete::float, error::ParseError, Parser, bytes::complete::is_not};
+use nom::{IResult, sequence::{delimited, tuple, pair}, character::complete::{multispace0, digit1, anychar}, multi::{separated_list0, many0}, combinator::{map_res, opt, value, map, peek}, branch::alt, number::complete::float, error::ParseError, Parser, bytes::complete::is_not};
 use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr};
 use nom::bytes::complete::{tag, take_until};
 use crate::ast::Const::List;
@@ -8,13 +8,38 @@ use crate::parser::Lit::Float;
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#-ceol-style-comments
 // Comment
-pub fn comment<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, (), E>
+fn comment<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, (), E>
 {
-  value(
-    (), // Output is thrown away.
     // TODO: Better to use char('%') instead of tag("%") ??
-    pair(tag("%"), is_not("\n\r")) // TODO: Better to use end of line instead of is_not ?
-  ).parse(i)
+    map(pair(nom::character::complete::char('%'), take_until("\n")),|(_,_)| ())(i) // TODO: Better to use end of line instead of is_not ? TODO: Type of line endings...
+}
+
+// Removes annotation
+fn annotation<'a, F, O, E: ParseError<&'a str>>(inner: F)
+-> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+where
+F: Parser<&'a str, O, E>,
+{
+    map(
+        tuple((
+            ws(tag("(")),
+            inner,
+            ws(tag("-|")),
+            take_until(")"),
+            ws(tag(")")),
+        ))
+    ,|(_,o,_,_,_)| o)
+}
+
+fn opt_annotation<'a, F, O, E: ParseError<&'a str>>(inner: F)
+-> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+where
+F: Parser<&'a str, O, E> + Clone,
+{
+    alt((
+        inner.clone(),
+        annotation(inner),
+    ))
 }
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#wrapper-combinators-that-eat-whitespace-before-and-after-a-parser
@@ -92,6 +117,7 @@ fn fname(i: &str) -> IResult<&str, FunHead> {
 fn const_(i: &str) -> IResult<&str, Const> {
     alt((
         map(lit, crate::ast::Const::Lit),
+        const_nested_list,
         map(comma_sep_list("[", "]", const_),List),
         map(comma_sep_list("{", "}", const_), crate::ast::Const::Tuple),
     ))(i)
@@ -122,11 +148,12 @@ fn empty_list(i: &str) -> IResult<&str, Lit> {
 fn attribute(i: &str) -> IResult<&str, Attribute> {
     ws(map(tuple((
         atom,
-        tag("="),
+        ws(tag("=")),
         const_
     )),|(atom,_,val)| Attribute{name:atom, value: val}))(i)
 }
 
+// TODO: Common pattern for nested list, avoid manual rewrite!
 fn expr_nested_list(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("["))(i)?;
     let (i, expr) = ws(exprs)(i)?;
@@ -149,6 +176,29 @@ fn expr_nested_list(i: &str) -> IResult<&str, Expr> {
     Ok((i, crate::ast::Expr::List(cons)))
 }
 
+// TODO: Common pattern for nested list, avoid manual rewrite!
+fn const_nested_list(i: &str) -> IResult<&str, Const> {
+    let (i, _) = ws(tag("["))(i)?;
+    let (i, constant) = ws(const_)(i)?;
+    let head =
+        match constant {
+            Const::List(inner_list) => inner_list,
+            _ => vec![constant]
+        };
+
+    let (i, _) = ws(tag("|"))(i)?;
+    let (i, constant) = ws(const_)(i)?;
+    let tail =
+        match constant {
+            Const::List(inner_list) => inner_list,
+            _ => vec![constant]
+        };
+    let (i, _) = ws(tag("]"))(i)?;
+
+    let cons = [&head[..], &tail[..]].concat();
+    Ok((i, crate::ast::Const::List(cons)))
+}
+
 fn expr(i: &str) -> IResult<&str, Expr> {
     alt(( // TODO: Add var
         map(fname, crate::ast::Expr::Fname),
@@ -162,7 +212,7 @@ fn expr(i: &str) -> IResult<&str, Expr> {
 
 fn exprs(i: &str) -> IResult<&str, Expr> {
     alt((
-        expr,
+        opt_annotation(expr),
         map(comma_sep_list("<", ">", expr),crate::ast::Expr::List)
     ))(i)
 }
@@ -170,6 +220,12 @@ fn exprs(i: &str) -> IResult<&str, Expr> {
 fn fun(i: &str) -> IResult<&str, FunDef> {
     let (i, head) = fname(i)?;
     let (i, _) = ws(tag("="))(i)?;
+    let (i, (_, exprs)) = opt_annotation(fun_inner)(i)?;
+
+    Ok((i, FunDef{head, args: vec![], body: exprs}))
+}
+
+fn fun_inner(i: &str) -> IResult<&str, (Vec<()>, Expr)> {
     let (i, _) = ws(tag("fun"))(i)?;
 
     // TODO: function arguments parsing, must be able to parse variables
@@ -178,7 +234,7 @@ fn fun(i: &str) -> IResult<&str, FunDef> {
     let (i, _) = ws(tag("->"))(i)?;
 
     let (i, exprs) = ws(exprs)(i)?;
-    Ok((i, FunDef{head, args: vec![], body: exprs}))
+    Ok((i, (vec![], exprs)))
 }
 
 // TODO: There should be a better way to wrap an option type...
@@ -209,7 +265,7 @@ pub fn module(i: &str) -> IResult<&str, Module> {
     let (i, attributes) = ws(comma_sep_list("[", "]", attribute))(i)?;
 
     // Module Body - Function definitions
-    let (i, body) = ws(opt_fun)(i)?;
+    let (i, body) = many0(ws(fun))(i)?;
 
     // Require end keyword
     let (i, _) = ws(tag("end"))(i)?;

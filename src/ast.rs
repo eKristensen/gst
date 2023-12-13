@@ -36,7 +36,7 @@ pub struct FunDef {
     pub body: Expr
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Const {
     Lit(Lit),
     List(Vec<Const>),
