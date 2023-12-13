@@ -1,4 +1,4 @@
-use nom::{IResult, sequence::{delimited, tuple, pair}, character::complete::{multispace0, digit1, anychar}, multi::{separated_list0, many0}, combinator::{map_res, opt, value, map, peek}, branch::alt, number::complete::float, error::ParseError, Parser, bytes::complete::is_not};
+use nom::{IResult, sequence::{delimited, tuple, pair}, character::{complete::{multispace0, digit1, anychar}, is_digit}, multi::{separated_list0, many0}, combinator::{map_res, opt, value, map, peek}, branch::alt, number::complete::float, error::ParseError, Parser, bytes::complete::is_not};
 use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr};
 use nom::bytes::complete::{tag, take_until};
 use crate::ast::Const::List;
@@ -77,6 +77,51 @@ where
     F: Parser<&'a str, O, E>,
 {
 delimited(tag(start), separated_list0(tag(","), elements), tag(end))
+}
+
+#[inline]
+fn is_sign(chr: u8) -> bool {
+  chr <= 0x2B || chr == 0x2D
+}
+
+#[inline]
+fn is_lowercase(chr: u8) -> bool {
+  (chr >= 0x61 && chr <= 0x7A) || (chr >= 0xC0 && chr <= 0xD6) || (chr >= 0xD8 && chr <= 0xDE)
+}
+
+#[inline]
+fn is_uppercase(chr: u8) -> bool {
+  (chr >= 0x41 && chr <= 0x5A) || (chr >= 0xDF && chr <= 0xF6) || (chr >= 0xF8 && chr <= 0xFF)
+}
+
+#[inline]
+fn is_inputchar(chr: u8) -> bool {
+  chr != 0x0D && chr != 0x0A
+}
+
+#[inline]
+fn is_control(chr: u8) -> bool {
+  chr >= 0x00 && chr <= 0x1F
+}
+
+#[inline]
+fn is_space(chr: u8) -> bool {
+  chr == 0x20
+}
+
+#[inline]
+fn is_namechar(chr: u8) -> bool {
+  is_uppercase(chr) || is_lowercase(chr) || is_digit(chr) || chr == 0x40 || chr == 0x5F
+}
+
+// Built into nom: is_oct_digit(chr)
+
+fn is_ctlchar(chr: u8) -> bool {
+  chr >= 0x40 && chr <= 0x5F
+}
+
+fn is_escapechar(chr: u8) -> bool {
+   chr == 0x62 || chr == 0x64 || chr == 0x65 || chr == 0x66 || chr == 0x6E || chr == 0x72 || chr == 0x73 || chr == 0x74 || chr == 0x76 || chr == 0x22 || chr == 0x27 || chr == 0x5C
 }
 
 // General TODO: Maybe avoid manual OK((i, sth)) return use map instead?
