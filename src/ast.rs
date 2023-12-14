@@ -1,6 +1,9 @@
 
 
 #[derive(Debug)]
+
+// TODO: Refactor to be more like the core erlang paper suggests the core erlang ast should look. Parsing is more important for now though.
+
 pub struct Module {
     pub name: Atom,
     pub exports: Vec<FunHead>,
@@ -62,7 +65,7 @@ pub enum Expr {
     PrimOp(Atom,Vec<Expr>),
     Receive(Vec<Clause>,Vec<Expr>,Vec<Expr>),
     // TODO: Try
-    Do(Vec<Expr>),
+    Do(Vec<Expr>, Vec<Expr>), // TODO: Maybe merge into one Expr list ?
     Catch(Vec<Expr>)
 }
 
@@ -78,9 +81,9 @@ pub enum Lit {
 
 #[derive(Debug, Clone)]
 pub struct Clause {
-    pats:Vec<Pat>,
-    when: Vec<Expr>,
-    res: Vec<Expr>
+    pub pats:Vec<Pat>,
+    pub when: Vec<Expr>,
+    pub res: Vec<Expr>
 }
 
 #[derive(Debug, Clone)]

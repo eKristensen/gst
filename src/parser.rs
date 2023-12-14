@@ -1,7 +1,7 @@
 use std::ops::RangeFrom;
 
 use nom::{IResult, sequence::{delimited, tuple, pair, preceded}, character::{complete::{multispace0, digit1, anychar}, is_digit}, multi::{separated_list0, many0, fold_many0}, combinator::{map_res, opt, value, map, peek}, branch::alt, number::complete::float, error::{ParseError, ErrorKind}, Parser, bytes::complete::is_not, InputTakeAtPosition, AsChar, InputTake, InputIter, InputLength, Slice};
-use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr, Var};
+use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr, Var, Clause, Pat};
 use nom::bytes::complete::{tag, take_until};
 use crate::ast::Const::List;
 use crate::parser::Lit::EmptyList;
@@ -445,14 +445,160 @@ fn const_nested_list(i: &str) -> IResult<&str, Const> {
     Ok((i, crate::ast::Const::List(cons)))
 }
 
+// TODO: Common pattern for nested list, avoid manual rewrite!
+fn pat_nested_list(i: &str) -> IResult<&str, Pat> {
+  let (i, _) = ws(tag("["))(i)?;
+  let (i, pattern) = ws(pat)(i)?;
+  let head =
+      match pattern {
+          Pat::List(inner_list) => inner_list,
+          _ => vec![pattern]
+      };
+
+  let (i, _) = ws(tag("|"))(i)?;
+  let (i, pattern) = ws(pat)(i)?;
+  let tail =
+      match pattern {
+          Pat::List(inner_list) => inner_list,
+          _ => vec![pattern]
+      };
+  let (i, _) = ws(tag("]"))(i)?;
+
+  let cons = [&head[..], &tail[..]].concat();
+  Ok((i, crate::ast::Pat::List(cons)))
+}
+
+fn vars(i: &str) -> IResult<&str, Vec<Var>> {
+  alt((
+    map(var,|o| vec![o]),
+    comma_sep_list("<", ">", var)
+  ))(i)
+}
+
+fn  let_in(i: &str) -> IResult<&str, Expr> {
+  let (i, _) = ws(tag("let"))(i)?;
+  // Delay thinking about how the vars and exprs match in the equal sign
+  let (i, vars) = vars(i)?;
+  let (i, _) = ws(tag("="))(i)?;
+  let (i, exprs1) = exprs(i)?;
+  let (i, _) = ws(tag("in"))(i)?;
+  let (i, exprs2) = exprs(i)?;
+  Ok((i, crate::ast::Expr::Let(vars, vec![exprs1], vec![exprs2])))
+}
+
+fn alias(i: &str) -> IResult<&str, Pat> {
+  map(tuple((var,ws(tag("=")),pat)),|(variable,_,pattern)| crate::ast::Pat::Alias(variable, Box::new(pattern)))(i)
+}
+
+fn pat(i: &str) -> IResult<&str, Pat> {
+  alt((
+    map(var,crate::ast::Pat::Var),
+    map(lit, crate::ast::Pat::Lit),
+    pat_nested_list,
+    map(comma_sep_list("[", "]", pat), crate::ast::Pat::List),
+    map(comma_sep_list("{", "}", pat), crate::ast::Pat::Tuple),
+    alias,
+  ))(i)
+}
+
+fn pats(i: &str) -> IResult<&str, Vec<Pat>> {
+  alt((
+    map(pat,|o| vec![o]),
+    comma_sep_list("<", ">", pat)
+  ))(i)
+}
+
+fn clause(i: &str) -> IResult<&str, Clause> {
+  let (i, pats) = pats(i)?;
+  let (i, _) = ws(tag("when"))(i)?;
+  let (i, exprs1) = map(exprs,|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  let (i, _) = ws(tag("->"))(i)?;
+  let (i, exprs2) = map(exprs,|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  Ok((i, crate::ast::Clause{pats, when: exprs1, res: exprs2}))
+}
+
+fn case_of(i: &str) -> IResult<&str, Expr> {
+  let (i, _) = ws(tag("case"))(i)?;
+  let (i, exprs) = map(exprs,|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  let (i, _) = ws(tag("of"))(i)?;
+  let (i, clauses) = many0(clause)(i)?;
+  let (i, _) = ws(tag("end"))(i)?;
+  Ok((i, crate::ast::Expr::Case(exprs, clauses)))
+}
+
+fn letrec(i: &str) -> IResult<&str, Expr> {
+  let (i, _) = ws(tag("letrec"))(i)?;
+  let (i, fundefs) = many0(ws(fun))(i)?;
+  let (i, _) = ws(tag("in"))(i)?;
+  let (i, expressions) = map(exprs,|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  Ok((i, crate::ast::Expr::LetRec(fundefs, expressions)))
+}
+
+fn apply(i: &str) -> IResult<&str, Expr> {
+  let (i, _) = ws(tag("apply"))(i)?;
+  let (i, exprs0) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  let (i, exprs_args) = comma_sep_list("(", ")", exprs)(i)?;
+  Ok((i, crate::ast::Expr::Apply(exprs0, exprs_args)))
+}
+
+fn call(i: &str) -> IResult<&str, Expr> {
+  let (i, _) = ws(tag("call"))(i)?;
+  let (i, module) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  let (i, _) = ws(tag(":"))(i)?;
+  let (i, name) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  let (i, args) = comma_sep_list("(", ")", exprs)(i)?;
+  Ok((i, crate::ast::Expr::Call(module, name, args)))
+}
+
+fn primop(i: &str) -> IResult<&str, Expr> {
+  let (i, _) = ws(tag("primop"))(i)?;
+  let (i, name) = ws(atom)(i)?;
+  let (i, args) = comma_sep_list("(", ")", exprs)(i)?;
+  Ok((i, crate::ast::Expr::PrimOp(name, args)))
+}
+
+fn receive(i: &str) -> IResult<&str, Expr> {
+  let (i, _) = ws(tag("receive"))(i)?;
+  let (i, clauses) = many0(clause)(i)?;
+  let (i, _) = ws(tag("after"))(i)?;
+  let (i, timeout) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  let (i, _) = ws(tag("->"))(i)?;
+  let (i, action) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  Ok((i, crate::ast::Expr::Receive(clauses, timeout, action)))
+}
+
+fn do_expr(i: &str) -> IResult<&str, Expr> {
+  let (i, _) = ws(tag("do"))(i)?;
+  let (i, exprs1) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  let (i, exprs2) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  Ok((i, crate::ast::Expr::Do(exprs1, exprs2)))
+}
+
+fn catch(i: &str) -> IResult<&str, Expr> {
+  let (i, _) = ws(tag("catch"))(i)?;
+  let (i, exprs1) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  Ok((i, crate::ast::Expr::Catch(exprs1)))
+}
+
 fn expr(i: &str) -> IResult<&str, Expr> {
-    alt(( // TODO: Add var
+    alt((
+        map(var, crate::ast::Expr::Var),
         map(fname, crate::ast::Expr::Fname),
         map(lit, crate::ast::Expr::Lit),
         map(fun, |fun| crate::ast::Expr::Fun(Box::new(fun))),
         expr_nested_list,
         map(comma_sep_list("[", "]", exprs), crate::ast::Expr::List),
         map(comma_sep_list("{", "}", exprs), crate::ast::Expr::Tuple),
+        let_in,
+        case_of,
+        letrec,
+        apply,
+        call,
+        primop,
+        receive,
+        // TOOD: implement try
+        do_expr,
+        catch,
     ))(i)
 }
 
@@ -466,21 +612,20 @@ fn exprs(i: &str) -> IResult<&str, Expr> {
 fn fun(i: &str) -> IResult<&str, FunDef> {
     let (i, head) = fname(i)?;
     let (i, _) = ws(tag("="))(i)?;
-    let (i, (_, exprs)) = opt_annotation(fun_inner)(i)?;
+    let (i, (args, exprs)) = opt_annotation(fun_inner)(i)?;
 
-    Ok((i, FunDef{head, args: vec![], body: exprs}))
+    Ok((i, FunDef{head, args, body: exprs}))
 }
 
-fn fun_inner(i: &str) -> IResult<&str, (Vec<()>, Expr)> {
+fn fun_inner(i: &str) -> IResult<&str, (Vec<Var>, Expr)> {
     let (i, _) = ws(tag("fun"))(i)?;
 
     // TODO: function arguments parsing, must be able to parse variables
-    let (i, _) = ws(tag("("))(i)?;
-    let (i, _) = ws(tag(")"))(i)?;
+    let (i, args) = comma_sep_list("(", ")", var)(i)?;
     let (i, _) = ws(tag("->"))(i)?;
 
     let (i, exprs) = ws(exprs)(i)?;
-    Ok((i, (vec![], exprs)))
+    Ok((i, (args, exprs)))
 }
 
 // Top level module definition
