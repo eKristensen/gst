@@ -49,6 +49,7 @@ pub enum Const {
 #[derive(Debug, Clone)]
 pub struct Var(pub String);
 
+// TODO: Maybe it is a bad idea to use Vec<Expr> instead of having Exprs
 #[derive(Debug, Clone)]
 pub enum Expr {
     Var(Var),
@@ -64,7 +65,7 @@ pub enum Expr {
     Call(Vec<Expr>,Vec<Expr>,Vec<Expr>),
     PrimOp(Atom,Vec<Expr>),
     Receive(Vec<Clause>,Vec<Expr>,Vec<Expr>),
-    // TODO: Try
+    Try(Vec<Expr>, Vec<Var>, Vec<Expr>, Vec<Var>, Vec<Expr>),
     Do(Vec<Expr>, Vec<Expr>), // TODO: Maybe merge into one Expr list ?
     Catch(Vec<Expr>)
 }

@@ -567,6 +567,20 @@ fn receive(i: &str) -> IResult<&str, Expr> {
   Ok((i, crate::ast::Expr::Receive(clauses, timeout, action)))
 }
 
+fn try_expr(i: &str) -> IResult<&str, Expr> {
+  let (i, _) = ws(tag("try"))(i)?;
+  let (i, arg) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  let (i, _) = ws(tag("of"))(i)?;
+  let (i, vars_) = comma_sep_list("<", ">", var)(i)?;
+  let (i, _) = ws(tag("->"))(i)?;
+  let (i, body) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  let (i, _) = ws(tag("catch"))(i)?;
+  let (i, evars) = comma_sep_list("<", ">", var)(i)?;
+  let (i, _) = ws(tag("->"))(i)?;
+  let (i, handler) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
+  Ok((i, crate::ast::Expr::Try(arg, vars_, body, evars, handler)))
+}
+
 fn do_expr(i: &str) -> IResult<&str, Expr> {
   let (i, _) = ws(tag("do"))(i)?;
   let (i, exprs1) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
@@ -596,7 +610,7 @@ fn expr(i: &str) -> IResult<&str, Expr> {
         call,
         primop,
         receive,
-        // TOOD: implement try
+        try_expr,
         do_expr,
         catch,
     ))(i)
