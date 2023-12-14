@@ -1,4 +1,6 @@
-use nom::{IResult, sequence::{delimited, tuple, pair, preceded}, character::{complete::{multispace0, digit1, anychar}, is_digit}, multi::{separated_list0, many0, fold_many0}, combinator::{map_res, opt, value, map, peek}, branch::alt, number::complete::float, error::ParseError, Parser, bytes::complete::is_not, InputTakeAtPosition, AsChar};
+use std::ops::RangeFrom;
+
+use nom::{IResult, sequence::{delimited, tuple, pair, preceded}, character::{complete::{multispace0, digit1, anychar}, is_digit}, multi::{separated_list0, many0, fold_many0}, combinator::{map_res, opt, value, map, peek}, branch::alt, number::complete::float, error::{ParseError, ErrorKind}, Parser, bytes::complete::is_not, InputTakeAtPosition, AsChar, InputTake, InputIter, InputLength, Slice};
 use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr};
 use nom::bytes::complete::{tag, take_until};
 use crate::ast::Const::List;
@@ -6,6 +8,7 @@ use crate::parser::Lit::EmptyList;
 use crate::parser::Lit::Int;
 use crate::parser::Lit::Float;
 use nom::character::complete::char;
+use nom::Err;
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#-ceol-style-comments
 // Comment
@@ -246,8 +249,31 @@ fn lit(i: &str) -> IResult<&str, Lit> {
 }
 
 fn char_(i: &str) -> IResult<&str, char> {
-    let (i, _) = tag("$")(i)?; // Char starts with $ in erlang
-    anychar(i) // TODO: Check anychar is acceptable according to the spec
+  let (i, _) = char('$')(i)?;
+  char_name(i)
+}
+
+fn char_name<T, E: ParseError<T>>(input: T) -> IResult<T, char, E>
+where
+  T: InputIter + InputLength + Slice<RangeFrom<usize>>,
+  <T as InputIter>::Item: AsChar,
+{
+  let mut it = input.iter_indices();
+  let (input, candidate) = match it.next() {
+    None => Err(Err::Error(E::from_error_kind(input, ErrorKind::Eof))),
+    Some((_, c)) => match it.next() {
+      None => Ok((input.slice(input.input_len()..), c.as_char())),
+      Some((idx, _)) => Ok((input.slice(idx..), c.as_char())),
+    },
+  }?;
+  let item_chr = candidate.as_char() as u8; // TODO extend trait instead of this
+  if !(is_inputchar(item_chr)) // With trait it could be item.is_inputchar()
+  ||  is_control(item_chr)
+  ||  item_chr == 0x20 // Hex codes are not easy to read...
+  ||  item_chr == 0x5C {
+    return Err(Err::Error(E::from_error_kind(input, ErrorKind::Fix)));
+  }
+  Ok((input, candidate))
 }
 
 fn empty_list(i: &str) -> IResult<&str, Lit> {
