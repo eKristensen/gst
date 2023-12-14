@@ -1,10 +1,11 @@
-use nom::{IResult, sequence::{delimited, tuple, pair}, character::{complete::{multispace0, digit1, anychar}, is_digit}, multi::{separated_list0, many0}, combinator::{map_res, opt, value, map, peek}, branch::alt, number::complete::float, error::ParseError, Parser, bytes::complete::is_not};
+use nom::{IResult, sequence::{delimited, tuple, pair, preceded}, character::{complete::{multispace0, digit1, anychar}, is_digit}, multi::{separated_list0, many0, fold_many0}, combinator::{map_res, opt, value, map, peek}, branch::alt, number::complete::float, error::ParseError, Parser, bytes::complete::is_not, InputTakeAtPosition, AsChar};
 use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr};
 use nom::bytes::complete::{tag, take_until};
 use crate::ast::Const::List;
 use crate::parser::Lit::EmptyList;
 use crate::parser::Lit::Int;
 use crate::parser::Lit::Float;
+use nom::character::complete::char;
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#-ceol-style-comments
 // Comment
@@ -124,17 +125,82 @@ fn is_escapechar(chr: u8) -> bool {
    chr == 0x62 || chr == 0x64 || chr == 0x65 || chr == 0x66 || chr == 0x6E || chr == 0x72 || chr == 0x73 || chr == 0x74 || chr == 0x76 || chr == 0x22 || chr == 0x27 || chr == 0x5C
 }
 
+// Based on: https://github.com/rust-bakery/nom/blob/main/examples/string.rs
+/// Parse an escaped character: \n, \t, \r, \u{00AC}, etc.
+// TODO: Maybe it is smarter to output a char rather than a String. String chosen for now to make unification simpler
+fn parse_escaped_char<'a, E>(input: &'a str) -> IResult<&'a str, String, E>
+where
+  E: ParseError<&'a str>,
+{
+  map(preceded(
+    char('\\'),
+    alt((
+      char('b'),
+      char('d'),
+      char('e'),
+      char('f'),
+      value('\n', char('n')),
+      value('\r', char('r')),
+      char('s'),
+      value('\t', char('t')),
+      char('v'),
+      char('\''),
+      char('\\'),
+    )),
+  ),|o| o.to_string())
+  .parse(input)
+}
+
 // General TODO: Maybe avoid manual OK((i, sth)) return use map instead?
 
+fn parse_atom_input_chr<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
+where
+  T: InputTakeAtPosition,
+  <T as InputTakeAtPosition>::Item: AsChar,
+{
+  input.split_at_position1_complete(|item| 
+    {
+        let item_chr = item.as_char() as u8; // TODO extend trait instead of this
+          !(is_inputchar(item_chr)) // With trait it could be item.is_inputchar()
+        ||  is_control(item_chr)
+        ||  item_chr == 0x5C // Hex codes are not easy to read...
+        ||  item_chr == 0x27
+    }, nom::error::ErrorKind::Fix // TODO: Actual error message
+    )
+}
+
+fn parse_atom_fragments(i: &str) -> IResult<&str, String> {
+    alt((
+        map(parse_atom_input_chr,|o: &str| o.to_string()),
+        parse_escaped_char
+    ))(i)
+}
+
 // TODO: Accept atoms with escaped chars
-// https://docs.rs/nom/latest/nom/recipes/index.html#escaped-strings
+// Inspired by :
+// - https://docs.rs/nom/latest/nom/recipes/index.html#escaped-strings
+// - https://github.com/rust-bakery/nom/blob/main/examples/string.rs
 fn atom(i: &str) -> IResult<&str, Atom> {
-    let (i, atom) = delimited(
-        tag("'"),
-        take_until("'"), // TODO: Check for valid input here. Anything is accepted right now
-        tag("'")
-    )(i)?;
-    Ok((i, Atom(atom.to_string()))) // TODO: Something better than to_string() ???
+  // fold is the equivalent of iterator::fold. It runs a parser in a loop,
+  // and for each output value, calls a folding function on each output value.
+  let build_string = fold_many0(
+    // Our parser function– parses a single string fragment
+    parse_atom_fragments,
+    // Our init value, an empty string
+    String::new,
+    // Our folding function. For each fragment, append the fragment to the
+    // string.
+    |mut string, fragment| {
+        string.push_str(&fragment);
+        string
+    },
+  );
+
+  // Finally, parse the string. Note that, if `build_string` could accept a raw
+  // " character, the closing delimiter " would never match. When using
+  // `delimited` with a looping parser (like fold), be sure that the
+  // loop won't accidentally match your closing delimiter!
+  map(delimited(char('\''), build_string, char('\'')),|o| Atom(o.to_string())).parse(i)
 }
 
 fn integer(i: &str) -> IResult<&str, Integer> {
@@ -282,15 +348,6 @@ fn fun_inner(i: &str) -> IResult<&str, (Vec<()>, Expr)> {
     Ok((i, (vec![], exprs)))
 }
 
-// TODO: There should be a better way to wrap an option type...
-fn opt_fun(i: &str) -> IResult<&str, Vec<FunDef>> {
-    let (i, maybe_body) = opt(fun)(i)?;
-    match maybe_body {
-        Some(body) => Ok((i,vec![body])),
-        None => Ok((i,vec![])),
-    }
-}
-
 // Top level module definition
 pub fn module(i: &str) -> IResult<&str, Module> {
     // TODO: Check that "tag" requires "module" and does not work with partial data such as "mod"
@@ -316,10 +373,5 @@ pub fn module(i: &str) -> IResult<&str, Module> {
     let (i, _) = ws(tag("end"))(i)?;
 
 
-    Ok((i,Module {
-        name: name,
-        exports: exports,
-        attributes: attributes,
-        body: body
-    }))
+    Ok((i,Module {name, exports, attributes, body}))
 }
