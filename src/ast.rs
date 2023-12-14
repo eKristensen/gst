@@ -44,7 +44,7 @@ pub enum Const {
 }
 
 #[derive(Debug, Clone)]
-pub struct Var(String);
+pub struct Var(pub String);
 
 #[derive(Debug, Clone)]
 pub enum Expr {

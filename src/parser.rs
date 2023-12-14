@@ -1,7 +1,7 @@
 use std::ops::RangeFrom;
 
 use nom::{IResult, sequence::{delimited, tuple, pair, preceded}, character::{complete::{multispace0, digit1, anychar}, is_digit}, multi::{separated_list0, many0, fold_many0}, combinator::{map_res, opt, value, map, peek}, branch::alt, number::complete::float, error::{ParseError, ErrorKind}, Parser, bytes::complete::is_not, InputTakeAtPosition, AsChar, InputTake, InputIter, InputLength, Slice};
-use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr};
+use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr, Var};
 use nom::bytes::complete::{tag, take_until};
 use crate::ast::Const::List;
 use crate::parser::Lit::EmptyList;
@@ -316,6 +316,73 @@ where
     return Err(Err::Error(E::from_error_kind(input, ErrorKind::Fix)));
   }
   Ok((input, candidate))
+}
+
+// TODO: There must exist a easier way to do this
+fn uppercase_char<T, E: ParseError<T>>(input: T) -> IResult<T, char, E>
+where
+  T: InputIter + InputLength + Slice<RangeFrom<usize>>,
+  <T as InputIter>::Item: AsChar,
+{
+  let mut it = input.iter_indices();
+  let (input, candidate) = match it.next() {
+    None => Err(Err::Error(E::from_error_kind(input, ErrorKind::Eof))),
+    Some((_, c)) => match it.next() {
+      None => Ok((input.slice(input.input_len()..), c.as_char())),
+      Some((idx, _)) => Ok((input.slice(idx..), c.as_char())),
+    },
+  }?;
+  let item_chr = candidate.as_char() as u8; // TODO extend trait instead of this
+  if !(is_uppercase(item_chr)) // With trait it could be item.is_inputchar()
+ {
+    return Err(Err::Error(E::from_error_kind(input, ErrorKind::Fix)));
+  }
+  Ok((input, candidate))
+}
+
+// TODO: There must exist a easier way to do this
+fn namechar<T, E: ParseError<T>>(input: T) -> IResult<T, char, E>
+where
+  T: InputIter + InputLength + Slice<RangeFrom<usize>>,
+  <T as InputIter>::Item: AsChar,
+{
+  let mut it = input.iter_indices();
+  let (input, candidate) = match it.next() {
+    None => Err(Err::Error(E::from_error_kind(input, ErrorKind::Eof))),
+    Some((_, c)) => match it.next() {
+      None => Ok((input.slice(input.input_len()..), c.as_char())),
+      Some((idx, _)) => Ok((input.slice(idx..), c.as_char())),
+    },
+  }?;
+  let item_chr = candidate.as_char() as u8; // TODO extend trait instead of this
+  if !(is_namechar(item_chr)) // With trait it could be item.is_inputchar()
+ {
+    return Err(Err::Error(E::from_error_kind(input, ErrorKind::Fix)));
+  }
+  Ok((input, candidate))
+}
+
+fn var(i: &str) -> IResult<&str, Var> {
+    let (i, var_name_head) = alt((
+        map(uppercase_char, |o| o.to_string()),
+        map(pair(char('_'),namechar),|(o1,o2)| format!("{}{}", o1, o2)),
+    ))(i)?;
+    let (i, var_name_tail) = fold_many0(
+        // Our parser function– parses a single string fragment
+        namechar,
+        // Our init value, an empty string
+        String::new,
+        // Our folding function. For each fragment, append the fragment to the
+        // string.
+        |mut string, fragment| {
+            string.push(fragment);
+            string
+        },
+      )(i)?;
+    // TODO: A bit much string manipulation, maybe inefficient...
+    let mut final_var_name = var_name_head;
+    final_var_name.push_str(&var_name_tail);
+    Ok((i,Var(final_var_name)))
 }
 
 fn empty_list(i: &str) -> IResult<&str, Lit> {
