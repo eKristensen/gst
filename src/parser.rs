@@ -130,12 +130,11 @@ fn is_escapechar(chr: u8) -> bool {
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/examples/string.rs
 /// Parse an escaped character: \n, \t, \r, \u{00AC}, etc.
-// TODO: Maybe it is smarter to output a char rather than a String. String chosen for now to make unification simpler
-fn parse_escaped_char<'a, E>(input: &'a str) -> IResult<&'a str, String, E>
+fn parse_escaped_char<'a, E>(input: &'a str) -> IResult<&'a str, char, E>
 where
   E: ParseError<&'a str>,
 {
-  map(preceded(
+  preceded(
     char('\\'),
     alt((
       char('b'),
@@ -150,7 +149,7 @@ where
       char('\''),
       char('\\'),
     )),
-  ),|o| o.to_string())
+  )
   .parse(input)
 }
 
@@ -175,7 +174,7 @@ where
 fn parse_atom_fragments(i: &str) -> IResult<&str, String> {
     alt((
         map(parse_atom_input_chr,|o: &str| o.to_string()),
-        parse_escaped_char
+        map(parse_escaped_char, |o| o.to_string())
     ))(i)
 }
 
@@ -250,7 +249,10 @@ fn lit(i: &str) -> IResult<&str, Lit> {
 
 fn char_(i: &str) -> IResult<&str, char> {
   let (i, _) = char('$')(i)?;
-  char_name(i)
+  alt((
+    char_name,
+    parse_escaped_char
+  ))(i)
 }
 
 fn char_name<T, E: ParseError<T>>(input: T) -> IResult<T, char, E>
