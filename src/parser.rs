@@ -171,6 +171,7 @@ where
     )
 }
 
+// TODO Can it this be integrated into atom somehow?
 fn parse_atom_fragments(i: &str) -> IResult<&str, String> {
     alt((
         map(parse_atom_input_chr,|o: &str| o.to_string()),
@@ -209,14 +210,53 @@ fn integer(i: &str) -> IResult<&str, Integer> {
     map(map_res(digit1, str::parse),Integer)(i)
 }
 
-fn string(i: &str) -> IResult<&str, String> {
-    let (i, string) = delimited(
-        tag("\""),
-        take_until("\""), // TODO: Check for valid input here. Anything is accepted right now
-        tag("\"")
-    )(i)?;
-    Ok((i, string.to_string())) // TODO: Something better than to_string() ???
+fn parse_string_input_chr<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
+where
+  T: InputTakeAtPosition,
+  <T as InputTakeAtPosition>::Item: AsChar,
+{
+  input.split_at_position1_complete(|item| 
+    {
+        let item_chr = item.as_char() as u8; // TODO extend trait instead of this
+          !(is_inputchar(item_chr)) // With trait it could be item.is_inputchar()
+        ||  is_control(item_chr)
+        ||  item_chr == 0x5C // Hex codes are not easy to read...
+        ||  item_chr == 0x22
+    }, nom::error::ErrorKind::Fix // TODO: Actual error message
+    )
 }
+
+// TODO Can it this be integrated into string somehow?
+fn parse_string_fragments(i: &str) -> IResult<&str, String> {
+    alt((
+        map(parse_string_input_chr,|o: &str| o.to_string()),
+        map(parse_escaped_char, |o| o.to_string())
+    ))(i)
+}
+
+// TODO: Deduplicate, a lot like fn atom
+fn string(i: &str) -> IResult<&str, String> {
+    // fold is the equivalent of iterator::fold. It runs a parser in a loop,
+    // and for each output value, calls a folding function on each output value.
+    let build_string = fold_many0(
+      // Our parser function– parses a single string fragment
+      parse_string_fragments,
+      // Our init value, an empty string
+      String::new,
+      // Our folding function. For each fragment, append the fragment to the
+      // string.
+      |mut string, fragment| {
+          string.push_str(&fragment);
+          string
+      },
+    );
+  
+    // Finally, parse the string. Note that, if `build_string` could accept a raw
+    // " character, the closing delimiter " would never match. When using
+    // `delimited` with a looping parser (like fold), be sure that the
+    // loop won't accidentally match your closing delimiter!
+    map(delimited(char('"'), build_string, char('"')),|o| o.to_string()).parse(i)
+  }
 
 fn fname(i: &str) -> IResult<&str, FunHead> {
     ws(map(tuple((
