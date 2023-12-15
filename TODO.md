@@ -16,6 +16,8 @@ Split parser into sub-modules:
 - Terminals
 - Non-terminals (productions?)
 
+- move parser to create and separate git repo
+
 - Nice to have, better error messages:
   - https://github.com/rust-bakery/nom/blob/main/doc/error_management.md
   - https://docs.rs/nom_locate/latest/nom_locate/
