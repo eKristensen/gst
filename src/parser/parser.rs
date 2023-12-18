@@ -1,12 +1,12 @@
 use std::ops::RangeFrom;
 
 use nom::{IResult, sequence::{delimited, tuple, pair, preceded}, character::{complete::{multispace0, digit1, anychar}, is_digit}, multi::{separated_list0, many0, fold_many0}, combinator::{map_res, opt, value, map, peek}, branch::alt, number::complete::float, error::{ParseError, ErrorKind}, Parser, bytes::complete::is_not, InputTakeAtPosition, AsChar, InputTake, InputIter, InputLength, Slice};
-use crate::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr, Var, Clause, Pat};
+use crate::parser::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr, Var, Clause, Pat};
 use nom::bytes::complete::{tag, take_until};
-use crate::ast::Const::List;
-use crate::parser::Lit::EmptyList;
-use crate::parser::Lit::Int;
-use crate::parser::Lit::Float;
+use crate::parser::ast::Const::List;
+use crate::parser::parser::Lit::EmptyList;
+use crate::parser::parser::Lit::Int;
+use crate::parser::parser::Lit::Float;
 use nom::character::complete::char;
 use nom::Err;
 
@@ -269,10 +269,10 @@ fn fname(i: &str) -> IResult<&str, FunHead> {
 // const is a keyword in rust, const_ is used instead
 fn const_(i: &str) -> IResult<&str, Const> {
     alt((
-        map(lit, crate::ast::Const::Lit),
+        map(lit, crate::parser::ast::Const::Lit),
         const_nested_list,
         map(comma_sep_list("[", "]", const_),List),
-        map(comma_sep_list("{", "}", const_), crate::ast::Const::Tuple),
+        map(comma_sep_list("{", "}", const_), crate::parser::ast::Const::Tuple),
     ))(i)
 }
 
@@ -280,9 +280,9 @@ fn lit(i: &str) -> IResult<&str, Lit> {
     alt((
         map(integer, Int),
         map(float, Float),
-        map(atom, crate::ast::Lit::Atom),
-        map(char_, crate::ast::Lit::Char),
-        map(string, crate::ast::Lit::String),
+        map(atom, crate::parser::ast::Lit::Atom),
+        map(char_, crate::parser::ast::Lit::Char),
+        map(string, crate::parser::ast::Lit::String),
         empty_list
     ))(i)
 }
@@ -419,7 +419,7 @@ fn expr_nested_list(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("]"))(i)?;
 
     let cons = [&head[..], &tail[..]].concat();
-    Ok((i, crate::ast::Expr::List(cons)))
+    Ok((i, crate::parser::ast::Expr::List(cons)))
 }
 
 // TODO: Common pattern for nested list, avoid manual rewrite!
@@ -442,7 +442,7 @@ fn const_nested_list(i: &str) -> IResult<&str, Const> {
     let (i, _) = ws(tag("]"))(i)?;
 
     let cons = [&head[..], &tail[..]].concat();
-    Ok((i, crate::ast::Const::List(cons)))
+    Ok((i, crate::parser::ast::Const::List(cons)))
 }
 
 // TODO: Common pattern for nested list, avoid manual rewrite!
@@ -465,7 +465,7 @@ fn pat_nested_list(i: &str) -> IResult<&str, Pat> {
   let (i, _) = ws(tag("]"))(i)?;
 
   let cons = [&head[..], &tail[..]].concat();
-  Ok((i, crate::ast::Pat::List(cons)))
+  Ok((i, crate::parser::ast::Pat::List(cons)))
 }
 
 fn vars(i: &str) -> IResult<&str, Vec<Var>> {
@@ -483,20 +483,20 @@ fn  let_in(i: &str) -> IResult<&str, Expr> {
   let (i, exprs1) = exprs(i)?;
   let (i, _) = ws(tag("in"))(i)?;
   let (i, exprs2) = exprs(i)?;
-  Ok((i, crate::ast::Expr::Let(vars, vec![exprs1], vec![exprs2])))
+  Ok((i, crate::parser::ast::Expr::Let(vars, vec![exprs1], vec![exprs2])))
 }
 
 fn alias(i: &str) -> IResult<&str, Pat> {
-  map(tuple((var,ws(tag("=")),pat)),|(variable,_,pattern)| crate::ast::Pat::Alias(variable, Box::new(pattern)))(i)
+  map(tuple((var,ws(tag("=")),pat)),|(variable,_,pattern)| crate::parser::ast::Pat::Alias(variable, Box::new(pattern)))(i)
 }
 
 fn pat(i: &str) -> IResult<&str, Pat> {
   alt((
-    map(var,crate::ast::Pat::Var),
-    map(lit, crate::ast::Pat::Lit),
+    map(var,crate::parser::ast::Pat::Var),
+    map(lit, crate::parser::ast::Pat::Lit),
     pat_nested_list,
-    map(comma_sep_list("[", "]", pat), crate::ast::Pat::List),
-    map(comma_sep_list("{", "}", pat), crate::ast::Pat::Tuple),
+    map(comma_sep_list("[", "]", pat), crate::parser::ast::Pat::List),
+    map(comma_sep_list("{", "}", pat), crate::parser::ast::Pat::Tuple),
     alias,
   ))(i)
 }
@@ -514,7 +514,7 @@ fn clause(i: &str) -> IResult<&str, Clause> {
   let (i, exprs1) = map(exprs,|o| vec![o])(i)?; // TODO: Fixme This is stupid
   let (i, _) = ws(tag("->"))(i)?;
   let (i, exprs2) = map(exprs,|o| vec![o])(i)?; // TODO: Fixme This is stupid
-  Ok((i, crate::ast::Clause{pats, when: exprs1, res: exprs2}))
+  Ok((i, crate::parser::ast::Clause{pats, when: exprs1, res: exprs2}))
 }
 
 fn case_of(i: &str) -> IResult<&str, Expr> {
@@ -523,7 +523,7 @@ fn case_of(i: &str) -> IResult<&str, Expr> {
   let (i, _) = ws(tag("of"))(i)?;
   let (i, clauses) = many0(clause)(i)?;
   let (i, _) = ws(tag("end"))(i)?;
-  Ok((i, crate::ast::Expr::Case(exprs, clauses)))
+  Ok((i, crate::parser::ast::Expr::Case(exprs, clauses)))
 }
 
 fn letrec(i: &str) -> IResult<&str, Expr> {
@@ -531,14 +531,14 @@ fn letrec(i: &str) -> IResult<&str, Expr> {
   let (i, fundefs) = many0(ws(fun))(i)?;
   let (i, _) = ws(tag("in"))(i)?;
   let (i, expressions) = map(exprs,|o| vec![o])(i)?; // TODO: Fixme This is stupid
-  Ok((i, crate::ast::Expr::LetRec(fundefs, expressions)))
+  Ok((i, crate::parser::ast::Expr::LetRec(fundefs, expressions)))
 }
 
 fn apply(i: &str) -> IResult<&str, Expr> {
   let (i, _) = ws(tag("apply"))(i)?;
   let (i, exprs0) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
   let (i, exprs_args) = comma_sep_list("(", ")", exprs)(i)?;
-  Ok((i, crate::ast::Expr::Apply(exprs0, exprs_args)))
+  Ok((i, crate::parser::ast::Expr::Apply(exprs0, exprs_args)))
 }
 
 fn call(i: &str) -> IResult<&str, Expr> {
@@ -547,14 +547,14 @@ fn call(i: &str) -> IResult<&str, Expr> {
   let (i, _) = ws(tag(":"))(i)?;
   let (i, name) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
   let (i, args) = comma_sep_list("(", ")", exprs)(i)?;
-  Ok((i, crate::ast::Expr::Call(module, name, args)))
+  Ok((i, crate::parser::ast::Expr::Call(module, name, args)))
 }
 
 fn primop(i: &str) -> IResult<&str, Expr> {
   let (i, _) = ws(tag("primop"))(i)?;
   let (i, name) = ws(atom)(i)?;
   let (i, args) = comma_sep_list("(", ")", exprs)(i)?;
-  Ok((i, crate::ast::Expr::PrimOp(name, args)))
+  Ok((i, crate::parser::ast::Expr::PrimOp(name, args)))
 }
 
 fn receive(i: &str) -> IResult<&str, Expr> {
@@ -564,7 +564,7 @@ fn receive(i: &str) -> IResult<&str, Expr> {
   let (i, timeout) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
   let (i, _) = ws(tag("->"))(i)?;
   let (i, action) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
-  Ok((i, crate::ast::Expr::Receive(clauses, timeout, action)))
+  Ok((i, crate::parser::ast::Expr::Receive(clauses, timeout, action)))
 }
 
 fn try_expr(i: &str) -> IResult<&str, Expr> {
@@ -578,31 +578,31 @@ fn try_expr(i: &str) -> IResult<&str, Expr> {
   let (i, evars) = comma_sep_list("<", ">", var)(i)?;
   let (i, _) = ws(tag("->"))(i)?;
   let (i, handler) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
-  Ok((i, crate::ast::Expr::Try(arg, vars_, body, evars, handler)))
+  Ok((i, crate::parser::ast::Expr::Try(arg, vars_, body, evars, handler)))
 }
 
 fn do_expr(i: &str) -> IResult<&str, Expr> {
   let (i, _) = ws(tag("do"))(i)?;
   let (i, exprs1) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
   let (i, exprs2) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
-  Ok((i, crate::ast::Expr::Do(exprs1, exprs2)))
+  Ok((i, crate::parser::ast::Expr::Do(exprs1, exprs2)))
 }
 
 fn catch(i: &str) -> IResult<&str, Expr> {
   let (i, _) = ws(tag("catch"))(i)?;
   let (i, exprs1) = map(ws(exprs),|o| vec![o])(i)?; // TODO: Fixme This is stupid
-  Ok((i, crate::ast::Expr::Catch(exprs1)))
+  Ok((i, crate::parser::ast::Expr::Catch(exprs1)))
 }
 
 fn expr(i: &str) -> IResult<&str, Expr> {
     alt((
-        map(var, crate::ast::Expr::Var),
-        map(fname, crate::ast::Expr::Fname),
-        map(lit, crate::ast::Expr::Lit),
-        map(fun, |fun| crate::ast::Expr::Fun(Box::new(fun))),
+        map(var, crate::parser::ast::Expr::Var),
+        map(fname, crate::parser::ast::Expr::Fname),
+        map(lit, crate::parser::ast::Expr::Lit),
+        map(fun, |fun| crate::parser::ast::Expr::Fun(Box::new(fun))),
         expr_nested_list,
-        map(comma_sep_list("[", "]", exprs), crate::ast::Expr::List),
-        map(comma_sep_list("{", "}", exprs), crate::ast::Expr::Tuple),
+        map(comma_sep_list("[", "]", exprs), crate::parser::ast::Expr::List),
+        map(comma_sep_list("{", "}", exprs), crate::parser::ast::Expr::Tuple),
         let_in,
         case_of,
         letrec,
@@ -619,7 +619,7 @@ fn expr(i: &str) -> IResult<&str, Expr> {
 fn exprs(i: &str) -> IResult<&str, Expr> {
     alt((
         opt_annotation(expr),
-        map(comma_sep_list("<", ">", expr),crate::ast::Expr::List)
+        map(comma_sep_list("<", ">", expr),crate::parser::ast::Expr::List)
     ))(i)
 }
 
