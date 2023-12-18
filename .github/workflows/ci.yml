@@ -9,10 +9,11 @@ env:
 
 jobs:
   build_and_test:
-    name: Rust project - latest
-    runs-on: ubuntu-latest
+    name: Rust project - latest - OTP ${{matrix.otp}}
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
+        otp: ['26.2']
         toolchain:
           - stable
           - beta
@@ -25,8 +26,11 @@ jobs:
       - run: cargo test --verbose
 
   latest_deps:
-    name: Latest Dependencies
-    runs-on: ubuntu-latest
+    name: Latest Dependencies - OTP ${{matrix.otp}}
+    strategy:
+      matrix:
+        otp: ['26.2']
+    runs-on: ubuntu-20.04
     continue-on-error: true
     steps:
       - uses: actions/checkout@v3
