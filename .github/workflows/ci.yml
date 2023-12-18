@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        otp: ['17','24','25','26']
+        otp: ['17','18','19','20','21','22','23','24','25','26']
         toolchain:
           - stable
           - beta
@@ -31,7 +31,7 @@ jobs:
     name: Latest Dependencies - OTP ${{matrix.otp}}
     strategy:
       matrix:
-        otp: ['17','24','25','26']
+        otp: ['17','18','19','20','21','22','23','24','25','26']
     runs-on: ubuntu-20.04
     continue-on-error: true
     steps:
