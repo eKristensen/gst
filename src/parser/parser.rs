@@ -1,6 +1,6 @@
 use std::ops::RangeFrom;
 
-use nom::{IResult, sequence::{delimited, tuple, pair, preceded}, character::{complete::{multispace0, digit1, anychar}, is_digit}, multi::{separated_list0, many0, fold_many0}, combinator::{map_res, opt, value, map, peek}, branch::alt, number::complete::float, error::{ParseError, ErrorKind}, Parser, bytes::complete::is_not, InputTakeAtPosition, AsChar, InputTake, InputIter, InputLength, Slice};
+use nom::{IResult, sequence::{delimited, tuple, pair, preceded}, character::{complete::{multispace0, digit1}, is_digit}, multi::{separated_list0, many0, fold_many0}, combinator::{map_res, opt, value, map}, branch::alt, number::complete::float, error::{ParseError, ErrorKind}, Parser, InputTakeAtPosition, AsChar, InputIter, InputLength, Slice};
 use crate::parser::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr, Var, Clause, Pat};
 use nom::bytes::complete::{tag, take_until};
 use crate::parser::ast::Const::List;
