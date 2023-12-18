@@ -15,7 +15,7 @@ fn erlc_rejection(resource: &str) {
     let status = Command::new("erlc")
         .arg(resource)
         .status()
-        .expect("failed to execute process");;
+        .expect("failed to execute process");
     assert_ne!(0, status.code().unwrap());
 }
 
