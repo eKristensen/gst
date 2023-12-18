@@ -365,7 +365,7 @@ where
 fn var(i: &str) -> IResult<&str, Var> {
     let (i, var_name_head) = alt((
         map(uppercase_char, |o| o.to_string()),
-        map(pair(char('_'),namechar),|(o1,o2)| format!("{}{}", o1, o2)),
+        map(char('_'),|o| o.to_string()), // TODO: Odd but elc accepts "_" as a valid variable name despite it explicitly being invalid in the core erlang specification
     ))(i)?;
     let (i, var_name_tail) = fold_many0(
         // Our parser function– parses a single string fragment

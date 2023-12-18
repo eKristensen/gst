@@ -1,3 +1,4 @@
 module 'ultra-simple-02' ['module_info'/0]
     attributes []
+'module_info'/0 = fun () -> []
 end 
