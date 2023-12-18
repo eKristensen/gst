@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        otp: ['26.2']
+        otp: ['17','26']
         toolchain:
           - stable
           - beta
@@ -21,6 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
       - run: cargo build --verbose
       - run: cargo test --verbose
@@ -29,12 +31,14 @@ jobs:
     name: Latest Dependencies - OTP ${{matrix.otp}}
     strategy:
       matrix:
-        otp: ['26.2']
+        otp: ['17','26']
     runs-on: ubuntu-20.04
     continue-on-error: true
     steps:
       - uses: actions/checkout@v3
       - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
       - run: rustup update stable && rustup default stable
       - run: cargo update --verbose
       - run: cargo build --verbose
