@@ -9,7 +9,7 @@ env:
 
 jobs:
   build_and_test:
-    name: Rust project - latest - OTP ${{matrix.otp}}
+    name: Rust project - ${{matrix.toolchain}} - OTP ${{matrix.otp}}
     runs-on: ubuntu-20.04
     strategy:
       matrix:
