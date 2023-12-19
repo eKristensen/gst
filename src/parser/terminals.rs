@@ -362,6 +362,15 @@ mod tests {
         assert_eq!(atom("'_hello_world'"), Ok(("", Atom("_hello_world".to_owned()))));
         assert_eq!(atom("'=:='"), Ok(("", Atom("=:=".to_owned()))));
 
+        // TODO Move "lit" tests to lex.rs ?
+        assert_eq!(lit("'foo'"), Ok(("", Lit::Atom(Atom("foo".to_owned())))));
+        assert_eq!(lit("'Bar'"), Ok(("", Lit::Atom(Atom("Bar".to_owned())))));
+        assert_eq!(lit("'foo bar'"), Ok(("", Lit::Atom(Atom("foo bar".to_owned())))));
+        assert_eq!(lit("''"), Ok(("", Lit::Atom(Atom("".to_owned())))));
+        assert_eq!(lit("'%#\\010@\\n!'"), Ok(("", Lit::Atom(Atom("%#\\010@\\n!".to_owned())))));
+        assert_eq!(lit("'_hello_world'"), Ok(("", Lit::Atom(Atom("_hello_world".to_owned())))));
+        assert_eq!(lit("'=:='"), Ok(("", Lit::Atom(Atom("=:=".to_owned())))));
+
         // Mindless sanity check
         assert_ne!(atom("'foo'"), Ok(("", Atom("bar".to_owned()))));
     }
