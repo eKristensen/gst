@@ -3,12 +3,11 @@ use std::ops::RangeFrom;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::char,
     character::is_digit,
-    combinator::{map, value},
+    combinator::map,
     error::{ErrorKind, ParseError},
-    sequence::{preceded, tuple},
-    AsChar, Err, IResult, InputIter, InputLength, Parser, Slice,
+    sequence::tuple,
+    AsChar, Err, IResult, InputIter, InputLength, Slice,
 };
 
 use super::{
@@ -72,31 +71,6 @@ fn is_escapechar(chr: u8) -> bool {
         || chr == 0x22
         || chr == 0x27
         || chr == 0x5C
-}
-
-// Based on: https://github.com/rust-bakery/nom/blob/main/examples/string.rs
-/// Parse an escaped character: \n, \t, \r, \u{00AC}, etc.
-pub fn parse_escaped_char<'a, E>(input: &'a str) -> IResult<&'a str, char, E>
-where
-    E: ParseError<&'a str>,
-{
-    preceded(
-        char('\\'),
-        alt((
-            char('b'),
-            char('d'),
-            char('e'),
-            char('f'),
-            value('\n', char('n')),
-            value('\r', char('r')),
-            char('s'),
-            value('\t', char('t')),
-            char('v'),
-            char('\''),
-            char('\\'),
-        )),
-    )
-    .parse(input)
 }
 
 // TODO: There must exist a easier way to do this

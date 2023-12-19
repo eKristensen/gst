@@ -46,7 +46,7 @@ pub enum Lit {
     Int(Integer),
     Float(f32),
     Atom(Atom),
-    Char(char),
+    Char(String), // TODO: Wut? A char is not a char, It could be e.g. $\101
     List(Vec<Const>),  // TODO: Implement parser
     Tuple(Vec<Const>), // TODO: Implement parser
     String(String),

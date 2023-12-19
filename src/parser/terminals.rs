@@ -2,7 +2,7 @@ use std::ops::RangeFrom;
 
 use nom::{
     branch::alt,
-    character::complete::{char, digit1},
+    character::complete::{char, digit1, one_of},
     combinator::{map, map_res, opt, recognize, success, value},
     error::{ErrorKind, ParseError},
     multi::fold_many0,
@@ -12,10 +12,65 @@ use nom::{
 
 use super::{
     ast::{Atom, Integer, Var},
-    lex::{is_control, is_inputchar, is_uppercase, namechar, parse_escaped_char},
+    lex::{is_control, is_inputchar, is_uppercase, namechar},
 };
 
 // TODO: Check terminology: Is everything in here "terminals"?
+
+fn octal(i: &str) -> IResult<&str, String> {
+    let mut str:String = "".to_owned();
+    let (i, out) = one_of("01234567")(i)?; // TODO: Use is_oct_digit or oct_digit1 instead?
+    // TODO Rewrite. This is impossible to read!
+    str.push(out);
+    let (i, out) = opt(one_of("01234567"))(i)?;
+    match out {
+        Some(out) => {
+            str.push(out);
+            let (i, out) = opt(one_of("01234567"))(i)?;
+            match out {
+                Some(out) => {
+                    str.push(out);
+                    Ok((i,str))
+                },
+                None => Ok((i,str))
+            }
+        },
+        None => Ok((i,str)),
+    }
+}
+
+fn escapechar(i: &str) -> IResult<&str, char> {
+    alt((
+        char('b'), // escapechar
+        char('d'),
+        char('e'),
+        char('f'),
+        char('n'),
+        char('r'),
+        char('s'),
+        char('t'),
+        char('v'),
+        char('\''),
+        char('\\'),
+    ))(i)
+}
+
+// Based on: https://github.com/rust-bakery/nom/blob/main/examples/string.rs
+/// Parse an escaped character: \n, \t, \r, \u{00AC}, etc.
+pub fn parse_escaped(i: &str) -> IResult<&str, String>
+{
+    map(
+        tuple((
+            char('\\'),
+            alt((
+                octal,     // octal
+                //hat_ctl_char, // ^ctlchar
+                map(escapechar,|o| o.to_string()), // escapechar
+
+            )),
+        )), |(o1,o2)| format!("{}{}",o1,o2)
+    )(i)
+}
 
 fn parse_atom_input_chr<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
 where
@@ -38,7 +93,7 @@ where
 fn parse_atom_fragments(i: &str) -> IResult<&str, String> {
     alt((
         map(parse_atom_input_chr, |o: &str| o.to_string()),
-        map(parse_escaped_char, |o| o.to_string()),
+        map(parse_escaped, |o| o),
     ))(i)
 }
 
@@ -134,7 +189,7 @@ where
 fn parse_string_fragments(i: &str) -> IResult<&str, String> {
     alt((
         map(parse_string_input_chr, |o: &str| o.to_string()),
-        map(parse_escaped_char, |o| o.to_string()),
+        map(parse_escaped, |o| o),
     ))(i)
 }
 
@@ -165,9 +220,9 @@ pub fn string(i: &str) -> IResult<&str, String> {
     .parse(i)
 }
 
-pub fn char_(i: &str) -> IResult<&str, char> {
+pub fn char_(i: &str) -> IResult<&str, String> {
     let (i, _) = char('$')(i)?;
-    alt((char_name, parse_escaped_char))(i)
+    alt((map(char_name,|o| o.to_string()), parse_escaped))(i)
 }
 
 fn char_name<T, E: ParseError<T>>(input: T) -> IResult<T, char, E>
@@ -258,6 +313,9 @@ mod tests {
         assert_eq!(lit("+17"), Ok(("", Lit::Int(Integer(17)))));
         assert_eq!(lit("299792458"), Ok(("", Lit::Int(Integer(299792458)))));
         assert_eq!(lit("-4711"), Ok(("", Lit::Int(Integer(-4711)))));
+        
+        // Mindless sanity check
+        assert_ne!(lit("8"), Ok(("", Lit::Int(Integer(42)))));
 
         // TODO: Negative / Expect Error test
     }
@@ -280,6 +338,31 @@ mod tests {
         assert_eq!(lit("-1.23e12"), Ok(("", Lit::Float(-1.23e12))));
         assert_eq!(lit("1.0e+9"), Ok(("", Lit::Float(1.0e9))));
 
+        // Mindless sanity check
+        assert_ne!(float("0.0"), Ok(("", 2.0)));
+
         // TODO: Negative / Expect Error test
+
+    }
+
+    #[test]
+    fn test_atom() {
+        assert_eq!(atom("'foo'"), Ok(("", Atom("foo".to_owned()))));
+        assert_eq!(atom("'Bar'"), Ok(("", Atom("Bar".to_owned()))));
+        assert_eq!(atom("'foo bar'"), Ok(("", Atom("foo bar".to_owned()))));
+        assert_eq!(atom("''"), Ok(("", Atom("".to_owned()))));
+
+        // TODO: Is the test correct with \\ == \ in the string?
+        assert_eq!(octal("012"), Ok(("", "012".to_owned())));
+        assert_eq!(parse_escaped("\\011"), Ok(("", "\\011".to_owned())));
+        assert_eq!(atom("'\\010'"), Ok(("", Atom("\\010".to_owned()))));
+        // Literal output expected "%#\010@\n!"
+        assert_eq!(atom("'%#\\010@\\n!'"), Ok(("", Atom("%#\\010@\\n!".to_owned()))));
+        
+        assert_eq!(atom("'_hello_world'"), Ok(("", Atom("_hello_world".to_owned()))));
+        assert_eq!(atom("'=:='"), Ok(("", Atom("=:=".to_owned()))));
+
+        // Mindless sanity check
+        assert_ne!(atom("'foo'"), Ok(("", Atom("bar".to_owned()))));
     }
 }
