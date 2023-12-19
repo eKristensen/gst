@@ -12,7 +12,7 @@ use nom::{
 
 use super::{
     ast::{Atom, Integer, Var},
-    lex::{is_control, is_inputchar, is_uppercase, namechar},
+    lex::{is_control, is_ctlchar, is_inputchar, is_uppercase, namechar},
 };
 
 // TODO: Check terminology: Is everything in here "terminals"?
@@ -55,6 +55,12 @@ fn escapechar(i: &str) -> IResult<&str, char> {
     ))(i)
 }
 
+fn hat_ctlchar(i: &str) -> IResult<&str, String> {
+    map(tuple((char('^'), parse_ctlchar)), |(o1, o2)| {
+        format!("{}{}", o1, o2)
+    })(i)
+}
+
 // Based on: https://github.com/rust-bakery/nom/blob/main/examples/string.rs
 /// Parse an escaped character: \n, \t, \r, \u{00AC}, etc.
 pub fn parse_escaped(i: &str) -> IResult<&str, String> {
@@ -62,8 +68,8 @@ pub fn parse_escaped(i: &str) -> IResult<&str, String> {
         tuple((
             char('\\'),
             alt((
-                octal, // octal
-                //hat_ctl_char, // ^ctlchar
+                octal,                              // octal
+                hat_ctlchar,                        // ^ctlchar
                 map(escapechar, |o| o.to_string()), // escapechar
             )),
         )),
@@ -179,6 +185,20 @@ where
         ||  is_control(item_chr)
         ||  item_chr == 0x5C // Hex codes are not easy to read...
         ||  item_chr == 0x22
+        },
+        nom::error::ErrorKind::Fix, // TODO: Actual error message
+    )
+}
+
+fn parse_ctlchar<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
+where
+    T: InputTakeAtPosition,
+    <T as InputTakeAtPosition>::Item: AsChar,
+{
+    input.split_at_position1_complete(
+        |item| {
+            let item_chr = item.as_char() as u8; // TODO extend trait instead of this
+            !(is_ctlchar(item_chr)) // With trait it could be item.is_ctlchar()
         },
         nom::error::ErrorKind::Fix, // TODO: Actual error message
     )
@@ -397,6 +417,6 @@ mod tests {
         assert_eq!(char_("$\\\\"), Ok(("", "\\\\".to_owned())));
         assert_eq!(char_("$\\12"), Ok(("", "\\12".to_owned())));
         assert_eq!(char_("$\\101"), Ok(("", "\\101".to_owned())));
-        //assert_eq!(char_("$\\^A"), Ok(("", "\\^A".to_owned())));
+        assert_eq!(char_("$\\^A"), Ok(("", "\\^A".to_owned())));
     }
 }

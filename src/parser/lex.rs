@@ -53,7 +53,7 @@ pub fn is_namechar(chr: u8) -> bool {
 
 // Built into nom: is_oct_digit(chr)
 
-fn is_ctlchar(chr: u8) -> bool {
+pub fn is_ctlchar(chr: u8) -> bool {
     chr >= 0x40 && chr <= 0x5F
 }
 
