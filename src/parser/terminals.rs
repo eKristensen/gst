@@ -18,9 +18,9 @@ use super::{
 // TODO: Check terminology: Is everything in here "terminals"?
 
 fn octal(i: &str) -> IResult<&str, String> {
-    let mut str:String = "".to_owned();
+    let mut str: String = "".to_owned();
     let (i, out) = one_of("01234567")(i)?; // TODO: Use is_oct_digit or oct_digit1 instead?
-    // TODO Rewrite. This is impossible to read!
+                                           // TODO Rewrite. This is impossible to read!
     str.push(out);
     let (i, out) = opt(one_of("01234567"))(i)?;
     match out {
@@ -30,12 +30,12 @@ fn octal(i: &str) -> IResult<&str, String> {
             match out {
                 Some(out) => {
                     str.push(out);
-                    Ok((i,str))
-                },
-                None => Ok((i,str))
+                    Ok((i, str))
+                }
+                None => Ok((i, str)),
             }
-        },
-        None => Ok((i,str)),
+        }
+        None => Ok((i, str)),
     }
 }
 
@@ -57,18 +57,17 @@ fn escapechar(i: &str) -> IResult<&str, char> {
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/examples/string.rs
 /// Parse an escaped character: \n, \t, \r, \u{00AC}, etc.
-pub fn parse_escaped(i: &str) -> IResult<&str, String>
-{
+pub fn parse_escaped(i: &str) -> IResult<&str, String> {
     map(
         tuple((
             char('\\'),
             alt((
-                octal,     // octal
+                octal, // octal
                 //hat_ctl_char, // ^ctlchar
-                map(escapechar,|o| o.to_string()), // escapechar
-
+                map(escapechar, |o| o.to_string()), // escapechar
             )),
-        )), |(o1,o2)| format!("{}{}",o1,o2)
+        )),
+        |(o1, o2)| format!("{}{}", o1, o2),
     )(i)
 }
 
@@ -222,7 +221,7 @@ pub fn string(i: &str) -> IResult<&str, String> {
 
 pub fn char_(i: &str) -> IResult<&str, String> {
     let (i, _) = char('$')(i)?;
-    alt((map(char_name,|o| o.to_string()), parse_escaped))(i)
+    alt((map(char_name, |o| o.to_string()), parse_escaped))(i)
 }
 
 fn char_name<T, E: ParseError<T>>(input: T) -> IResult<T, char, E>
@@ -313,7 +312,7 @@ mod tests {
         assert_eq!(lit("+17"), Ok(("", Lit::Int(Integer(17)))));
         assert_eq!(lit("299792458"), Ok(("", Lit::Int(Integer(299792458)))));
         assert_eq!(lit("-4711"), Ok(("", Lit::Int(Integer(-4711)))));
-        
+
         // Mindless sanity check
         assert_ne!(lit("8"), Ok(("", Lit::Int(Integer(42)))));
 
@@ -342,7 +341,6 @@ mod tests {
         assert_ne!(float("0.0"), Ok(("", 2.0)));
 
         // TODO: Negative / Expect Error test
-
     }
 
     #[test]
@@ -357,21 +355,48 @@ mod tests {
         assert_eq!(parse_escaped("\\011"), Ok(("", "\\011".to_owned())));
         assert_eq!(atom("'\\010'"), Ok(("", Atom("\\010".to_owned()))));
         // Literal output expected "%#\010@\n!"
-        assert_eq!(atom("'%#\\010@\\n!'"), Ok(("", Atom("%#\\010@\\n!".to_owned()))));
-        
-        assert_eq!(atom("'_hello_world'"), Ok(("", Atom("_hello_world".to_owned()))));
+        assert_eq!(
+            atom("'%#\\010@\\n!'"),
+            Ok(("", Atom("%#\\010@\\n!".to_owned())))
+        );
+
+        assert_eq!(
+            atom("'_hello_world'"),
+            Ok(("", Atom("_hello_world".to_owned())))
+        );
         assert_eq!(atom("'=:='"), Ok(("", Atom("=:=".to_owned()))));
 
         // TODO Move "lit" tests to lex.rs ?
         assert_eq!(lit("'foo'"), Ok(("", Lit::Atom(Atom("foo".to_owned())))));
         assert_eq!(lit("'Bar'"), Ok(("", Lit::Atom(Atom("Bar".to_owned())))));
-        assert_eq!(lit("'foo bar'"), Ok(("", Lit::Atom(Atom("foo bar".to_owned())))));
+        assert_eq!(
+            lit("'foo bar'"),
+            Ok(("", Lit::Atom(Atom("foo bar".to_owned()))))
+        );
         assert_eq!(lit("''"), Ok(("", Lit::Atom(Atom("".to_owned())))));
-        assert_eq!(lit("'%#\\010@\\n!'"), Ok(("", Lit::Atom(Atom("%#\\010@\\n!".to_owned())))));
-        assert_eq!(lit("'_hello_world'"), Ok(("", Lit::Atom(Atom("_hello_world".to_owned())))));
+        assert_eq!(
+            lit("'%#\\010@\\n!'"),
+            Ok(("", Lit::Atom(Atom("%#\\010@\\n!".to_owned()))))
+        );
+        assert_eq!(
+            lit("'_hello_world'"),
+            Ok(("", Lit::Atom(Atom("_hello_world".to_owned()))))
+        );
         assert_eq!(lit("'=:='"), Ok(("", Lit::Atom(Atom("=:=".to_owned())))));
 
         // Mindless sanity check
         assert_ne!(atom("'foo'"), Ok(("", Atom("bar".to_owned()))));
+    }
+
+    #[test]
+    fn test_char_literal() {
+        assert_eq!(char_("$A"), Ok(("", "A".to_owned())));
+        assert_eq!(char_("$$"), Ok(("", "$".to_owned())));
+        assert_eq!(char_("$\\n"), Ok(("", "\\n".to_owned())));
+        assert_eq!(char_("$\\s"), Ok(("", "\\s".to_owned())));
+        assert_eq!(char_("$\\\\"), Ok(("", "\\\\".to_owned())));
+        assert_eq!(char_("$\\12"), Ok(("", "\\12".to_owned())));
+        assert_eq!(char_("$\\101"), Ok(("", "\\101".to_owned())));
+        //assert_eq!(char_("$\\^A"), Ok(("", "\\^A".to_owned())));
     }
 }
