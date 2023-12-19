@@ -155,5 +155,5 @@ pub fn lit(i: &str) -> IResult<&str, Lit> {
 fn empty_list(i: &str) -> IResult<&str, Lit> {
     let (i, _) = ws(tag("["))(i)?;
     let (i, _) = ws(tag("]"))(i)?;
-    Ok((i, super::ast::Lit::EmptyList))
+    Ok((i, super::ast::Lit::Nil))
 }

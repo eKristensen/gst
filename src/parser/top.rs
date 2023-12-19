@@ -1,6 +1,6 @@
 use nom::{IResult, bytes::complete::tag, multi::many0, sequence::tuple, combinator::map};
 
-use super::{ast::{Module, FunDef, Var, Expr, Attribute}, terminals::{atom, var}, helpers::{ws, comma_sep_list, opt_annotation}, lex::{fname, const_}, expr::exprs};
+use super::{ast::{Module, FunDef, Var, Attribute, Exprs}, terminals::{atom, var}, helpers::{ws, comma_sep_list, opt_annotation}, lex::{fname, const_}, expr::exprs};
 
 pub fn fun(i: &str) -> IResult<&str, FunDef> {
     let (i, head) = fname(i)?;
@@ -10,7 +10,7 @@ pub fn fun(i: &str) -> IResult<&str, FunDef> {
     Ok((i, FunDef{head, args, body: exprs}))
 }
 
-fn fun_inner(i: &str) -> IResult<&str, (Vec<Var>, Expr)> {
+fn fun_inner(i: &str) -> IResult<&str, (Vec<Var>, Exprs)> {
     let (i, _) = ws(tag("fun"))(i)?;
 
     // TODO: function arguments parsing, must be able to parse variables
