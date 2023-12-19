@@ -2,7 +2,7 @@ use std::ops::RangeFrom;
 
 use nom::{error::{ParseError, ErrorKind}, IResult, InputTakeAtPosition, AsChar, branch::alt, combinator::{map, map_res}, multi::fold_many0, sequence::delimited, character::complete::{digit1, char}, InputLength, InputIter, Slice, Err, Parser};
 
-use super::{lex::{is_inputchar, is_control, parse_escaped_char, is_uppercase, namechar}, ast::{Atom, Integer, Var}, helpers::comma_sep_list};
+use super::{lex::{is_inputchar, is_control, parse_escaped_char, is_uppercase, namechar}, ast::{Atom, Integer, Var}};
 
 
 fn parse_atom_input_chr<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
