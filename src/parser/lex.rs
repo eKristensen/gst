@@ -1,4 +1,6 @@
-use nom::{character::is_digit, IResult, error::ParseError, sequence::preceded, character::complete::char, combinator::value, branch::alt, Parser};
+use std::ops::RangeFrom;
+
+use nom::{character::is_digit, IResult, error::{ParseError, ErrorKind}, sequence::preceded, character::complete::char, combinator::value, branch::alt, Parser, InputIter, InputLength, Slice, AsChar, Err};
 
 
 
@@ -71,4 +73,26 @@ where
     )),
   )
   .parse(input)
+}
+
+// TODO: There must exist a easier way to do this
+pub fn namechar<T, E: ParseError<T>>(input: T) -> IResult<T, char, E>
+where
+  T: InputIter + InputLength + Slice<RangeFrom<usize>>,
+  <T as InputIter>::Item: AsChar,
+{
+  let mut it = input.iter_indices();
+  let (input, candidate) = match it.next() {
+    None => Err(Err::Error(E::from_error_kind(input, ErrorKind::Eof))),
+    Some((_, c)) => match it.next() {
+      None => Ok((input.slice(input.input_len()..), c.as_char())),
+      Some((idx, _)) => Ok((input.slice(idx..), c.as_char())),
+    },
+  }?;
+  let item_chr = candidate.as_char() as u8; // TODO extend trait instead of this
+  if !(is_namechar(item_chr)) // With trait it could be item.is_inputchar()
+ {
+    return Err(Err::Error(E::from_error_kind(input, ErrorKind::Fix)));
+  }
+  Ok((input, candidate))
 }
