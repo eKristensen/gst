@@ -1,13 +1,26 @@
-use nom::{IResult, bytes::complete::tag, multi::many0, sequence::tuple, combinator::map};
+use nom::{bytes::complete::tag, combinator::map, multi::many0, sequence::tuple, IResult};
 
-use super::{ast::{Module, FunDef, Var, Attribute, Exprs}, terminals::{atom, var}, helpers::{ws, comma_sep_list, opt_annotation}, lex::{fname, const_}, expr::exprs};
+use super::{
+    ast::{Attribute, Exprs, FunDef, Module, Var},
+    expr::exprs,
+    helpers::{comma_sep_list, opt_annotation, ws},
+    lex::{const_, fname},
+    terminals::{atom, var},
+};
 
 pub fn fun(i: &str) -> IResult<&str, FunDef> {
     let (i, head) = fname(i)?;
     let (i, _) = ws(tag("="))(i)?;
     let (i, (args, exprs)) = opt_annotation(fun_inner)(i)?;
 
-    Ok((i, FunDef{head, args, body: exprs}))
+    Ok((
+        i,
+        FunDef {
+            head,
+            args,
+            body: exprs,
+        },
+    ))
 }
 
 fn fun_inner(i: &str) -> IResult<&str, (Vec<Var>, Exprs)> {
@@ -22,13 +35,14 @@ fn fun_inner(i: &str) -> IResult<&str, (Vec<Var>, Exprs)> {
 }
 
 fn attribute(i: &str) -> IResult<&str, Attribute> {
-    ws(map(tuple((
-        atom,
-        ws(tag("=")),
-        const_
-    )),|(atom,_,val)| Attribute{name:atom, value: val}))(i)
+    ws(map(
+        tuple((atom, ws(tag("=")), const_)),
+        |(atom, _, val)| Attribute {
+            name: atom,
+            value: val,
+        },
+    ))(i)
 }
-
 
 // Top level module definition
 pub fn module(i: &str) -> IResult<&str, Module> {
@@ -54,6 +68,13 @@ pub fn module(i: &str) -> IResult<&str, Module> {
     // Require end keyword
     let (i, _) = ws(tag("end"))(i)?;
 
-
-    Ok((i,Module {name, exports, attributes, body}))
+    Ok((
+        i,
+        Module {
+            name,
+            exports,
+            attributes,
+            body,
+        },
+    ))
 }

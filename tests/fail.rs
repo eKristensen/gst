@@ -1,7 +1,5 @@
 #[cfg(test)]
-
 // Integration tests / Black box tests
-
 use gst;
 
 extern crate test_generator;

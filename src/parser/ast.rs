@@ -1,6 +1,5 @@
 // TODO: Refactor to be more like the core erlang paper suggests the core erlang ast should look. Parsing is more important for now though.
 
-
 // "New" types
 #[derive(Debug, Clone)]
 pub struct Fname(pub Atom);
@@ -13,7 +12,6 @@ pub struct Integer(pub i64);
 
 #[derive(Debug, Clone)]
 pub struct Var(pub String);
-
 
 // AST
 #[derive(Debug)]
@@ -49,18 +47,17 @@ pub enum Lit {
     Float(f32),
     Atom(Atom),
     Char(char),
-    List(Vec<Const>),
-    Tuple(Vec<Const>),
+    List(Vec<Const>),  // TODO: Implement parser
+    Tuple(Vec<Const>), // TODO: Implement parser
     String(String),
     Nil,
 }
-
 
 #[derive(Debug, Clone)]
 pub enum Const {
     Lit(Lit),
     List(Vec<Const>),
-    Tuple(Vec<Const>)
+    Tuple(Vec<Const>),
 }
 
 #[derive(Debug, Clone)]
@@ -78,13 +75,13 @@ pub enum Expr {
     Fun(FunDef),
     List(Vec<Exprs>),
     Tuple(Vec<Exprs>),
-    Let(Vec<Var>,Exprs,Exprs),
-    Case(Exprs,Vec<Clause>),
-    LetRec(Vec<FunDef>,Exprs),
-    Apply(Exprs,Vec<Exprs>),
-    Call(Exprs,Exprs,Vec<Exprs>),
-    PrimOp(Atom,Vec<Exprs>),
-    Receive(Vec<Clause>,Exprs,Exprs),
+    Let(Vec<Var>, Exprs, Exprs),
+    Case(Exprs, Vec<Clause>),
+    LetRec(Vec<FunDef>, Exprs),
+    Apply(Exprs, Vec<Exprs>),
+    Call(Exprs, Exprs, Vec<Exprs>),
+    PrimOp(Atom, Vec<Exprs>),
+    Receive(Vec<Clause>, Exprs, Exprs),
     Try(Exprs, Vec<Var>, Exprs, Vec<Var>, Exprs),
     Do(Exprs, Exprs), // TODO: Maybe merge into one Expr list ?
     Catch(Exprs),
@@ -92,7 +89,7 @@ pub enum Expr {
 
 #[derive(Debug, Clone)]
 pub struct Clause {
-    pub pats:Vec<Pat>,
+    pub pats: Vec<Pat>,
     pub when: Exprs,
     pub res: Exprs,
 }
@@ -103,5 +100,5 @@ pub enum Pat {
     Lit(Lit),
     List(Vec<Pat>),
     Tuple(Vec<Pat>),
-    Alias(Var,Box<Pat>),
+    Alias(Var, Box<Pat>),
 }
