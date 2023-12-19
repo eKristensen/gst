@@ -1,6 +1,8 @@
 use std::ops::RangeFrom;
 
-use nom::{character::is_digit, IResult, error::{ParseError, ErrorKind}, sequence::preceded, character::complete::char, combinator::value, branch::alt, Parser, InputIter, InputLength, Slice, AsChar, Err};
+use nom::{character::is_digit, IResult, error::{ParseError, ErrorKind}, sequence::{preceded, tuple}, character::complete::char, combinator::{value, map}, branch::alt, Parser, InputIter, InputLength, Slice, AsChar, Err, bytes::complete::tag, number::complete::float};
+
+use super::{ast::{FunHead, Fname, Const, Lit}, helpers::{ws, comma_sep_list}, terminals::{atom, integer, char_, string}};
 
 
 
@@ -95,4 +97,63 @@ where
     return Err(Err::Error(E::from_error_kind(input, ErrorKind::Fix)));
   }
   Ok((input, candidate))
+}
+
+// Move to "non-terminals"?
+pub fn fname(i: &str) -> IResult<&str, FunHead> {
+    ws(map(tuple((
+        atom,
+        tag("/"), // TODO: Check whether whitespace is allowed around this tag in this context
+        integer
+    )),|(name,_,arity)| FunHead{name:Fname(name), arity: arity}))(i)
+}
+
+// TODO: Common pattern for nested list, avoid manual rewrite!
+fn const_nested_list(i: &str) -> IResult<&str, Const> {
+    let (i, _) = ws(tag("["))(i)?;
+    let (i, constant) = ws(const_)(i)?;
+    let head =
+        match constant {
+            Const::List(inner_list) => inner_list,
+            _ => vec![constant]
+        };
+
+    let (i, _) = ws(tag("|"))(i)?;
+    let (i, constant) = ws(const_)(i)?;
+    let tail =
+        match constant {
+            Const::List(inner_list) => inner_list,
+            _ => vec![constant]
+        };
+    let (i, _) = ws(tag("]"))(i)?;
+
+    let cons = [&head[..], &tail[..]].concat();
+    Ok((i, crate::parser::ast::Const::List(cons)))
+}
+
+// const is a keyword in rust, const_ is used instead
+pub fn const_(i: &str) -> IResult<&str, Const> {
+    alt((
+        map(lit, crate::parser::ast::Const::Lit),
+        const_nested_list,
+        map(comma_sep_list("[", "]", const_),super::ast::Const::List),
+        map(comma_sep_list("{", "}", const_), crate::parser::ast::Const::Tuple),
+    ))(i)
+}
+
+pub fn lit(i: &str) -> IResult<&str, Lit> {
+    alt((
+        map(integer, super::ast::Lit::Int),
+        map(float, super::ast::Lit::Float),
+        map(atom, crate::parser::ast::Lit::Atom),
+        map(char_, crate::parser::ast::Lit::Char),
+        map(string, crate::parser::ast::Lit::String),
+        empty_list
+    ))(i)
+}
+
+fn empty_list(i: &str) -> IResult<&str, Lit> {
+    let (i, _) = ws(tag("["))(i)?;
+    let (i, _) = ws(tag("]"))(i)?;
+    Ok((i, super::ast::Lit::EmptyList))
 }

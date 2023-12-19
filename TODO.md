@@ -11,6 +11,8 @@ All of above will be hard work, but most likely possible
   - Cargo test for all files
   - erlc to check that core files can be compiled
 
+General TODO: Maybe avoid manual OK((i, sth)) return use map instead?
+
 Split parser into sub-modules:
 - Lexical definitions
 - Terminals
