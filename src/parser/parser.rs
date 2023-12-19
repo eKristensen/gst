@@ -1,6 +1,6 @@
 use std::ops::RangeFrom;
 
-use nom::{IResult, sequence::{delimited, tuple, pair, preceded}, character::{complete::{multispace0, digit1}, is_digit}, multi::{separated_list0, many0, fold_many0}, combinator::{map_res, opt, value, map}, branch::alt, number::complete::float, error::{ParseError, ErrorKind}, Parser, InputTakeAtPosition, AsChar, InputIter, InputLength, Slice};
+use nom::{IResult, sequence::{delimited, tuple, pair}, character::{complete::{multispace0, digit1}, is_digit}, multi::{separated_list0, many0, fold_many0}, combinator::{map_res, opt, value, map}, branch::alt, number::complete::float, error::{ParseError, ErrorKind}, Parser, InputTakeAtPosition, AsChar, InputIter, InputLength, Slice};
 use crate::parser::ast::{Module, FunHead, Fname, Attribute, Atom, Const, Lit, Integer, FunDef, Expr, Var, Clause, Pat};
 use nom::bytes::complete::{tag, take_until};
 use crate::parser::ast::Const::List;
@@ -9,6 +9,8 @@ use crate::parser::parser::Lit::Int;
 use crate::parser::parser::Lit::Float;
 use nom::character::complete::char;
 use nom::Err;
+
+use super::lex::{is_control, is_inputchar, parse_escaped_char, is_uppercase, is_namechar};
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#-ceol-style-comments
 // Comment
@@ -83,75 +85,6 @@ where
 delimited(tag(start), separated_list0(tag(","), elements), tag(end))
 }
 
-#[inline]
-fn is_sign(chr: u8) -> bool {
-  chr <= 0x2B || chr == 0x2D
-}
-
-#[inline]
-fn is_lowercase(chr: u8) -> bool {
-  (chr >= 0x61 && chr <= 0x7A) || (chr >= 0xC0 && chr <= 0xD6) || (chr >= 0xD8 && chr <= 0xDE)
-}
-
-#[inline]
-fn is_uppercase(chr: u8) -> bool {
-  (chr >= 0x41 && chr <= 0x5A) || (chr >= 0xDF && chr <= 0xF6) || (chr >= 0xF8 && chr <= 0xFF)
-}
-
-#[inline]
-fn is_inputchar(chr: u8) -> bool {
-  chr != 0x0D && chr != 0x0A
-}
-
-#[inline]
-fn is_control(chr: u8) -> bool {
-  chr >= 0x00 && chr <= 0x1F
-}
-
-#[inline]
-fn is_space(chr: u8) -> bool {
-  chr == 0x20
-}
-
-#[inline]
-fn is_namechar(chr: u8) -> bool {
-  is_uppercase(chr) || is_lowercase(chr) || is_digit(chr) || chr == 0x40 || chr == 0x5F
-}
-
-// Built into nom: is_oct_digit(chr)
-
-fn is_ctlchar(chr: u8) -> bool {
-  chr >= 0x40 && chr <= 0x5F
-}
-
-fn is_escapechar(chr: u8) -> bool {
-   chr == 0x62 || chr == 0x64 || chr == 0x65 || chr == 0x66 || chr == 0x6E || chr == 0x72 || chr == 0x73 || chr == 0x74 || chr == 0x76 || chr == 0x22 || chr == 0x27 || chr == 0x5C
-}
-
-// Based on: https://github.com/rust-bakery/nom/blob/main/examples/string.rs
-/// Parse an escaped character: \n, \t, \r, \u{00AC}, etc.
-fn parse_escaped_char<'a, E>(input: &'a str) -> IResult<&'a str, char, E>
-where
-  E: ParseError<&'a str>,
-{
-  preceded(
-    char('\\'),
-    alt((
-      char('b'),
-      char('d'),
-      char('e'),
-      char('f'),
-      value('\n', char('n')),
-      value('\r', char('r')),
-      char('s'),
-      value('\t', char('t')),
-      char('v'),
-      char('\''),
-      char('\\'),
-    )),
-  )
-  .parse(input)
-}
 
 // General TODO: Maybe avoid manual OK((i, sth)) return use map instead?
 
