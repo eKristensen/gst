@@ -7,7 +7,6 @@ use nom::{
     character::is_digit,
     combinator::{map, value},
     error::{ErrorKind, ParseError},
-    number::complete::float,
     sequence::{preceded, tuple},
     AsChar, Err, IResult, InputIter, InputLength, Parser, Slice,
 };
@@ -15,7 +14,7 @@ use nom::{
 use super::{
     ast::{Const, Fname, FunHead, Lit},
     helpers::{comma_sep_list, ws},
-    terminals::{atom, char_, integer, string},
+    terminals::{atom, char_, float, integer, string},
 };
 
 #[inline]
@@ -174,8 +173,8 @@ pub fn const_(i: &str) -> IResult<&str, Const> {
 
 pub fn lit(i: &str) -> IResult<&str, Lit> {
     alt((
-        map(integer, super::ast::Lit::Int),
         map(float, super::ast::Lit::Float),
+        map(integer, super::ast::Lit::Int),
         map(atom, crate::parser::ast::Lit::Atom),
         map(char_, crate::parser::ast::Lit::Char),
         map(string, crate::parser::ast::Lit::String),

@@ -3,7 +3,7 @@ use std::ops::RangeFrom;
 use nom::{
     branch::alt,
     character::complete::{char, digit1},
-    combinator::{map, map_res, opt, value, success},
+    combinator::{map, map_res, opt, recognize, success, value},
     error::{ErrorKind, ParseError},
     multi::fold_many0,
     sequence::{delimited, tuple},
@@ -14,6 +14,8 @@ use super::{
     ast::{Atom, Integer, Var},
     lex::{is_control, is_inputchar, is_uppercase, namechar, parse_escaped_char},
 };
+
+// TODO: Check terminology: Is everything in here "terminals"?
 
 fn parse_atom_input_chr<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
 where
@@ -74,10 +76,41 @@ pub fn integer(i: &str) -> IResult<&str, Integer> {
     map(
         tuple((
             // Consume + or - or nothing and save the sign
-            alt((value(true,char('+')), (value(false,char('-'))), success(true))),
+            alt((
+                value(true, char('+')),
+                (value(false, char('-'))),
+                success(true),
+            )),
             // Read integer value
-            map_res(digit1, str::parse::<i64>))
-        ), |(plus ,i)| {if plus { Integer(i) } else { Integer(-i) }})(i)
+            map_res(digit1, str::parse::<i64>),
+        )),
+        |(plus, i)| {
+            if plus {
+                Integer(i)
+            } else {
+                Integer(-i)
+            }
+        },
+    )(i)
+}
+
+// The build in float function in nom is not enough. It can consume integers and present them as floats.
+// We need to check the format before using nom's float function
+pub fn float(i: &str) -> IResult<&str, f32> {
+    // TODO: This is even worse than regex....
+    let (i, float_str) = recognize(tuple((
+        opt(alt((char('+'), char('-')))),
+        digit1,
+        char('.'),
+        digit1,
+        opt(tuple((
+            alt((char('E'), char('e'))),
+            opt(alt((char('+'), char('-')))),
+            digit1,
+        ))),
+    )))(i)?;
+    let (_, float_res) = nom::number::complete::float(float_str)?;
+    Ok((i, float_res))
 }
 
 fn parse_string_input_chr<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
@@ -209,6 +242,8 @@ pub fn var(i: &str) -> IResult<&str, Var> {
 
 #[cfg(test)]
 mod tests {
+    use crate::parser::{ast::Lit, lex::lit};
+
     use super::*;
 
     #[test]
@@ -217,9 +252,34 @@ mod tests {
         assert_eq!(integer("+17"), Ok(("", Integer(17))));
         assert_eq!(integer("299792458"), Ok(("", Integer(299792458))));
         assert_eq!(integer("-4711"), Ok(("", Integer(-4711))));
-        // assert_eq!(integer("abcd\tefg"), Ok(("\tefg", "abcd")));
-        // assert_eq!(integer(" abcdefg"), Err(nom::Err::Error((" abcdefg", nom::error::ErrorKind::IsNot))));
+
+        // TODO Move "lit" tests to lex.rs ?
+        assert_eq!(lit("8"), Ok(("", Lit::Int(Integer(8)))));
+        assert_eq!(lit("+17"), Ok(("", Lit::Int(Integer(17)))));
+        assert_eq!(lit("299792458"), Ok(("", Lit::Int(Integer(299792458)))));
+        assert_eq!(lit("-4711"), Ok(("", Lit::Int(Integer(-4711)))));
+
+        // TODO: Negative / Expect Error test
     }
 
-}
+    // TODO: Could not get direct test on float to work, using lit from lex.rs
+    #[test]
+    fn test_floating_point_numbers() {
+        assert_eq!(float("0.0"), Ok(("", 0.0)));
+        assert_eq!(float("2.7182818"), Ok(("", 2.7182818)));
+        assert_eq!(float("-3.14"), Ok(("", -3.14)));
+        assert_eq!(float("+1.2E-6"), Ok(("", 1.2e-6)));
+        assert_eq!(float("-1.23e12"), Ok(("", -1.23e12)));
+        assert_eq!(float("1.0e+9"), Ok(("", 1.0e9)));
 
+        // TODO Move "lit" tests to lex.rs ?
+        assert_eq!(lit("0.0"), Ok(("", Lit::Float(0.0))));
+        assert_eq!(lit("2.7182818"), Ok(("", Lit::Float(2.7182818))));
+        assert_eq!(lit("-3.14"), Ok(("", Lit::Float(-3.14))));
+        assert_eq!(lit("+1.2E-6"), Ok(("", Lit::Float(1.2e-6))));
+        assert_eq!(lit("-1.23e12"), Ok(("", Lit::Float(-1.23e12))));
+        assert_eq!(lit("1.0e+9"), Ok(("", Lit::Float(1.0e9))));
+
+        // TODO: Negative / Expect Error test
+    }
+}

@@ -4,7 +4,7 @@
 #[derive(Debug, Clone)]
 pub struct Fname(pub Atom);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Atom(pub String);
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,7 +41,7 @@ pub struct FunDef {
     pub body: Exprs,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Lit {
     Int(Integer),
     Float(f32),
@@ -53,7 +53,7 @@ pub enum Lit {
     Nil,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Const {
     Lit(Lit),
     List(Vec<Const>),
