@@ -19,6 +19,7 @@ Split parser into sub-modules:
 - Non-terminals (productions?)
 
 - move parser to create and separate git repo
+  - Before this can be done annotations needs to be parsed as well.
 
 - Nice to have, better error messages:
   - https://github.com/rust-bakery/nom/blob/main/doc/error_management.md

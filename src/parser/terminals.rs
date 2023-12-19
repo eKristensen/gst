@@ -3,10 +3,10 @@ use std::ops::RangeFrom;
 use nom::{
     branch::alt,
     character::complete::{char, digit1},
-    combinator::{map, map_res},
+    combinator::{map, map_res, opt, value, success},
     error::{ErrorKind, ParseError},
     multi::fold_many0,
-    sequence::delimited,
+    sequence::{delimited, tuple},
     AsChar, Err, IResult, InputIter, InputLength, InputTakeAtPosition, Parser, Slice,
 };
 
@@ -71,7 +71,13 @@ pub fn atom(i: &str) -> IResult<&str, Atom> {
 }
 
 pub fn integer(i: &str) -> IResult<&str, Integer> {
-    map(map_res(digit1, str::parse), Integer)(i)
+    map(
+        tuple((
+            // Consume + or - or nothing and save the sign
+            alt((value(true,char('+')), (value(false,char('-'))), success(true))),
+            // Read integer value
+            map_res(digit1, str::parse::<i64>))
+        ), |(plus ,i)| {if plus { Integer(i) } else { Integer(-i) }})(i)
 }
 
 fn parse_string_input_chr<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
@@ -200,3 +206,20 @@ pub fn var(i: &str) -> IResult<&str, Var> {
     final_var_name.push_str(&var_name_tail);
     Ok((i, Var(final_var_name)))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_integer_literals() {
+        assert_eq!(integer("8"), Ok(("", Integer(8))));
+        assert_eq!(integer("+17"), Ok(("", Integer(17))));
+        assert_eq!(integer("299792458"), Ok(("", Integer(299792458))));
+        assert_eq!(integer("-4711"), Ok(("", Integer(-4711))));
+        // assert_eq!(integer("abcd\tefg"), Ok(("\tefg", "abcd")));
+        // assert_eq!(integer(" abcdefg"), Err(nom::Err::Error((" abcdefg", nom::error::ErrorKind::IsNot))));
+    }
+
+}
+

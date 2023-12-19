@@ -7,7 +7,7 @@ pub struct Fname(pub Atom);
 #[derive(Debug, Clone)]
 pub struct Atom(pub String);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Integer(pub i64);
 
 #[derive(Debug, Clone)]
