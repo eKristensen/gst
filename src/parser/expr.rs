@@ -6,7 +6,7 @@ use super::{
     lex::{fname, lit},
     pat::pats,
     terminals::{atom, var},
-    top::fun,
+    top::{fun, fun_def},
 };
 
 // TODO: Common pattern for nested list, avoid manual rewrite!
@@ -47,7 +47,7 @@ fn case_of(i: &str) -> IResult<&str, Expr> {
 
 fn letrec(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("letrec"))(i)?;
-    let (i, fundefs) = many0(ws(fun))(i)?;
+    let (i, fundefs) = many0(ws(fun_def))(i)?;
     let (i, _) = ws(tag("in"))(i)?;
     let (i, expressions) = exprs(i)?;
     Ok((i, crate::parser::ast::Expr::LetRec(fundefs, expressions)))

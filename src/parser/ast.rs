@@ -19,7 +19,7 @@ pub struct Module {
     pub name: Atom,
     pub exports: Vec<FunHead>,
     pub attributes: Vec<Attribute>,
-    pub body: Vec<FunDef>,
+    pub body: Vec<(FunHead, FunDef)>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,7 +36,6 @@ pub struct Attribute {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunDef {
-    pub head: FunHead,
     pub args: Vec<Var>,
     pub body: Exprs,
 }
@@ -77,7 +76,7 @@ pub enum Expr {
     Tuple(Vec<Exprs>),
     Let(Vec<Var>, Exprs, Exprs),
     Case(Exprs, Vec<Clause>),
-    LetRec(Vec<FunDef>, Exprs),
+    LetRec(Vec<(FunHead, FunDef)>, Exprs),
     Apply(Exprs, Vec<Exprs>),
     Call(Exprs, Exprs, Vec<Exprs>),
     PrimOp(Atom, Vec<Exprs>),

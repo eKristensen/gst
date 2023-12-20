@@ -1,29 +1,22 @@
 use nom::{bytes::complete::tag, combinator::map, multi::many0, sequence::tuple, IResult};
 
 use super::{
-    ast::{Attribute, Exprs, FunDef, Module, Var},
+    ast::{Attribute, FunDef, FunHead, Module},
     expr::exprs,
     helpers::{comma_sep_list, opt_annotation, ws},
     lex::{const_, fname},
     terminals::{atom, var},
 };
 
-pub fn fun(i: &str) -> IResult<&str, FunDef> {
+pub fn fun_def(i: &str) -> IResult<&str, (FunHead, FunDef)> {
     let (i, head) = fname(i)?;
     let (i, _) = ws(tag("="))(i)?;
-    let (i, (args, exprs)) = opt_annotation(fun_inner)(i)?;
+    let (i, def) = opt_annotation(fun)(i)?;
 
-    Ok((
-        i,
-        FunDef {
-            head,
-            args,
-            body: exprs,
-        },
-    ))
+    Ok((i, (head, def)))
 }
 
-fn fun_inner(i: &str) -> IResult<&str, (Vec<Var>, Exprs)> {
+pub fn fun(i: &str) -> IResult<&str, FunDef> {
     let (i, _) = ws(tag("fun"))(i)?;
 
     // TODO: function arguments parsing, must be able to parse variables
@@ -31,7 +24,7 @@ fn fun_inner(i: &str) -> IResult<&str, (Vec<Var>, Exprs)> {
     let (i, _) = ws(tag("->"))(i)?;
 
     let (i, exprs) = ws(exprs)(i)?;
-    Ok((i, (args, exprs)))
+    Ok((i, FunDef { args, body: exprs }))
 }
 
 fn attribute(i: &str) -> IResult<&str, Attribute> {
@@ -67,7 +60,7 @@ fn module_inner(i: &str) -> IResult<&str, Module> {
     let (i, attributes) = ws(comma_sep_list("[", "]", attribute))(i)?;
 
     // Module Body - Function definitions
-    let (i, body) = many0(ws(fun))(i)?;
+    let (i, body) = many0(ws(fun_def))(i)?;
 
     // Require end keyword
     let (i, _) = ws(tag("end"))(i)?;

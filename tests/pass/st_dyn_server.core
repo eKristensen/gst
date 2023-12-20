@@ -1,0 +1,141 @@
+module 'st_dyn_server' ['handle_plus_call'/4,
+			'handle_plus_cast'/3,
+			'module_info'/0,
+			'module_info'/1,
+			'start_link'/0]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[116|[101|[115|[116|[115|[47|[112|[97|[115|[115|[47|[115|[116|[95|[100|[121|[110|[95|[115|[101|[114|[118|[101|[114|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]]]]]],1}],
+		%% Line 2
+		'behavior' =
+		    %% Line 2
+		    ['gen_server_plus']]
+'start_link'/0 =
+    %% Line 14
+    ( fun () ->
+	  %% Line 15
+	  call 'gen_server_plus':'start_link'
+	      ('st_dyn_server', [], [])
+      -| [{'function',{'start_link',0}}] )
+'handle_plus_call'/4 =
+    %% Line 19
+    ( fun (_0,_1,_2,_3) ->
+	  ( case <_0,_1,_2,_3> of
+	      <'neg',_X_From,'no_session',GlobalState> when 'true' ->
+		  do  %% Line 20
+		      call 'io':'format'
+			  ([68|[69|[66|[85|[71|[58|[32|[83|[101|[114|[118|[101|[114|[32|[103|[111|[116|[32|[110|[101|[103|[32|[99|[104|[111|[105|[99|[101|[32|[105|[32|[110|[101|[119|[32|[115|[101|[115|[115|[105|[111|[110|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+		      let <_6> =
+			  fun (_4) ->
+			      %% Line 21
+			      call 'erlang':'-'
+				  (_4)
+		      in  %% Line 21
+			  {'reply','ready',[{1,_6}|[]],GlobalState}
+	      %% Line 24
+	      <'add',_X_From,'no_session',GlobalState> when 'true' ->
+		  do  %% Line 25
+		      call 'io':'format'
+			  ([68|[69|[66|[85|[71|[58|[32|[83|[101|[114|[118|[101|[114|[32|[103|[111|[116|[32|[97|[100|[100|[32|[99|[104|[111|[105|[99|[101|[32|[105|[32|[110|[101|[119|[32|[115|[101|[115|[115|[105|[111|[110|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+		      let <_11> =
+			  fun (_8,_7) ->
+			      %% Line 26
+			      call 'erlang':'+'
+				  (_8, _7)
+		      in  %% Line 26
+			  {'reply','ready',[{2,_11}|[]],GlobalState}
+	      %% Line 29
+	      <Val,_X_From,[{Arity,Fun}|Args],GlobalState>
+		  when try
+			let <_12> =
+			    call 'erlang':'is_function'
+				(Fun)
+			in  let <_13> =
+				call 'erlang':'is_number'
+				    (Arity)
+			    in  let <_14> =
+				    call 'erlang':'>'
+					(Arity, 0)
+				in  let <_15> =
+					call 'erlang':'and'
+					    (_13, _14)
+				    in  call 'erlang':'and'
+					    (_12, _15)
+		    of <Try> ->
+			Try
+		    catch <T,R> ->
+			'false' ->
+		  do  %% Line 30
+		      call 'io':'format'
+			  ([68|[69|[66|[85|[71|[58|[32|[83|[101|[114|[118|[101|[114|[32|[103|[111|[116|[32|[109|[111|[114|[101|[32|[111|[110|[32|[114|[101|[108|[97|[116|[101|[100|[32|[115|[101|[115|[115|[105|[111|[110|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+		      let <UpdatedArgs> =
+			  call %% Line 31
+			       'erlang':%% Line 31
+					'++'
+			      (%% Line 31
+			       Args, %% Line 31
+				     [Val|[]])
+		      in  %% Line 32
+			  case <> of
+			    <>
+				when call 'erlang':'=='
+				      (Arity,
+				       1) ->
+				do  %% Line 33
+				    call 'io':'format'
+					([68|[69|[66|[85|[71|[58|[32|[103|[111|[116|[32|[97|[108|[108|[32|[99|[97|[110|[32|[99|[111|[109|[112|[117|[116|[101|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+				    let <Result> =
+					call %% Line 34
+					     'erlang':%% Line 34
+						      'apply'
+					    (%% Line 34
+					     Fun, %% Line 34
+						  UpdatedArgs)
+				    in  %% Line 35
+					{'reply',{'result',Result},[],GlobalState}
+			    %% Line 36
+			    <> when 'true' ->
+				do  %% Line 37
+				    call 'io':'format'
+					([68|[69|[66|[85|[71|[58|[32|[65|[99|[99|[101|[112|[116|[101|[100|[32|[105|[110|[112|[117|[116|[46|[32|[77|[111|[114|[101|[32|[115|[116|[105|[108|[108|[32|[110|[101|[101|[100|[101|[100|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+				    let <_18> =
+					call %% Line 38
+					     'erlang':%% Line 38
+						      '-'
+					    (%% Line 38
+					     Arity, %% Line 38
+						    1)
+				    in  %% Line 38
+					{'reply','received',[{_18,Fun}|UpdatedArgs],GlobalState}
+			  end
+	      ( <_22,_21,_20,_19> when 'true' ->
+		    ( primop 'match_fail'
+			  (( {'function_clause',_22,_21,_20,_19}
+			     -| [{'function',{'handle_plus_call',4}}] ))
+		      -| [{'function',{'handle_plus_call',4}}] )
+		-| ['compiler_generated'] )
+	    end
+	    -| [{'function',{'handle_plus_call',4}}] )
+      -| [{'function',{'handle_plus_call',4}}] )
+'handle_plus_cast'/3 =
+    %% Line 41
+    ( fun (_0,_1,_2) ->
+	  do  %% Line 42
+	      call 'io':'format'
+		  ([78|[111|[32|[99|[97|[115|[116|[32|[115|[117|[112|[112|[111|[114|[116|[126|[110]]]]]]]]]]]]]]]]])
+	      %% Line 43
+	      {'noreply',_1,_2}
+      -| [{'function',{'handle_plus_cast',3}}] )
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('st_dyn_server')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('st_dyn_server', ( _0
+				  -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end
