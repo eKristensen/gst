@@ -12,7 +12,7 @@ use nom::{
 
 use super::{
     ast::{Const, Fname, FunHead, Lit},
-    helpers::{comma_sep_list, ws},
+    helpers::{comma_sep_list, opt_annotation, ws},
     terminals::{atom, char_, float, integer, string},
 };
 
@@ -98,6 +98,11 @@ where
 
 // Move to "non-terminals"?
 pub fn fname(i: &str) -> IResult<&str, FunHead> {
+    opt_annotation(fname_inner)(i)
+}
+
+// Move to "non-terminals"?
+fn fname_inner(i: &str) -> IResult<&str, FunHead> {
     ws(map(
         tuple((
             atom,
@@ -160,4 +165,20 @@ fn empty_list(i: &str) -> IResult<&str, Lit> {
     let (i, _) = ws(tag("["))(i)?;
     let (i, _) = ws(tag("]"))(i)?;
     Ok((i, super::ast::Lit::Nil))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::{
+        ast::{Atom, Lit},
+        lex::lit,
+    };
+
+    #[test]
+    fn test_lit_atom_in_list() {
+        assert_eq!(
+            lit("'new', 'neg')"),
+            Ok((", 'neg')", Lit::Atom(Atom("new".to_owned()))))
+        );
+    }
 }

@@ -2,7 +2,7 @@ use nom::{branch::alt, bytes::complete::tag, combinator::map, sequence::tuple, I
 
 use super::{
     ast::Pat,
-    helpers::{comma_sep_list, ws},
+    helpers::{comma_sep_list, opt_annotation, ws},
     lex::lit,
     terminals::var,
 };
@@ -35,6 +35,10 @@ fn alias(i: &str) -> IResult<&str, Pat> {
 }
 
 fn pat(i: &str) -> IResult<&str, Pat> {
+    opt_annotation(pat_inner)(i)
+}
+
+fn pat_inner(i: &str) -> IResult<&str, Pat> {
     alt((
         map(var, crate::parser::ast::Pat::Var),
         map(lit, crate::parser::ast::Pat::Lit),

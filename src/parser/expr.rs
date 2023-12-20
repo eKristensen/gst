@@ -56,7 +56,7 @@ fn letrec(i: &str) -> IResult<&str, Expr> {
 fn apply(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("apply"))(i)?;
     let (i, exprs0) = ws(exprs)(i)?;
-    let (i, exprs_args) = comma_sep_list("(", ")", exprs)(i)?;
+    let (i, exprs_args) = comma_sep_list("(", ")", ws(exprs))(i)?;
     Ok((i, crate::parser::ast::Expr::Apply(exprs0, exprs_args)))
 }
 
@@ -119,7 +119,12 @@ fn catch(i: &str) -> IResult<&str, Expr> {
     Ok((i, crate::parser::ast::Expr::Catch(exprs1)))
 }
 
+// TODO: More elegant way to add opt_annotation.
 fn clause(i: &str) -> IResult<&str, Clause> {
+    opt_annotation(clause_inner)(i)
+}
+
+fn clause_inner(i: &str) -> IResult<&str, Clause> {
     let (i, pats) = pats(i)?;
     let (i, _) = ws(tag("when"))(i)?;
     let (i, exprs1) = exprs(i)?;
@@ -146,13 +151,22 @@ fn let_in(i: &str) -> IResult<&str, Expr> {
     Ok((i, crate::parser::ast::Expr::Let(vars, exprs1, exprs2)))
 }
 
-// TODO: Move? It is here in lack of a better fitting module
 fn vars(i: &str) -> IResult<&str, Vec<Var>> {
+    opt_annotation(vars_inner)(i)
+}
+
+// TODO: Move? It is here in lack of a better fitting module
+fn vars_inner(i: &str) -> IResult<&str, Vec<Var>> {
     alt((map(var, |o| vec![o]), comma_sep_list("<", ">", var)))(i)
 }
 
 fn expr(i: &str) -> IResult<&str, Expr> {
-    alt((
+    println!("Hit single expr {}", i);
+    opt_annotation(expr_inner)(i)
+}
+
+fn expr_inner(i: &str) -> IResult<&str, Expr> {
+    ws(alt((
         map(var, crate::parser::ast::Expr::Var),
         map(fname, crate::parser::ast::Expr::Fname),
         map(lit, crate::parser::ast::Expr::Lit),
@@ -176,17 +190,32 @@ fn expr(i: &str) -> IResult<&str, Expr> {
         try_expr,
         do_expr,
         catch,
-    ))(i)
+    )))(i)
 }
 
+// TODO: Redundant opt_annotation here?
 pub fn exprs(i: &str) -> IResult<&str, Exprs> {
-    alt((
+    ws(alt((
         map(opt_annotation(expr), |o| {
             crate::parser::ast::Exprs::Single(Box::new(o))
         }),
         map(
-            comma_sep_list("<", ">", expr),
+            comma_sep_list("<", ">", opt_annotation(expr)),
             crate::parser::ast::Exprs::Values,
         ),
-    ))(i)
+    )))(i)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Test case where the issue was the args list. Wrapping for completeness
+    // TODO: Check output maybe?
+    #[test]
+    fn test_exprs_call_args_list() {
+        assert!(
+            exprs(" case call 'a':'b' (_0, 'new', 'neg') of <_2> when 'true' -> [] end ").is_ok()
+        );
+    }
 }

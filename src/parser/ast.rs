@@ -1,7 +1,7 @@
 // TODO: Refactor to be more like the core erlang paper suggests the core erlang ast should look. Parsing is more important for now though.
 
 // "New" types
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Fname(pub Atom);
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,7 +22,7 @@ pub struct Module {
     pub body: Vec<FunDef>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FunHead {
     pub name: Fname,
     pub arity: Integer, // TODO: Hmm Integer here does allow arity to be negative.....
@@ -34,7 +34,7 @@ pub struct Attribute {
     pub value: Const,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FunDef {
     pub head: FunHead,
     pub args: Vec<Var>,
@@ -60,14 +60,14 @@ pub enum Const {
     Tuple(Vec<Const>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Exprs {
     Single(Box<Expr>),
     Values(Vec<Expr>),
 }
 
 // TODO: Maybe it is a bad idea to use Vec<Expr> instead of having Exprs
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Var(Var),
     Fname(FunHead),
@@ -87,14 +87,14 @@ pub enum Expr {
     Catch(Exprs),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Clause {
     pub pats: Vec<Pat>,
     pub when: Exprs,
     pub res: Exprs,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Pat {
     Var(Var),
     Lit(Lit),

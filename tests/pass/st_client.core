@@ -1,0 +1,103 @@
+module 'st_client' ['addition'/3,
+		    'module_info'/0,
+		    'module_info'/1,
+		    'negation'/2]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[116|[101|[115|[116|[115|[47|[112|[97|[115|[115|[47|[115|[116|[95|[99|[108|[105|[101|[110|[116|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]],1}]]
+'negation'/2 =
+    %% Line 12
+    ( fun (_0,_1) ->
+	  do  %% Line 13
+	      call 'io':'format'
+		  ([68|[69|[66|[85|[71|[58|[32|[83|[116|[97|[114|[116|[101|[100|[32|[110|[101|[103|[126|[110]]]]]]]]]]]]]]]]]]]])
+	      %% Line 15
+	      case call 'gen_server_plus':'call'
+		       (_0, 'new', 'neg') of
+		<{SessionID,'ready'}> when 'true' ->
+		    do  %% Line 16
+			call 'io':'format'
+			    ([68|[69|[66|[85|[71|[58|[32|[67|[108|[105|[101|[110|[116|[32|[103|[111|[116|[32|[114|[101|[97|[100|[121|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]])
+			%% Line 18
+			case call 'gen_server_plus':'call'
+				 (_0, SessionID, _1) of
+			  <{_6,{'result',Res}}>
+			      when call 'erlang':'=:='
+				    (_6,
+				     SessionID) ->
+			      %% Line 19
+			      call 'io':'format'
+				  ([71|[111|[116|[32|[114|[101|[115|[112|[111|[110|[115|[101|[58|[32|[126|[119|[126|[110]]]]]]]]]]]]]]]]]], [Res|[]])
+			  ( <_3> when 'true' ->
+				primop 'match_fail'
+				    ({'badmatch',_3})
+			    -| ['compiler_generated'] )
+			end
+		( <_2> when 'true' ->
+		      primop 'match_fail'
+			  ({'badmatch',_2})
+		  -| ['compiler_generated'] )
+	      end
+      -| [{'function',{'negation',2}}] )
+'addition'/3 =
+    %% Line 22
+    ( fun (_0,_1,_2) ->
+	  do  %% Line 23
+	      call 'io':'format'
+		  ([68|[69|[66|[85|[71|[58|[32|[83|[116|[97|[114|[116|[101|[100|[32|[97|[100|[100|[126|[110]]]]]]]]]]]]]]]]]]]])
+	      %% Line 25
+	      case call 'gen_server_plus':'call'
+		       (_0, 'new', 'add') of
+		<{SessionID,'ready'}> when 'true' ->
+		    do  %% Line 26
+			call 'io':'format'
+			    ([68|[69|[66|[85|[71|[58|[32|[67|[108|[105|[101|[110|[116|[32|[103|[111|[116|[32|[114|[101|[97|[100|[121|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]])
+			%% Line 28
+			case call 'gen_server_plus':'call'
+				 (_0, SessionID, _1) of
+			  <{_9,'received'}>
+			      when call 'erlang':'=:='
+				    (_9,
+				     SessionID) ->
+			      do  %% Line 29
+				  call 'io':'format'
+				      ([68|[69|[66|[85|[71|[58|[32|[83|[101|[114|[118|[101|[114|[32|[114|[101|[99|[101|[105|[118|[101|[100|[32|[102|[105|[114|[115|[116|[32|[118|[97|[108|[117|[101|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+				  %% Line 30
+				  case call 'gen_server_plus':'call'
+					   (_0, SessionID, _2) of
+				    <{_10,{'result',Res}}>
+					when call 'erlang':'=:='
+					      (_10,
+					       SessionID) ->
+					%% Line 31
+					call 'io':'format'
+					    ([71|[111|[116|[32|[114|[101|[115|[112|[111|[110|[115|[101|[58|[32|[126|[119|[126|[110]]]]]]]]]]]]]]]]]], [Res|[]])
+				    ( <_5> when 'true' ->
+					  primop 'match_fail'
+					      ({'badmatch',_5})
+				      -| ['compiler_generated'] )
+				  end
+			  ( <_4> when 'true' ->
+				primop 'match_fail'
+				    ({'badmatch',_4})
+			    -| ['compiler_generated'] )
+			end
+		( <_3> when 'true' ->
+		      primop 'match_fail'
+			  ({'badmatch',_3})
+		  -| ['compiler_generated'] )
+	      end
+      -| [{'function',{'addition',3}}] )
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('st_client')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('st_client', ( _0
+			      -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end

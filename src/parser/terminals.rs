@@ -12,7 +12,8 @@ use nom::{
 
 use super::{
     ast::{Atom, Integer, Var},
-    lex::{is_control, is_ctlchar, is_inputchar, is_uppercase, namechar}, helpers::ws,
+    helpers::{opt_annotation, ws},
+    lex::{is_control, is_ctlchar, is_inputchar, is_uppercase, namechar},
 };
 
 // TODO: Check terminology: Is everything in here "terminals"?
@@ -240,7 +241,10 @@ fn string_quoted(i: &str) -> IResult<&str, String> {
 }
 
 pub fn string(i: &str) -> IResult<&str, String> {
-    fold_many1(ws(string_quoted), String::new, |mut string, fragment| { string.push_str(&fragment); string })(i)
+    fold_many1(ws(string_quoted), String::new, |mut string, fragment| {
+        string.push_str(&fragment);
+        string
+    })(i)
 }
 
 pub fn char_(i: &str) -> IResult<&str, String> {
@@ -295,7 +299,12 @@ where
     Ok((input, candidate))
 }
 
+// TODO: Test var annotation works as intended
 pub fn var(i: &str) -> IResult<&str, Var> {
+    opt_annotation(var_inner)(i)
+}
+
+fn var_inner(i: &str) -> IResult<&str, Var> {
     let (i, var_name_head) = alt((
         map(uppercase_char, |o: char| o.to_string()),
         map(char('_'), |o| o.to_string()), // TODO: Odd but elc accepts "_" as a valid variable name despite it explicitly being invalid in the core erlang specification
@@ -446,14 +455,32 @@ mod tests {
     #[test]
     fn test_strings() {
         // Tests based on Core Erlang 1.03 specification Appendix A
-        assert_eq!(string("\"Hello, World!\""), Ok(("", "Hello, World!".to_owned())));
-        assert_eq!(string("\"Two\\nlines\""), Ok(("", "Two\\nlines".to_owned())));
-        assert_eq!(string("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\""), Ok(("", "Ring\\^GMy\\7Bell\\007!".to_owned())));
+        assert_eq!(
+            string("\"Hello, World!\""),
+            Ok(("", "Hello, World!".to_owned()))
+        );
+        assert_eq!(
+            string("\"Two\\nlines\""),
+            Ok(("", "Two\\nlines".to_owned()))
+        );
+        assert_eq!(
+            string("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\""),
+            Ok(("", "Ring\\^GMy\\7Bell\\007!".to_owned()))
+        );
 
         // TODO Move "lit" tests to lex.rs ?
-        assert_eq!(lit("\"Hello, World!\""), Ok(("", Lit::String("Hello, World!".to_owned()))));
-        assert_eq!(lit("\"Two\\nlines\""), Ok(("", Lit::String("Two\\nlines".to_owned()))));
-        assert_eq!(lit("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\""), Ok(("", Lit::String("Ring\\^GMy\\7Bell\\007!".to_owned()))));
+        assert_eq!(
+            lit("\"Hello, World!\""),
+            Ok(("", Lit::String("Hello, World!".to_owned())))
+        );
+        assert_eq!(
+            lit("\"Two\\nlines\""),
+            Ok(("", Lit::String("Two\\nlines".to_owned())))
+        );
+        assert_eq!(
+            lit("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\""),
+            Ok(("", Lit::String("Ring\\^GMy\\7Bell\\007!".to_owned())))
+        );
 
         // Mindless sanity check
         assert_ne!(string("\"Foo\""), Ok(("", "Bar".to_owned())));
@@ -469,7 +496,10 @@ mod tests {
         assert_eq!(var("Value_2"), Ok(("", Var("Value_2".to_owned()))));
         assert_eq!(var("One2Three"), Ok(("", Var("One2Three".to_owned()))));
         assert_eq!(var("Stay@home"), Ok(("", Var("Stay@home".to_owned()))));
-        assert_eq!(var("_hello_world"), Ok(("", Var("_hello_world".to_owned()))));
+        assert_eq!(
+            var("_hello_world"),
+            Ok(("", Var("_hello_world".to_owned())))
+        );
 
         // Lowercase var must give error
         assert!(var("lowercase").is_err());

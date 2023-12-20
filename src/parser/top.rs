@@ -44,8 +44,12 @@ fn attribute(i: &str) -> IResult<&str, Attribute> {
     ))(i)
 }
 
-// Top level module definition
 pub fn module(i: &str) -> IResult<&str, Module> {
+    opt_annotation(module_inner)(i)
+}
+
+// Top level module definition
+fn module_inner(i: &str) -> IResult<&str, Module> {
     // TODO: Check that "tag" requires "module" and does not work with partial data such as "mod"
     // Scan module
     let (i, _) = ws(tag("module"))(i)?;
