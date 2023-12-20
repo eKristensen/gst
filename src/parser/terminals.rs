@@ -460,4 +460,26 @@ mod tests {
 
         // TODO: Negative / Expect Error test
     }
+
+    #[test]
+    fn test_variables() {
+        // Tests based on Core Erlang 1.03 specification Appendix A
+        assert_eq!(var("X"), Ok(("", Var("X".to_owned()))));
+        assert_eq!(var("Bar"), Ok(("", Var("Bar".to_owned()))));
+        assert_eq!(var("Value_2"), Ok(("", Var("Value_2".to_owned()))));
+        assert_eq!(var("One2Three"), Ok(("", Var("One2Three".to_owned()))));
+        assert_eq!(var("Stay@home"), Ok(("", Var("Stay@home".to_owned()))));
+        assert_eq!(var("_hello_world"), Ok(("", Var("_hello_world".to_owned()))));
+
+        // Lowercase var must give error
+        assert!(var("lowercase").is_err());
+
+        // Core erlang accepts "_" as a var despite spec version 1.03 explicitly says this is invalid
+        assert_eq!(var("_"), Ok(("", Var("_".to_owned()))));
+
+        // Mindless sanity check
+        assert_ne!(var("A"), Ok(("", Var("B".to_owned()))));
+
+        // TODO: Negative / Expect Error test
+    }
 }
