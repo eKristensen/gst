@@ -161,7 +161,6 @@ fn vars_inner(i: &str) -> IResult<&str, Vec<Var>> {
 }
 
 fn expr(i: &str) -> IResult<&str, Expr> {
-    println!("Hit single expr {}", i);
     opt_annotation(expr_inner)(i)
 }
 
