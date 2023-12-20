@@ -5,14 +5,14 @@ use nom::{
     character::complete::{char, digit1, one_of},
     combinator::{map, map_res, opt, recognize, success, value},
     error::{ErrorKind, ParseError},
-    multi::fold_many0,
+    multi::{fold_many0, fold_many1},
     sequence::{delimited, tuple},
     AsChar, Err, IResult, InputIter, InputLength, InputTakeAtPosition, Parser, Slice,
 };
 
 use super::{
     ast::{Atom, Integer, Var},
-    lex::{is_control, is_ctlchar, is_inputchar, is_uppercase, namechar},
+    lex::{is_control, is_ctlchar, is_inputchar, is_uppercase, namechar}, helpers::ws,
 };
 
 // TODO: Check terminology: Is everything in here "terminals"?
@@ -213,7 +213,7 @@ fn parse_string_fragments(i: &str) -> IResult<&str, String> {
 }
 
 // TODO: Deduplicate, a lot like fn atom
-pub fn string(i: &str) -> IResult<&str, String> {
+fn string_quoted(i: &str) -> IResult<&str, String> {
     // fold is the equivalent of iterator::fold. It runs a parser in a loop,
     // and for each output value, calls a folding function on each output value.
     let build_string = fold_many0(
@@ -237,6 +237,10 @@ pub fn string(i: &str) -> IResult<&str, String> {
         o.to_string()
     })
     .parse(i)
+}
+
+pub fn string(i: &str) -> IResult<&str, String> {
+    fold_many1(ws(string_quoted), String::new, |mut string, fragment| { string.push_str(&fragment); string })(i)
 }
 
 pub fn char_(i: &str) -> IResult<&str, String> {
@@ -322,6 +326,7 @@ mod tests {
 
     #[test]
     fn test_integer_literals() {
+        // Tests based on Core Erlang 1.03 specification Appendix A
         assert_eq!(integer("8"), Ok(("", Integer(8))));
         assert_eq!(integer("+17"), Ok(("", Integer(17))));
         assert_eq!(integer("299792458"), Ok(("", Integer(299792458))));
@@ -342,6 +347,7 @@ mod tests {
     // TODO: Could not get direct test on float to work, using lit from lex.rs
     #[test]
     fn test_floating_point_numbers() {
+        // Tests based on Core Erlang 1.03 specification Appendix A
         assert_eq!(float("0.0"), Ok(("", 0.0)));
         assert_eq!(float("2.7182818"), Ok(("", 2.7182818)));
         assert_eq!(float("-3.14"), Ok(("", -3.14)));
@@ -365,6 +371,7 @@ mod tests {
 
     #[test]
     fn test_atom() {
+        // Tests based on Core Erlang 1.03 specification Appendix A
         assert_eq!(atom("'foo'"), Ok(("", Atom("foo".to_owned()))));
         assert_eq!(atom("'Bar'"), Ok(("", Atom("Bar".to_owned()))));
         assert_eq!(atom("'foo bar'"), Ok(("", Atom("foo bar".to_owned()))));
@@ -410,6 +417,7 @@ mod tests {
 
     #[test]
     fn test_char_literal() {
+        // Tests based on Core Erlang 1.03 specification Appendix A
         assert_eq!(char_("$A"), Ok(("", "A".to_owned())));
         assert_eq!(char_("$$"), Ok(("", "$".to_owned())));
         assert_eq!(char_("$\\n"), Ok(("", "\\n".to_owned())));
@@ -418,5 +426,38 @@ mod tests {
         assert_eq!(char_("$\\12"), Ok(("", "\\12".to_owned())));
         assert_eq!(char_("$\\101"), Ok(("", "\\101".to_owned())));
         assert_eq!(char_("$\\^A"), Ok(("", "\\^A".to_owned())));
+
+        // TODO Move "lit" tests to lex.rs ?
+        assert_eq!(lit("$A"), Ok(("", Lit::Char("A".to_owned()))));
+        assert_eq!(lit("$$"), Ok(("", Lit::Char("$".to_owned()))));
+        assert_eq!(lit("$\\n"), Ok(("", Lit::Char("\\n".to_owned()))));
+        assert_eq!(lit("$\\s"), Ok(("", Lit::Char("\\s".to_owned()))));
+        assert_eq!(lit("$\\\\"), Ok(("", Lit::Char("\\\\".to_owned()))));
+        assert_eq!(lit("$\\12"), Ok(("", Lit::Char("\\12".to_owned()))));
+        assert_eq!(lit("$\\101"), Ok(("", Lit::Char("\\101".to_owned()))));
+        assert_eq!(lit("$\\^A"), Ok(("", Lit::Char("\\^A".to_owned()))));
+
+        // Mindless sanity check
+        assert_ne!(char_("$A"), Ok(("", "B".to_owned())));
+
+        // TODO: Negative / Expect Error test
+    }
+
+    #[test]
+    fn test_strings() {
+        // Tests based on Core Erlang 1.03 specification Appendix A
+        assert_eq!(string("\"Hello, World!\""), Ok(("", "Hello, World!".to_owned())));
+        assert_eq!(string("\"Two\\nlines\""), Ok(("", "Two\\nlines".to_owned())));
+        assert_eq!(string("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\""), Ok(("", "Ring\\^GMy\\7Bell\\007!".to_owned())));
+
+        // TODO Move "lit" tests to lex.rs ?
+        assert_eq!(lit("\"Hello, World!\""), Ok(("", Lit::String("Hello, World!".to_owned()))));
+        assert_eq!(lit("\"Two\\nlines\""), Ok(("", Lit::String("Two\\nlines".to_owned()))));
+        assert_eq!(lit("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\""), Ok(("", Lit::String("Ring\\^GMy\\7Bell\\007!".to_owned()))));
+
+        // Mindless sanity check
+        assert_ne!(string("\"Foo\""), Ok(("", "Bar".to_owned())));
+
+        // TODO: Negative / Expect Error test
     }
 }
