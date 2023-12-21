@@ -30,6 +30,12 @@ Split parser into sub-modules:
   - https://www.youtube.com/watch?v=Ph7xHhBfH0w
   - https://docs.rs/miette/latest/miette/
 
+- Test suite use OTP Lib:
+  - Inspired by https://github.com/hamler-lang/CoreErlang/tree/master/test/data
+  - The idea is to convert any erl file from otp to .core and check them
+  - https://github.com/erlang/otp/tree/master/lib
+  - Instead of keeping all files there could be a script to get all these files and flatten the file-names or at the very least the paths.
+
 Consider supporting older OTP versions. Right now I only accept the translation from erl to core as defined in OTP26. 
 - According to my testing version 23-26 use the same translation to .core and anything older is different.
 
