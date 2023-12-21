@@ -1,0 +1,84 @@
+module 'maps_experiments' ['test'/0] attributes []
+
+% Expected printout of the test function is:
+% Empty map is #{}
+% Map for key => val (exact) is  #{foo => bar}
+% Update assoc with |  #{foo => updated_assoc}
+% Update exact with |  #{foo => updated_exact}
+% Two value exact map is  #{foo => bar,animal => tiger}
+% Replaced two value exact map is  #{foo => bar,animal => lion}
+% Assoc replaced two value exact map is  #{foo => bar,animal => lion}
+% Two value exact bar map is  #{foo => bar,animal => tiger}
+% OddMap01 is  #{42 => #{animal => lion}}
+% OddMap02 is  #{#{foo => bar} => #{animal => tiger}}
+% OddMap03 is  #{#{animal => tiger} => 42}
+% {'EXIT',{{badkey,foo},
+%          [{maps_experiments,test,0,[]},
+%           {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,750}]},
+%           {shell,exprs,7,[{file,"shell.erl"},{line,782}]},
+%           {shell,eval_exprs,7,[{file,"shell.erl"},{line,738}]},
+%           {shell,eval_loop,4,[{file,"shell.erl"},{line,723}]}]}}
+
+'test'/0 =
+    fun () ->
+    do
+        let EmptyMap = ~{}~ in
+        call 'io':'format'
+                ("~s ~w~n",["Empty map is",EmptyMap])
+
+    do
+        let ExactMap = ~{'foo'=>'bar'}~ in
+        do
+            call 'io':'format'
+                    ("~s ~w~n",["Map for key => val (exact) is ",ExactMap])
+
+            do
+                let AssocUpdateMap = ~{'foo':='updated_assoc' | ExactMap}~ in
+                call 'io':'format'
+                        ("~s ~w~n",["Update assoc with | ",AssocUpdateMap])
+
+                let ExactUpdateMap = ~{'foo'=>'updated_exact' | ExactMap}~ in
+                call 'io':'format'
+                        ("~s ~w~n",["Update exact with | ",ExactUpdateMap])
+
+    do
+        let TwoValMap = ~{'foo'=>'bar','animal'=>'tiger'}~ in
+        call 'io':'format'
+                ("~s ~w~n",["Two value exact map is ",TwoValMap])
+
+    do
+        let ReplacedTwoValue = ~{'foo'=>'bar','animal'=>'tiger','animal'=>'lion'}~ in
+        call 'io':'format'
+                ("~s ~w~n",["Replaced two value exact map is ",ReplacedTwoValue])
+
+    do
+        let AssocReplacedTwoValue = ~{'foo'=>'bar','animal'=>'tiger','animal':='lion'}~ in
+        call 'io':'format'
+                ("~s ~w~n",["Assoc replaced two value exact map is ",AssocReplacedTwoValue])
+
+    do
+        let TwoValBarMap = ~{'foo'=>'bar'|~{'animal'=>'tiger'}~}~ in
+        call 'io':'format'
+                ("~s ~w~n",["Two value exact bar map is ",TwoValBarMap])
+
+    do
+        let OddMap01 = ~{let Bar='foo' in 42=>~{'animal'=>'tiger'}~,42:=~{'animal'=>'lion'}~}~ in
+        call 'io':'format'
+                ("~s ~w~n",["OddMap01 is ",OddMap01])
+
+    do
+        let OddMap02 = ~{~{'foo'=>'bar'}~=>~{'animal'=>'tiger'}~}~ in
+        call 'io':'format'
+                ("~s ~w~n",["OddMap02 is ",OddMap02])
+
+    do
+        let OddMap03 = ~{~{'animal'=>'tiger'}~=>let Bar='foo' in 42}~ in
+        call 'io':'format'
+                ("~s ~w~n",["OddMap03 is ",OddMap03])
+
+        % Assoc operator := cannot update map for key that does not exist. Result is runtime error
+        catch let AssocMap = ~{'foo':='bar'}~ in
+        call 'io':'format'
+                ("~s ~w~n",["Map for key := val (assoc) is ",AssocMap])
+
+end

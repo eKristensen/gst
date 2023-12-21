@@ -2,10 +2,10 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_until},
     character::complete::multispace0,
-    combinator::{map, opt},
+    combinator::map,
     error::ParseError,
-    multi::separated_list0,
-    sequence::{delimited, pair, tuple},
+    multi::{many0, separated_list0},
+    sequence::{delimited, tuple},
     IResult, Parser,
 };
 
@@ -14,8 +14,12 @@ use nom::{
 fn comment<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, (), E> {
     // TODO: Better to use char('%') instead of tag("%") ??
     map(
-        pair(nom::character::complete::char('%'), take_until("\n")),
-        |(_, _)| (),
+        tuple((
+            nom::character::complete::char('%'),
+            take_until("\n"),
+            tag("\n"),
+        )),
+        |_| (),
     )(i) // TODO: Better to use end of line instead of is_not ? TODO: Type of line endings...
 }
 
@@ -63,11 +67,11 @@ where
     map(
         tuple((
             multispace0,
-            opt(comment),
+            many0(comment),
             multispace0,
             inner,
             multispace0,
-            opt(comment),
+            many0(comment),
             multispace0,
         )),
         |(_, _, _, o, _, _, _)| o,

@@ -12,20 +12,20 @@ fn pat_nested_list(i: &str) -> IResult<&str, Pat> {
     let (i, _) = ws(tag("["))(i)?;
     let (i, pattern) = ws(pat)(i)?;
     let head = match pattern {
-        Pat::List(inner_list) => inner_list,
+        Pat::Cons(inner_list) => inner_list,
         _ => vec![pattern],
     };
 
     let (i, _) = ws(tag("|"))(i)?;
     let (i, pattern) = ws(pat)(i)?;
     let tail = match pattern {
-        Pat::List(inner_list) => inner_list,
+        Pat::Cons(inner_list) => inner_list,
         _ => vec![pattern],
     };
     let (i, _) = ws(tag("]"))(i)?;
 
     let cons = [&head[..], &tail[..]].concat();
-    Ok((i, crate::parser::ast::Pat::List(cons)))
+    Ok((i, crate::parser::ast::Pat::Cons(cons)))
 }
 
 fn alias(i: &str) -> IResult<&str, Pat> {
@@ -43,7 +43,7 @@ fn pat_inner(i: &str) -> IResult<&str, Pat> {
         map(var, crate::parser::ast::Pat::Var),
         map(lit, crate::parser::ast::Pat::Lit),
         pat_nested_list,
-        map(comma_sep_list("[", "]", pat), crate::parser::ast::Pat::List),
+        map(comma_sep_list("[", "]", pat), crate::parser::ast::Pat::Cons),
         map(
             comma_sep_list("{", "}", pat),
             crate::parser::ast::Pat::Tuple,

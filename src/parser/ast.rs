@@ -46,7 +46,7 @@ pub enum Lit {
     Float(f32),
     Atom(Atom),
     Char(String),      // TODO: Wut? A char is not a char, It could be e.g. $\101
-    List(Vec<Const>),  // TODO: Implement parser
+    Cons(Vec<Const>),  // TODO: Implement parser
     Tuple(Vec<Const>), // TODO: Implement parser
     String(String),
     Nil,
@@ -55,7 +55,7 @@ pub enum Lit {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Const {
     Lit(Lit),
-    List(Vec<Const>),
+    Cons(Vec<Const>),
     Tuple(Vec<Const>),
 }
 
@@ -65,6 +65,19 @@ pub enum Exprs {
     Values(Vec<Expr>),
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum MapPairType {
+    Assoc,
+    Exact,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MapPair {
+    pub pair_type: MapPairType,
+    pub key: Expr,
+    pub value: Expr,
+}
+
 // TODO: Maybe it is a bad idea to use Vec<Expr> instead of having Exprs
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -72,7 +85,7 @@ pub enum Expr {
     Fname(FunHead),
     Lit(Lit),
     Fun(FunDef),
-    List(Vec<Exprs>),
+    Cons(Vec<Exprs>),
     Tuple(Vec<Exprs>),
     Let(Vec<Var>, Exprs, Exprs),
     Case(Exprs, Vec<Clause>),
@@ -84,6 +97,7 @@ pub enum Expr {
     Try(Exprs, Vec<Var>, Exprs, Vec<Var>, Exprs),
     Do(Exprs, Exprs), // TODO: Maybe merge into one Expr list ?
     Catch(Exprs),
+    Map(Vec<MapPair>, Option<Box<Expr>>), // TODO: More transparent way to allow "update" from map or variable that contains a map
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -97,7 +111,7 @@ pub struct Clause {
 pub enum Pat {
     Var(Var),
     Lit(Lit),
-    List(Vec<Pat>),
+    Cons(Vec<Pat>),
     Tuple(Vec<Pat>),
     Alias(Var, Box<Pat>),
 }

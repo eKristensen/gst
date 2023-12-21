@@ -2,6 +2,8 @@
 
 Streaming vs complete parser: Cannot check for "end" with a streaming parser, must be complete
 
+Core Erlang is compiled only. No interactive way to run code like in normal non-core Erlang.
+
 # TODO
 
 - Test with relevant .core files, if possible with many files
@@ -31,6 +33,7 @@ Split parser into sub-modules:
 Consider supporting older OTP versions. Right now I only accept the translation from erl to core as defined in OTP26. 
 - According to my testing version 23-26 use the same translation to .core and anything older is different.
 
+/home/ek/code/otp/lib/compiler/src/cerl.erl
 /home/ek/code/otp/lib/compiler/src/core_parse.yrl
 
 https://github.com/erlang/otp/blob/master/lib/compiler/src/core_scan.erl

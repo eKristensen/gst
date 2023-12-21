@@ -1,7 +1,14 @@
-use nom::{branch::alt, bytes::complete::tag, combinator::map, multi::many0, IResult};
+use nom::{
+    branch::alt,
+    bytes::complete::tag,
+    combinator::{map, opt, value},
+    multi::{many0, separated_list0},
+    sequence::{delimited, preceded, tuple},
+    IResult,
+};
 
 use super::{
-    ast::{Clause, Expr, Exprs, Var},
+    ast::{Clause, Expr, Exprs, MapPair, MapPairType, Var},
     helpers::{comma_sep_list, opt_annotation, ws},
     lex::{fname, lit},
     pat::pats,
@@ -15,7 +22,7 @@ fn expr_nested_list(i: &str) -> IResult<&str, Expr> {
     let (i, expr) = ws(exprs)(i)?;
     let head = match expr {
         Exprs::Single(expr) => match *expr {
-            Expr::List(exprs) => exprs,
+            Expr::Cons(exprs) => exprs,
             val => vec![Exprs::Single(Box::new(val))],
         },
         otherwise => vec![otherwise], // Value list should not be flatted
@@ -25,7 +32,7 @@ fn expr_nested_list(i: &str) -> IResult<&str, Expr> {
     let (i, expr) = ws(exprs)(i)?;
     let tail = match expr {
         Exprs::Single(expr) => match *expr {
-            Expr::List(exprs) => exprs,
+            Expr::Cons(exprs) => exprs,
             val => vec![Exprs::Single(Box::new(val))],
         },
         otherwise => vec![otherwise], // Value list should not be flatted
@@ -33,7 +40,7 @@ fn expr_nested_list(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("]"))(i)?;
 
     let cons = [&head[..], &tail[..]].concat();
-    Ok((i, crate::parser::ast::Expr::List(cons)))
+    Ok((i, crate::parser::ast::Expr::Cons(cons)))
 }
 
 fn case_of(i: &str) -> IResult<&str, Expr> {
@@ -106,6 +113,44 @@ fn try_expr(i: &str) -> IResult<&str, Expr> {
     ))
 }
 
+// TODO: Annotations can be any odd place, not implemented yet for maps
+fn map_expr(i: &str) -> IResult<&str, Expr> {
+    map(
+        delimited(
+            ws(tag("~{")),
+            // Note: It is impossible to flatten or evaluate keys or values of maps since expressions
+            // might need to be evaluated to their true value which might depend on the current context.
+            tuple((
+                separated_list0(tag(","), map_pair),
+                opt(map(
+                    preceded(ws(tag("|")), alt((map(var, Expr::Var), map_expr))),
+                    Box::new,
+                )),
+            )),
+            ws(tag("}~")),
+        ),
+        |(o1, o2)| Expr::Map(o1, o2),
+    )(i)
+}
+
+fn map_pair(i: &str) -> IResult<&str, MapPair> {
+    map(
+        tuple((
+            expr,
+            alt((
+                value(MapPairType::Assoc, ws(tag("=>"))),
+                value(MapPairType::Exact, ws(tag(":="))),
+            )),
+            expr,
+        )),
+        |(key, pair_type, value)| MapPair {
+            pair_type,
+            key,
+            value,
+        },
+    )(i)
+}
+
 fn do_expr(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("do"))(i)?;
     let (i, exprs1) = ws(exprs)(i)?;
@@ -173,7 +218,7 @@ fn expr_inner(i: &str) -> IResult<&str, Expr> {
         expr_nested_list,
         map(
             comma_sep_list("[", "]", exprs),
-            crate::parser::ast::Expr::List,
+            crate::parser::ast::Expr::Cons,
         ),
         map(
             comma_sep_list("{", "}", exprs),
@@ -189,15 +234,18 @@ fn expr_inner(i: &str) -> IResult<&str, Expr> {
         try_expr,
         do_expr,
         catch,
+        map_expr,
     )))(i)
 }
 
-// TODO: Redundant opt_annotation here?
 pub fn exprs(i: &str) -> IResult<&str, Exprs> {
+    opt_annotation(exprs_inner)(i)
+}
+
+// TODO: Redundant opt_annotation here?
+fn exprs_inner(i: &str) -> IResult<&str, Exprs> {
     ws(alt((
-        map(opt_annotation(expr), |o| {
-            crate::parser::ast::Exprs::Single(Box::new(o))
-        }),
+        map(expr, |o| crate::parser::ast::Exprs::Single(Box::new(o))),
         map(
             comma_sep_list("<", ">", opt_annotation(expr)),
             crate::parser::ast::Exprs::Values,
@@ -217,4 +265,16 @@ mod tests {
             exprs(" case call 'a':'b' (_0, 'new', 'neg') of <_2> when 'true' -> [] end ").is_ok()
         );
     }
+    /*
+    TODO: Test this
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    'init'/1 =
+        fun (_0) ->
+          {'ok',{'plus_state',_0,'undefined',~{}~}}
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+    */
 }

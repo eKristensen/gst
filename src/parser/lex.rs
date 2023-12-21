@@ -121,20 +121,20 @@ fn const_nested_list(i: &str) -> IResult<&str, Const> {
     let (i, _) = ws(tag("["))(i)?;
     let (i, constant) = ws(const_)(i)?;
     let head = match constant {
-        Const::List(inner_list) => inner_list,
+        Const::Cons(inner_list) => inner_list,
         _ => vec![constant],
     };
 
     let (i, _) = ws(tag("|"))(i)?;
     let (i, constant) = ws(const_)(i)?;
     let tail = match constant {
-        Const::List(inner_list) => inner_list,
+        Const::Cons(inner_list) => inner_list,
         _ => vec![constant],
     };
     let (i, _) = ws(tag("]"))(i)?;
 
     let cons = [&head[..], &tail[..]].concat();
-    Ok((i, crate::parser::ast::Const::List(cons)))
+    Ok((i, crate::parser::ast::Const::Cons(cons)))
 }
 
 // const is a keyword in rust, const_ is used instead
@@ -142,7 +142,7 @@ pub fn const_(i: &str) -> IResult<&str, Const> {
     alt((
         map(lit, crate::parser::ast::Const::Lit),
         const_nested_list,
-        map(comma_sep_list("[", "]", const_), super::ast::Const::List),
+        map(comma_sep_list("[", "]", const_), super::ast::Const::Cons),
         map(
             comma_sep_list("{", "}", const_),
             crate::parser::ast::Const::Tuple,
