@@ -36,6 +36,11 @@ Split parser into sub-modules:
   - https://github.com/erlang/otp/tree/master/lib
   - Instead of keeping all files there could be a script to get all these files and flatten the file-names or at the very least the paths.
 
+- Additional test suite ideas:
+  - https://github.com/erlang/otp/
+  - https://github.com/erlang/otp/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22
+  - https://github.com/drobakowski/awesome-erlang
+
 Consider supporting older OTP versions. Right now I only accept the translation from erl to core as defined in OTP26. 
 - According to my testing version 23-26 use the same translation to .core and anything older is different.
 
