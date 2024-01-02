@@ -1,6 +1,6 @@
 # Notes
 
-Streaming vs complete parser: Cannot check for "end" with a streaming parser, must be complete
+Streaming vs complete parser: Cannot check for "end" (without taking all input anyways) with a streaming parser, therefore it makes sense to use a complete parser (one that takes all input).
 
 Core Erlang is compiled only. No interactive way to run code like in normal non-core Erlang.
 
