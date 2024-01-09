@@ -1,0 +1,24 @@
+module 'simple-01' ['foo'/0,
+		    'module_info'/0,
+		    'module_info'/1]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[116|[101|[115|[116|[115|[47|[99|[101|[114|[108|[95|[112|[97|[114|[115|[101|[114|[47|[112|[97|[115|[115|[47|[115|[105|[109|[112|[108|[101|[45|[48|[49|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],1}]]
+'foo'/0 =
+    %% Line 3
+    ( fun () ->
+	  [98|[97|[114]]]
+      -| [{'function',{'foo',0}}] )
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('simple-01')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('simple-01', ( _0
+			      -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end

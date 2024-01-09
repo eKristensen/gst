@@ -1,4 +1,5 @@
-mod parser;
+mod cerl_parser;
+mod st_parser;
 
 use std::env;
 
@@ -14,7 +15,7 @@ fn main() {
     match std::fs::read_to_string(filename) {
         Ok(src) => println!(
             "Ran parser with debug AST output: {:?}",
-            parser::top::module(&src)
+            cerl_parser::top::module(&src)
         ), // TODO: Pretty print
         Err(err) => panic!("Could not read file {} because {}", filename, err),
     }

@@ -40,7 +40,7 @@ fn expr_nested_list(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("]"))(i)?;
 
     let cons = [&head[..], &tail[..]].concat();
-    Ok((i, crate::parser::ast::Expr::Cons(cons)))
+    Ok((i, crate::cerl_parser::ast::Expr::Cons(cons)))
 }
 
 fn case_of(i: &str) -> IResult<&str, Expr> {
@@ -49,7 +49,7 @@ fn case_of(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("of"))(i)?;
     let (i, clauses) = many0(clause)(i)?;
     let (i, _) = ws(tag("end"))(i)?;
-    Ok((i, crate::parser::ast::Expr::Case(exprs, clauses)))
+    Ok((i, crate::cerl_parser::ast::Expr::Case(exprs, clauses)))
 }
 
 fn letrec(i: &str) -> IResult<&str, Expr> {
@@ -57,14 +57,17 @@ fn letrec(i: &str) -> IResult<&str, Expr> {
     let (i, fundefs) = many0(ws(fun_def))(i)?;
     let (i, _) = ws(tag("in"))(i)?;
     let (i, expressions) = exprs(i)?;
-    Ok((i, crate::parser::ast::Expr::LetRec(fundefs, expressions)))
+    Ok((
+        i,
+        crate::cerl_parser::ast::Expr::LetRec(fundefs, expressions),
+    ))
 }
 
 fn apply(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("apply"))(i)?;
     let (i, exprs0) = ws(exprs)(i)?;
     let (i, exprs_args) = comma_sep_list("(", ")", ws(exprs))(i)?;
-    Ok((i, crate::parser::ast::Expr::Apply(exprs0, exprs_args)))
+    Ok((i, crate::cerl_parser::ast::Expr::Apply(exprs0, exprs_args)))
 }
 
 fn call(i: &str) -> IResult<&str, Expr> {
@@ -73,14 +76,14 @@ fn call(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag(":"))(i)?;
     let (i, name) = ws(exprs)(i)?;
     let (i, args) = comma_sep_list("(", ")", exprs)(i)?;
-    Ok((i, crate::parser::ast::Expr::Call(module, name, args)))
+    Ok((i, crate::cerl_parser::ast::Expr::Call(module, name, args)))
 }
 
 fn primop(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("primop"))(i)?;
     let (i, name) = ws(atom)(i)?;
     let (i, args) = comma_sep_list("(", ")", exprs)(i)?;
-    Ok((i, crate::parser::ast::Expr::PrimOp(name, args)))
+    Ok((i, crate::cerl_parser::ast::Expr::PrimOp(name, args)))
 }
 
 fn receive(i: &str) -> IResult<&str, Expr> {
@@ -92,7 +95,7 @@ fn receive(i: &str) -> IResult<&str, Expr> {
     let (i, action) = ws(exprs)(i)?;
     Ok((
         i,
-        crate::parser::ast::Expr::Receive(clauses, timeout, action),
+        crate::cerl_parser::ast::Expr::Receive(clauses, timeout, action),
     ))
 }
 
@@ -109,7 +112,7 @@ fn try_expr(i: &str) -> IResult<&str, Expr> {
     let (i, handler) = ws(exprs)(i)?;
     Ok((
         i,
-        crate::parser::ast::Expr::Try(arg, vars_, body, evars, handler),
+        crate::cerl_parser::ast::Expr::Try(arg, vars_, body, evars, handler),
     ))
 }
 
@@ -155,13 +158,13 @@ fn do_expr(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("do"))(i)?;
     let (i, exprs1) = ws(exprs)(i)?;
     let (i, exprs2) = ws(exprs)(i)?;
-    Ok((i, crate::parser::ast::Expr::Do(exprs1, exprs2)))
+    Ok((i, crate::cerl_parser::ast::Expr::Do(exprs1, exprs2)))
 }
 
 fn catch(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("catch"))(i)?;
     let (i, exprs1) = ws(exprs)(i)?;
-    Ok((i, crate::parser::ast::Expr::Catch(exprs1)))
+    Ok((i, crate::cerl_parser::ast::Expr::Catch(exprs1)))
 }
 
 // TODO: More elegant way to add opt_annotation.
@@ -177,7 +180,7 @@ fn clause_inner(i: &str) -> IResult<&str, Clause> {
     let (i, exprs2) = exprs(i)?;
     Ok((
         i,
-        crate::parser::ast::Clause {
+        crate::cerl_parser::ast::Clause {
             pats,
             when: exprs1,
             res: exprs2,
@@ -193,7 +196,7 @@ fn let_in(i: &str) -> IResult<&str, Expr> {
     let (i, exprs1) = exprs(i)?;
     let (i, _) = ws(tag("in"))(i)?;
     let (i, exprs2) = exprs(i)?;
-    Ok((i, crate::parser::ast::Expr::Let(vars, exprs1, exprs2)))
+    Ok((i, crate::cerl_parser::ast::Expr::Let(vars, exprs1, exprs2)))
 }
 
 fn vars(i: &str) -> IResult<&str, Vec<Var>> {
@@ -211,18 +214,18 @@ fn expr(i: &str) -> IResult<&str, Expr> {
 
 fn expr_inner(i: &str) -> IResult<&str, Expr> {
     ws(alt((
-        map(var, crate::parser::ast::Expr::Var),
-        map(fname, crate::parser::ast::Expr::Fname),
-        map(lit, crate::parser::ast::Expr::Lit),
-        map(fun, |fun| crate::parser::ast::Expr::Fun(fun)),
+        map(var, crate::cerl_parser::ast::Expr::Var),
+        map(fname, crate::cerl_parser::ast::Expr::Fname),
+        map(lit, crate::cerl_parser::ast::Expr::Lit),
+        map(fun, |fun| crate::cerl_parser::ast::Expr::Fun(fun)),
         expr_nested_list,
         map(
             comma_sep_list("[", "]", exprs),
-            crate::parser::ast::Expr::Cons,
+            crate::cerl_parser::ast::Expr::Cons,
         ),
         map(
             comma_sep_list("{", "}", exprs),
-            crate::parser::ast::Expr::Tuple,
+            crate::cerl_parser::ast::Expr::Tuple,
         ),
         let_in,
         case_of,
@@ -245,10 +248,12 @@ pub fn exprs(i: &str) -> IResult<&str, Exprs> {
 // TODO: Redundant opt_annotation here?
 fn exprs_inner(i: &str) -> IResult<&str, Exprs> {
     ws(alt((
-        map(expr, |o| crate::parser::ast::Exprs::Single(Box::new(o))),
+        map(expr, |o| {
+            crate::cerl_parser::ast::Exprs::Single(Box::new(o))
+        }),
         map(
             comma_sep_list("<", ">", opt_annotation(expr)),
-            crate::parser::ast::Exprs::Values,
+            crate::cerl_parser::ast::Exprs::Values,
         ),
     )))(i)
 }

@@ -27,6 +27,12 @@ pub fn fun(i: &str) -> IResult<&str, FunDef> {
     Ok((i, FunDef { args, body: exprs }))
 }
 
+// TODO: Attributes that are not in a list is parsed as if they are, e.g.
+// 'mspec' = ['?neg !ready. ?int !int']]
+// Results in
+// Attribute { name: Atom("mspec"), value: Cons([Lit(Atom(Atom("?neg !ready. ?int !int")))]) }
+// But it should be (please note the absence of Cons)
+// Attribute { name: Atom("mspec"), value: Lit(Atom(Atom("?neg !ready. ?int !int"))) }
 fn attribute(i: &str) -> IResult<&str, Attribute> {
     ws(map(
         tuple((atom, ws(tag("=")), const_)),

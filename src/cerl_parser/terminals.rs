@@ -329,7 +329,7 @@ fn var_inner(i: &str) -> IResult<&str, Var> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::{ast::Lit, lex::lit};
+    use crate::cerl_parser::{ast::Lit, lex::lit};
 
     use super::*;
 

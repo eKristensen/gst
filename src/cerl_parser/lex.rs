@@ -102,7 +102,7 @@ pub fn fname(i: &str) -> IResult<&str, FunHead> {
 }
 
 // Move to "non-terminals"?
-fn fname_inner(i: &str) -> IResult<&str, FunHead> {
+pub fn fname_inner(i: &str) -> IResult<&str, FunHead> {
     ws(map(
         tuple((
             atom,
@@ -134,18 +134,18 @@ fn const_nested_list(i: &str) -> IResult<&str, Const> {
     let (i, _) = ws(tag("]"))(i)?;
 
     let cons = [&head[..], &tail[..]].concat();
-    Ok((i, crate::parser::ast::Const::Cons(cons)))
+    Ok((i, crate::cerl_parser::ast::Const::Cons(cons)))
 }
 
 // const is a keyword in rust, const_ is used instead
 pub fn const_(i: &str) -> IResult<&str, Const> {
     alt((
-        map(lit, crate::parser::ast::Const::Lit),
+        map(lit, crate::cerl_parser::ast::Const::Lit),
         const_nested_list,
         map(comma_sep_list("[", "]", const_), super::ast::Const::Cons),
         map(
             comma_sep_list("{", "}", const_),
-            crate::parser::ast::Const::Tuple,
+            crate::cerl_parser::ast::Const::Tuple,
         ),
     ))(i)
 }
@@ -154,9 +154,9 @@ pub fn lit(i: &str) -> IResult<&str, Lit> {
     alt((
         map(float, super::ast::Lit::Float),
         map(integer, super::ast::Lit::Int),
-        map(atom, crate::parser::ast::Lit::Atom),
-        map(char_, crate::parser::ast::Lit::Char),
-        map(string, crate::parser::ast::Lit::String),
+        map(atom, crate::cerl_parser::ast::Lit::Atom),
+        map(char_, crate::cerl_parser::ast::Lit::Char),
+        map(string, crate::cerl_parser::ast::Lit::String),
         empty_list,
     ))(i)
 }
@@ -169,7 +169,7 @@ fn empty_list(i: &str) -> IResult<&str, Lit> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::{
+    use crate::cerl_parser::{
         ast::{Atom, Lit},
         lex::lit,
     };

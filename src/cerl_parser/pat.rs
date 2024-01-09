@@ -25,12 +25,12 @@ fn pat_nested_list(i: &str) -> IResult<&str, Pat> {
     let (i, _) = ws(tag("]"))(i)?;
 
     let cons = [&head[..], &tail[..]].concat();
-    Ok((i, crate::parser::ast::Pat::Cons(cons)))
+    Ok((i, crate::cerl_parser::ast::Pat::Cons(cons)))
 }
 
 fn alias(i: &str) -> IResult<&str, Pat> {
     map(tuple((var, ws(tag("=")), pat)), |(variable, _, pattern)| {
-        crate::parser::ast::Pat::Alias(variable, Box::new(pattern))
+        crate::cerl_parser::ast::Pat::Alias(variable, Box::new(pattern))
     })(i)
 }
 
@@ -40,13 +40,16 @@ fn pat(i: &str) -> IResult<&str, Pat> {
 
 fn pat_inner(i: &str) -> IResult<&str, Pat> {
     alt((
-        map(var, crate::parser::ast::Pat::Var),
-        map(lit, crate::parser::ast::Pat::Lit),
+        map(var, crate::cerl_parser::ast::Pat::Var),
+        map(lit, crate::cerl_parser::ast::Pat::Lit),
         pat_nested_list,
-        map(comma_sep_list("[", "]", pat), crate::parser::ast::Pat::Cons),
+        map(
+            comma_sep_list("[", "]", pat),
+            crate::cerl_parser::ast::Pat::Cons,
+        ),
         map(
             comma_sep_list("{", "}", pat),
-            crate::parser::ast::Pat::Tuple,
+            crate::cerl_parser::ast::Pat::Tuple,
         ),
         alias,
     ))(i)
