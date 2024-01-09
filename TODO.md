@@ -4,6 +4,10 @@ Streaming vs complete parser: Cannot check for "end" (without taking all input a
 
 Core Erlang is compiled only. No interactive way to run code like in normal non-core Erlang.
 
+Steal idea from https://staff.um.edu.mt/afra1/papers/Agere21.pdf
+- Use tag "-session" on client side and describe sessions as a string to parse later. The same idea as I had
+- Since someone else did the same it is properly not all bad.
+
 # TODO
 
 - Test with relevant .core files, if possible with many files
@@ -51,3 +55,9 @@ https://github.com/erlang/otp/blob/master/lib/compiler/src/core_scan.erl
 
 Nice links:
 - https://naiveai.hashnode.dev/practical-parsing-nom#heading-putting-it-all-together
+
+God liste med eksempler:
+https://github.com/gertab/ElixirST/tree/master/lib/elixirst/examples
+
+Native types supported in Elixir ST:
+https://github.com/gertab/ElixirST/blob/75d098f51df40b5ff1022c7dc56a695b0f3da9d9/lib/elixirst/session_type.ex#L122
