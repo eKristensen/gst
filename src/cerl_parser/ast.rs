@@ -1,13 +1,13 @@
 // TODO: Refactor to be more like the core erlang paper suggests the core erlang ast should look. Parsing is more important for now though.
 
 // "New" types
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Fname(pub Atom);
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Atom(pub String);
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Integer(pub i64);
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,13 +22,13 @@ pub struct Module {
     pub body: Vec<(FunHead, FunDef)>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FunHead {
     pub name: Fname,
     pub arity: Integer, // TODO: Hmm Integer here does allow arity to be negative.....
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Attribute {
     pub name: Atom,
     pub value: Const,

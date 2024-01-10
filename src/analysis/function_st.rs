@@ -1,0 +1,173 @@
+// Check ST annotation matches function body
+
+use std::collections::HashMap;
+
+use crate::{
+    cerl_parser::ast::{Atom, Const, Fname, FunDef, FunHead, Integer, Lit, Module, Var},
+    st_parser::{ast::SessionMode, parser::st_parse},
+};
+
+#[derive(Debug, Clone)]
+struct FunEnv {
+    spec: Option<Const>,
+    session: Option<Vec<(Var, SessionMode)>>, // "raw" spec
+    body: Option<FunDef>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ModuleEnv(HashMap<FunHead, FunEnv>);
+
+// Extract relevant parts of the core erlang module for analysis
+pub fn init_module_env(m: Module) -> ModuleEnv {
+    // Info: Name of module and module exports not relevant yet
+    let mut env: HashMap<FunHead, FunEnv> = HashMap::new();
+
+    // Use attributes to get spec and session
+    for attribute in &m.attributes {
+        let Atom(a_name) = &attribute.name;
+        if a_name.eq("spec") {
+            add_spec(&mut env, &attribute.value)
+        }
+        if a_name.eq("session") {
+            add_session(&mut env, &attribute.value)
+        }
+        // TODO: Ignore custom type declarations for now. Maybe reconsider later?
+    }
+
+    // Use body to get body of functions
+
+    ModuleEnv(env)
+}
+
+// Add spec to env
+// New fun if not exists
+// Error if spec already exists for fun
+fn add_spec(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
+    // Find function name via the deep nested spec representation
+
+    // TODO: A nicer way to unwrap?
+    let Const::Cons(val_const) = v else { todo!() };
+    let outer_tuple = val_const.first().unwrap();
+    let Const::Tuple(spec_tuple) = outer_tuple else {
+        todo!()
+    };
+    let fname_tuple = spec_tuple.first().unwrap();
+    let Const::Tuple(fname_list) = fname_tuple else {
+        todo!()
+    };
+    let Const::Lit(Lit::Atom(fname)) = fname_list.first().unwrap() else {
+        todo!()
+    };
+    let Const::Lit(Lit::Int(arity)) = &fname_list[1] else {
+        todo!()
+    };
+    println!("Got function name finally {:?} {:?}", fname, arity);
+
+    let fun_head = FunHead {
+        name: Fname((*fname).clone()),
+        arity: (*arity).clone(),
+    };
+
+    // TODO: Potentially dangerous assumption about spec structure. Data may be lost here
+    let spec_val = &spec_tuple[1..];
+
+    // Lookup
+    match m.get(&fun_head) {
+        Some(fun_env) => {
+            // FunEnv exists, add spec if none
+            if fun_env.spec.is_none() {
+                m.insert(
+                    fun_head,
+                    FunEnv {
+                        spec: Some(Const::Tuple(spec_val.to_vec())),
+                        session: fun_env.session.clone(),
+                        body: fun_env.body.clone(),
+                    },
+                );
+            } else {
+                panic!("Duplicate spec for {:?}", fun_head);
+            }
+        }
+        None => {
+            // Fresh entry, add new FunEnv
+            m.insert(
+                fun_head,
+                FunEnv {
+                    spec: Some(Const::Tuple(spec_val.to_vec())),
+                    session: None,
+                    body: None,
+                },
+            );
+        }
+    }
+
+    // Add the "raw" spec value to map if possible or give error
+}
+
+// Add session to env
+// New fun if not exists
+// Error if session already exists for fun
+fn add_session(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
+    // Run session parser
+    // Session type is wrapped within a list and then as the name of an atom
+    // Get function name
+    // Add Session type to map if possible or give error
+
+    // TODO: A nicer way to unwrap?
+    let Const::Cons(val_const) = v else { todo!() };
+    println!("got that odd {:?}", v);
+
+    // ASCII Decimal to string conversion...
+    let mut st_string: String = String::new();
+    for item in val_const {
+        let Const::Lit(Lit::Int(Integer(char_to_decode))) = item else {
+            todo!()
+        };
+        let char_to_decode_bytes = char_to_decode.to_be_bytes();
+        let char_to_decode_last = char_to_decode_bytes.last().unwrap();
+        st_string.push_str(
+            std::str::from_utf8(&[*char_to_decode_last]).expect("bad todo not asci string"),
+        );
+    }
+
+    println!("\n\n{:?}\n\n", st_parse(&*st_string));
+    let (not_parsed, session_type_parsed) = st_parse(&*st_string).unwrap();
+
+    if not_parsed.len() > 0 {
+        panic!("Session type could not be properly parsed!")
+    }
+
+    // Lookup
+    match m.get(&session_type_parsed.name) {
+        Some(fun_env) => {
+            // FunEnv exists, add spec if none
+            if fun_env.session.is_none() {
+                m.insert(
+                    session_type_parsed.name,
+                    FunEnv {
+                        spec: fun_env.spec.clone(),
+                        session: Some(session_type_parsed.st),
+                        body: fun_env.body.clone(),
+                    },
+                );
+            } else {
+                panic!("Duplicate session for {:?}", session_type_parsed.name);
+            }
+        }
+        None => {
+            // Fresh entry, add new FunEnv
+            m.insert(
+                session_type_parsed.name,
+                FunEnv {
+                    spec: None,
+                    session: Some(session_type_parsed.st),
+                    body: None,
+                },
+            );
+        }
+    }
+}
+
+// Add body to env
+// New fun if not exists (Maybe it does not make sense to add functions if they have no session?)
+// Error if function already exists for fun

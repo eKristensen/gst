@@ -3,7 +3,7 @@ use nom::{
     bytes::complete::tag,
     character::complete::alpha1,
     combinator::map,
-    multi::{separated_list0, separated_list1},
+    multi::separated_list1,
     sequence::{delimited, pair, tuple},
     IResult,
 };
@@ -17,12 +17,12 @@ use crate::st_parser::parser::SessionMode::{Fresh, Ongoing};
 // TODO: Reuse of functions from cerl parser allows for comments and maybe annotations inside the ST which is odd
 // Better to not reuse or rewrite so the core can be reused rather than the whole code.
 // Doing for now to get a working prototype
-pub fn session(i: &str) -> IResult<&str, Session> {
+pub fn st_parse(i: &str) -> IResult<&str, Session> {
     map(
         tuple((
             fname_inner,
             ws(tag("=")),
-            separated_list0(tag(","), alt((fresh_st, ongoing_st))),
+            separated_list1(tag(","), alt((fresh_st, ongoing_st))),
         )),
         |(fname, _, sm)| Session {
             name: fname,
@@ -58,7 +58,7 @@ fn ongoing_st(i: &str) -> IResult<&str, (Var, SessionMode)> {
 fn st_inner(i: &str) -> IResult<&str, Vec<SessionType>> {
     map(
         pair(
-            separated_list1(tag("."), alt((st_send, st_receive))),
+            separated_list1(ws(tag(".")), alt((st_send, st_receive))), // TODO: Add branch and choice
             tag("."),
         ),
         |(o, _)| o,
@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn simple_session() {
         assert_eq!(
-            session("'test'/1 = X: fresh(!int.)"),
+            st_parse("'test'/1 = X: fresh(!int.)"),
             Ok((
                 "",
                 Session {
