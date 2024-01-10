@@ -35,6 +35,13 @@ pub fn init_module_env(m: Module) -> ModuleEnv {
     }
 
     // Use body to get body of functions
+    for (fun_head, fun_body) in &m.body {
+        add_body(&mut env, fun_head, fun_body);
+    }
+
+    // For all functions: Decode "spec" to something that is consumable.
+    // Maybe better to "just" decode them "at once"?
+    // How to deal with split spec definitions? Multi-case spec
 
     ModuleEnv(env)
 }
@@ -162,6 +169,37 @@ fn add_session(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
                     spec: None,
                     session: Some(session_type_parsed.st),
                     body: None,
+                },
+            );
+        }
+    }
+}
+
+fn add_body(m: &mut HashMap<FunHead, FunEnv>, fun_head: &FunHead, fun_body: &FunDef) -> () {
+    match m.get(fun_head) {
+        Some(fun_env) => {
+            // FunEnv exists, add spec if none
+            if fun_env.body.is_none() {
+                m.insert(
+                    fun_head.clone(),
+                    FunEnv {
+                        spec: fun_env.spec.clone(),
+                        session: fun_env.session.clone(),
+                        body: Some(fun_body.clone()),
+                    },
+                );
+            } else {
+                panic!("Duplicate body for {:?}", fun_head);
+            }
+        }
+        None => {
+            // Fresh entry, add new FunEnv
+            m.insert(
+                fun_head.clone(),
+                FunEnv {
+                    spec: None,
+                    session: None,
+                    body: Some(fun_body.clone()),
                 },
             );
         }
