@@ -61,3 +61,17 @@ https://github.com/gertab/ElixirST/tree/master/lib/elixirst/examples
 
 Native types supported in Elixir ST:
 https://github.com/gertab/ElixirST/blob/75d098f51df40b5ff1022c7dc56a695b0f3da9d9/lib/elixirst/session_type.ex#L122
+
+`-spec` documentation: https://www.erlang.org/doc/reference_manual/typespec#specifications-for-functions
+- Simple singular
+- Cases `;`
+  - Requires spec to have alternatives
+- Conditional `when`
+  - Conditional alternatives? Something like `Option<Condition>` ?
+- Optional return information?
+  - Part of Simple singular case. Properly not important for this analysis anyways.
+- I am fairly certain that the format of the spec is tagged tuples like the Erlang Abstract Format. When Erlang translates code to core it properly internally represents the erlang program in erlang abstract format. The -spec does not have anything specific to core erlang, and therefore the spec is added directly as tagged tuples as this is compatible with core erlang.
+  - Important "documentation" source: https://github.com/zuiderkwast/erlang_abstract_format
+
+TODO: Consistency sanity check:
+- Is `-session` defined for a function that is used or is it defined without any function body? If so give error/warning. Also require spec for function.
