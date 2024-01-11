@@ -6,12 +6,12 @@
 
 // Based on https://github.com/gertab/ElixirST#session-types-in-elixir
 
-use crate::cerl_parser::ast::{FunHead, Var};
+use crate::cerl_parser::ast::FunHead;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Session {
     pub name: FunHead,
-    pub st: Vec<(Var, SessionMode)>, // TODO: A map would be better, but a tuple must do for now.
+    pub st: Vec<SessionMode>, // TODO: A map would be better, but a tuple must do for now.
 }
 
 // TODO: Should accept erlang and custom types. A starting point could be
@@ -29,6 +29,7 @@ pub struct Label(pub String);
 // TODO: SessionMode == Bad name, very bad name indeed
 #[derive(Debug, Clone, PartialEq)]
 pub enum SessionMode {
+    NotST,
     Fresh(Vec<SessionType>),
     Ongoing(Vec<SessionType>, Vec<SessionType>),
 }

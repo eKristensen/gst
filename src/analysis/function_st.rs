@@ -3,15 +3,14 @@
 use std::collections::HashMap;
 
 use crate::{
-    cerl_parser::ast::{Atom, Const, Fname, FunDef, FunHead, Integer, Lit, Module, Var},
-    main,
+    cerl_parser::ast::{Atom, Const, Fname, FunDef, FunHead, Integer, Lit, Module},
     st_parser::{ast::SessionMode, parser::st_parse},
 };
 
 #[derive(Debug, Clone)]
 struct FunEnv {
     spec: Option<(Vec<String>, Vec<String>)>, // TODO: Too simple to be useful in the long run
-    session: Option<Vec<(Var, SessionMode)>>,
+    session: Option<Vec<SessionMode>>,
     body: Option<FunDef>,
 }
 
@@ -235,7 +234,7 @@ fn extract_spec(spec_in: &[Const]) -> (Vec<String>, Vec<String>) {
 
     // Make the tuple mutable by clone
     let mut outer_tuple = outer_tuple.clone(); // TODO: Seems a bit dirty...
-    outer_tuple.drain(0..3);
+    outer_tuple.drain(0..3); // TODO: Instead of mut copy + drain: Try ".get(4)" directly [4] did not work, but that may be fine?
     let Const::Cons(main_spec_io_cons) = outer_tuple.first().unwrap() else {
         todo!()
     };
