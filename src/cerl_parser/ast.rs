@@ -10,7 +10,7 @@ pub struct Atom(pub String);
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Integer(pub i64);
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Var(pub String);
 
 // AST

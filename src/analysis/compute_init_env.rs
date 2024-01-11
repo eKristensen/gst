@@ -8,17 +8,14 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-struct FunEnv {
-    spec: Option<(Vec<String>, Vec<String>)>, // TODO: Too simple to be useful in the long run
-    session: Option<Vec<SessionMode>>,
-    body: Option<FunDef>,
+pub struct FunEnv {
+    pub spec: Option<(Vec<String>, Vec<String>)>, // TODO: Too simple to be useful in the long run
+    pub session: Option<Vec<SessionMode>>,
+    pub body: Option<FunDef>,
 }
 
-#[derive(Debug, Clone)]
-pub struct ModuleEnv(HashMap<FunHead, FunEnv>);
-
 // Extract relevant parts of the core erlang module for analysis
-pub fn init_module_env(m: Module) -> ModuleEnv {
+pub fn init_module_env(m: Module) -> HashMap<FunHead, FunEnv> {
     // Info: Name of module and module exports not relevant yet
     let mut env: HashMap<FunHead, FunEnv> = HashMap::new();
 
@@ -43,7 +40,7 @@ pub fn init_module_env(m: Module) -> ModuleEnv {
     // Maybe better to "just" decode them "at once"?
     // How to deal with split spec definitions? Multi-case spec
 
-    ModuleEnv(env)
+    env
 }
 
 // Add spec to env

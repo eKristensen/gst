@@ -4,7 +4,7 @@ mod st_parser;
 
 use std::env;
 
-use crate::analysis::function_st::init_module_env;
+use crate::analysis::{analyze_st::analyze_module, compute_init_env::init_module_env};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -23,7 +23,9 @@ fn main() {
             );
             match cerl_parser::top::module(&src) {
                 Ok((_, module)) => {
-                    println!("Init analysis environment {:?}", init_module_env(module))
+                    let env = init_module_env(module);
+                    println!("Init analysis environment {:?}", env);
+                    analyze_module(env);
                 }
                 Err(_) => println!("Nom could not parse source"),
             }
