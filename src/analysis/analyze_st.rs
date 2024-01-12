@@ -3,13 +3,15 @@
 use std::collections::HashMap;
 
 use crate::{
-    cerl_parser::ast::{Expr, Exprs, FunHead, Var},
+    cerl_parser::ast::{Atom, Clause, Expr, Exprs, FunHead, Lit, Var},
     st_parser::ast::SessionMode,
 };
 
 use super::compute_init_env::FunEnv;
 
 use crate::st_parser::ast::SessionMode::NotST;
+
+use crate::cerl_parser::ast::Exprs::Single;
 
 // Proper "export" instead of all this () null return. Printing is not proper output.
 pub fn analyze_module(m: HashMap<FunHead, FunEnv>) -> () {
@@ -30,7 +32,7 @@ pub fn analyze_module(m: HashMap<FunHead, FunEnv>) -> () {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum VarType {
     Base(String),
     ST(SessionMode),
@@ -56,7 +58,7 @@ fn init_var_env(
                     VarType::Base(input.get(i).unwrap().to_string()),
                 );
             }
-            SessionMode::Fresh(_) => {
+            SessionMode::Fresh(_, _) => {
                 // Check that -spec type matches (consistency)
                 if input.get(i).unwrap().to_string() == "fresh".to_owned() {
                     // Get session type and insert
@@ -91,22 +93,54 @@ fn chk_st_exprs(env: HashMap<Var, VarType>, exprs: Exprs) -> HashMap<Var, VarTyp
 
 fn chk_st_expr(env: HashMap<Var, VarType>, expr: Expr) -> HashMap<Var, VarType> {
     match expr {
-        Expr::Var(_) => todo!(),
-        Expr::Fname(_) => todo!(),
-        Expr::Lit(_) => todo!(),
-        Expr::Fun(_) => todo!(),
-        Expr::Cons(_) => todo!(),
-        Expr::Tuple(_) => todo!(),
-        Expr::Let(_, _, _) => todo!(),
-        Expr::Case(_, _) => todo!(),
-        Expr::LetRec(_, _) => todo!(),
-        Expr::Apply(_, _) => todo!(),
-        Expr::Call(_, _, _) => todo!(),
-        Expr::PrimOp(_, _) => todo!(),
-        Expr::Receive(_, _, _) => todo!(),
-        Expr::Try(_, _, _, _, _) => todo!(),
-        Expr::Do(_, _) => todo!(),
-        Expr::Catch(_) => todo!(),
-        Expr::Map(_, _) => todo!(),
+        Expr::Var(_) => todo!("var"),
+        Expr::Fname(_) => todo!("fname"),
+        Expr::Lit(_) => todo!("lit"),
+        Expr::Fun(_) => todo!("fun"),
+        Expr::Cons(_) => todo!("cons"),
+        Expr::Tuple(_) => todo!("tuple"),
+        Expr::Let(_, _, _) => todo!("let"),
+        Expr::Case(e, c) => {
+            // Make a new env for every clause where the expr is matched to the var name in the clause in the env
+            // Ignore when for now. TODO: Maybe consider to not ignore "when"
+            let mut clause_env = Vec::new();
+            for clause in &c {
+                clause_env.push(chk_st_clause(env.clone(), e.clone(), clause.clone()));
+            }
+            // Note: Nothing comes "after" the case. Everything that needs to be checked are encapsulated within.
+            // Or maybe. The condition for "passing" the st check comes after. "best" env should be passed?
+            println!("\nOh case? | {:?} | {:?}", e, c);
+            env
+        }
+        Expr::LetRec(_, _) => todo!("letrec"),
+        Expr::Apply(_, _) => todo!("apply"),
+        Expr::Call(mod_name, call_name, args) => {
+            // Ignore everything except calls that includes sending messages
+            if mod_name
+                == Single(Box::new(Expr::Lit(Lit::Atom(Atom(
+                    "gen_server_plus".to_owned(),
+                )))))
+                && call_name == Single(Box::new(Expr::Lit(Lit::Atom(Atom("call".to_owned())))))
+            {
+                panic!("YES!");
+            }
+            println!("\nOh call? {:?} {:?} {:?}", mod_name, call_name, args);
+            env
+        }
+        Expr::PrimOp(_, _) => todo!("primop"),
+        Expr::Receive(_, _, _) => todo!("receive"),
+        Expr::Try(_, _, _, _, _) => todo!("try"),
+        Expr::Do(e1, e2) => chk_st_exprs(chk_st_exprs(env, e1), e2),
+        Expr::Catch(_) => todo!("catch"),
+        Expr::Map(_, _) => todo!("map"),
     }
+}
+
+fn chk_st_clause(
+    env: HashMap<Var, VarType>,
+    exprs: Exprs,
+    clause: Clause,
+) -> HashMap<Var, VarType> {
+    todo!();
+    env
 }

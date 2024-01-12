@@ -30,7 +30,7 @@ pub struct Label(pub String);
 #[derive(Debug, Clone, PartialEq)]
 pub enum SessionMode {
     NotST,
-    Fresh(Vec<SessionType>),
+    Fresh(bool, Vec<SessionType>), // Bool is whether the session is initialized yet or not.
     Ongoing(Vec<SessionType>, Vec<SessionType>),
 }
 

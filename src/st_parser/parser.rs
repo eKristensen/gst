@@ -47,7 +47,7 @@ pub fn st_parse(i: &str) -> IResult<&str, Session> {
 fn fresh_st(i: &str) -> IResult<&str, SessionMode> {
     map(
         tuple((ws(tag("fresh")), delimited(tag("("), st_inner, tag(")")))),
-        |(_, o)| Fresh(o),
+        |(_, o)| Fresh(false, o),
     )(i)
 }
 
@@ -107,7 +107,7 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        Fresh(vec!(SessionType::Send(ElmType("int".to_owned()))))
+                        Fresh(false, vec!(SessionType::Send(ElmType("int".to_owned()))))
                     )
                 }
             ))
