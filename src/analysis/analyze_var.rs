@@ -15,7 +15,8 @@ use crate::st_parser::ast::SessionMode::NotST;
 use crate::cerl_parser::ast::Exprs::Single;
 
 // Proper "export" instead of all this () null return. Printing is not proper output.
-pub fn analyze_module(m: &HashMap<FunHead, FunEnv>) -> () {
+pub fn analyze_module(m: &HashMap<FunHead, FunEnv>) -> bool {
+    let mut overall_acceptance = true; // Assume all is good until proven otherwise
     for (fun_head, fun_env) in m {
         print!("Analyzing {:?} ... ", fun_head);
         if fun_env.spec.is_some() && fun_env.session.is_some() && fun_env.body.is_some() {
@@ -26,21 +27,28 @@ pub fn analyze_module(m: &HashMap<FunHead, FunEnv>) -> () {
             );
             print!("init analyze env {:?}", var_env);
             // TODO: Find a nice way to represent multiple possible cases
-            for (_, res_env) in
-                chk_st_exprs(m, var_env, &fun_env.body.as_ref().unwrap().body).unwrap()
-            {
+            let res_analysis =
+                chk_st_exprs(m, var_env, &fun_env.body.as_ref().unwrap().body).unwrap();
+            if res_analysis.len() < 1 {
+                overall_acceptance = false;
+                println!(" not OK, no result")
+            }
+            for (_, res_env) in res_analysis {
                 print!(" res env is {:?}", res_env);
                 // Check res env is acceptable
-                println!(
-                    " checking env is acceptable: {:?}\n",
-                    validate_res_env(res_env)
-                );
+                let acceptable_res_env = validate_res_env(res_env);
+                if !acceptable_res_env {
+                    overall_acceptance = false;
+                }
+                println!(" checking env is acceptable: {:?}\n", acceptable_res_env);
                 // TODO: To check return type
             }
         } else {
+            // TODO: Should functions that cannot be analyzed result in an error? They do not right now.
             println!("could not analyze function. Functions must have a body, spec and session to be analyzed.")
         }
     }
+    overall_acceptance
 }
 
 #[derive(Debug, Clone, PartialEq)]
