@@ -75,3 +75,13 @@ https://github.com/gertab/ElixirST/blob/75d098f51df40b5ff1022c7dc56a695b0f3da9d9
 
 TODO: Consistency sanity check:
 - Is `-session` defined for a function that is used or is it defined without any function body? If so give error/warning. Also require spec for function.
+
+# Type inference
+
+Potentially a problem. How to now what type it has.
+
+# Choices
+
+Core erlang allows reassignment to same variable name. This type checker will halt if a variable is reassigned to a different type than it already has. This is in order to avoid problems related to renaming and/or reusing variable names.
+
+TODO: Maybe reconsider to allow variables to be renames as core erlang allows anyways.

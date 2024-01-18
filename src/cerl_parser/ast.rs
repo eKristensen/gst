@@ -107,6 +107,8 @@ pub struct Clause {
     pub res: Exprs,
 }
 
+// TODO: Can this be changed so case and let use same format for assignments???
+// This structure makes code reuse much harder than it should be!
 #[derive(Debug, Clone, PartialEq)]
 pub enum Pat {
     Var(Var),

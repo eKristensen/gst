@@ -8,13 +8,16 @@ use nom::{
     IResult,
 };
 
-use crate::cerl_parser::{
-    ast::{Fname, FunHead, Integer},
-    helpers::ws,
-    terminals::atom,
+use crate::{
+    analysis::types::Types,
+    cerl_parser::{
+        ast::{Fname, FunHead, Integer},
+        helpers::ws,
+        terminals::atom,
+    },
 };
 
-use super::ast::{ElmType, Session, SessionMode, SessionType};
+use super::ast::{Session, SessionMode, SessionType};
 
 use crate::st_parser::parser::SessionMode::{Fresh, NotST, Ongoing};
 
@@ -75,20 +78,19 @@ fn st_inner(i: &str) -> IResult<&str, Vec<SessionType>> {
 fn st_send(i: &str) -> IResult<&str, SessionType> {
     let (i, _) = tag("!")(i)?;
     let (i, o) = alpha1(i)?;
-    Ok((i, SessionType::Send(ElmType(o.to_string()))))
+    Ok((i, SessionType::Send(Types::Single(o.to_string()))))
 }
 
 // TODO: Why does it not work when rewritten to map(pair(..),|(_,o) [return here]) ??
 fn st_receive(i: &str) -> IResult<&str, SessionType> {
     let (i, _) = tag("?")(i)?;
     let (i, o) = alpha1(i)?;
-    Ok((i, SessionType::Receive(ElmType(o.to_string()))))
+    Ok((i, SessionType::Receive(Types::Single(o.to_string()))))
 }
 
 #[cfg(test)]
 mod tests {
     use crate::cerl_parser::ast::{Atom, Fname, FunHead, Integer};
-    use crate::st_parser::ast::ElmType;
     use crate::st_parser::ast::SessionMode::{Fresh, NotST};
     use crate::st_parser::ast::SessionType;
 
@@ -107,7 +109,10 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        Fresh(false, vec!(SessionType::Send(ElmType("int".to_owned()))))
+                        Fresh(
+                            false,
+                            vec!(SessionType::Send(Types::Single("int".to_owned())))
+                        )
                     )
                 }
             ))

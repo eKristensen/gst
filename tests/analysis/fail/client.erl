@@ -11,7 +11,7 @@
 
 %                       That name does not matter, what matters is that it matches the function argument
 % Client scripts         ↓↓
--session ("'negation'(fresh(!number. ?number.),_)").
+-session ("'negation'(fresh(!number. ?number. !string.),_)").
 -spec negation(fresh(),number()) -> number().
 negation(ServerPid,V1) ->
     io:format("DEBUG: Started neg~n"),
@@ -26,4 +26,3 @@ negation(ServerPid,V1) ->
     % Updated is:
     Res = gen_server_plus:call(ServerPid,SessionID,V1),
     io:format("Got response: ~w~n", [Res]).
-    % TODO: There is an undetected spec violation. The return type for negation is "no_return()" but should be "number()"

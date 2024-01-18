@@ -7,9 +7,11 @@ use crate::{
     st_parser::{ast::SessionMode, parser::st_parse},
 };
 
+use super::types::Types;
+
 #[derive(Debug, Clone)]
 pub struct FunEnv {
-    pub spec: Option<(Vec<String>, Vec<String>)>, // TODO: Too simple to be useful in the long run
+    pub spec: Option<(Vec<Types>, Vec<Types>)>, // TODO: Too simple to be useful in the long run (no alternative types on top-level)
     pub session: Option<Vec<SessionMode>>,
     pub body: Option<FunDef>,
 }
@@ -205,9 +207,8 @@ fn add_body(m: &mut HashMap<FunHead, FunEnv>, fun_head: &FunHead, fun_body: &Fun
     }
 }
 
-fn extract_spec(spec_in: &[Const]) -> (Vec<String>, Vec<String>) {
+fn extract_spec(spec_in: &[Const]) -> (Vec<Types>, Vec<Types>) {
     // Convert tagged tuples into something that can be used to compare types
-    // TODO: Move away from simplified "String type" representation
 
     // TODO: Is it possible to explain this function at all?
     // Erlang Abstract format it terrible to navigate...
@@ -249,7 +250,7 @@ fn extract_spec(spec_in: &[Const]) -> (Vec<String>, Vec<String>) {
         todo!()
     };
 
-    let mut res_in_types: Vec<String> = vec![];
+    let mut res_in_types: Vec<Types> = vec![];
     for in_spec_type in main_spec_in {
         let Const::Tuple(mut in_spec_type) = in_spec_type.clone() else {
             todo!()
@@ -258,7 +259,7 @@ fn extract_spec(spec_in: &[Const]) -> (Vec<String>, Vec<String>) {
         let Const::Lit(Lit::Atom(Atom(type_string))) = in_spec_type.first().unwrap() else {
             todo!()
         };
-        res_in_types.push(type_string.clone());
+        res_in_types.push(Types::Single(type_string.clone()));
     }
 
     // Focus on output type extraction
@@ -272,7 +273,7 @@ fn extract_spec(spec_in: &[Const]) -> (Vec<String>, Vec<String>) {
     };
     //println!("\n\n\nReady\nIn:{:?}\nOut:{:?}\n\n\n", main_spec_in, main_spec_out);
 
-    (res_in_types, vec![out_type_string.clone()])
+    (res_in_types, vec![Types::Single(out_type_string.clone())])
 }
 
 // Add body to env

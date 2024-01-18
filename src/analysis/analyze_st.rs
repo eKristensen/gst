@@ -1,146 +1,161 @@
-// Check that session type matches the body
+// This file takes care of checking Session Types against an environment
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::format};
 
 use crate::{
-    cerl_parser::ast::{Atom, Clause, Expr, Exprs, FunHead, Lit, Var},
-    st_parser::ast::SessionMode,
+    cerl_parser::ast::{Atom, Expr, Exprs, Lit, Var},
+    st_parser::ast::{SessionMode, SessionType},
 };
 
-use super::compute_init_env::FunEnv;
+use super::{
+    analyze_fun::fun_name_extractor,
+    analyze_var::{chk_st_exprs, VarType},
+};
 
-use crate::st_parser::ast::SessionMode::NotST;
-
-use crate::cerl_parser::ast::Exprs::Single;
-
-// Proper "export" instead of all this () null return. Printing is not proper output.
-pub fn analyze_module(m: HashMap<FunHead, FunEnv>) -> () {
-    for (fun_head, fun_env) in m {
-        print!("Analyzing {:?} ... ", fun_head);
-        if fun_env.spec.is_some() && fun_env.session.is_some() && fun_env.body.is_some() {
-            let env = init_var_env(
-                fun_env.spec.unwrap(),
-                fun_env.session.unwrap(),
-                fun_env.body.clone().unwrap().args,
-            );
-            println!("init analyze env {:?}", env);
-            chk_st_exprs(env, fun_env.body.unwrap().body);
-            // TODO: To check return type
-        } else {
-            println!("could not analyze function. Functions must have a body, spec and session to be analyzed.")
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-enum VarType {
-    Base(String),
-    ST(SessionMode),
-}
-
-fn init_var_env(
-    spec: (Vec<String>, Vec<String>),
-    session: Vec<SessionMode>,
-    args: Vec<Var>,
-) -> HashMap<Var, VarType> {
-    // Initial types for variables
-    let mut env: HashMap<Var, VarType> = HashMap::new();
-
-    let (input, _) = spec;
-
-    for (i, var) in args.iter().enumerate() {
-        let this_st = session.get(i).unwrap();
-        match this_st {
-            NotST => {
-                // If not session type use the type from -spec
-                env.insert(
-                    var.clone(),
-                    VarType::Base(input.get(i).unwrap().to_string()),
-                );
-            }
-            SessionMode::Fresh(_, _) => {
-                // Check that -spec type matches (consistency)
-                if input.get(i).unwrap().to_string() == "fresh".to_owned() {
-                    // Get session type and insert
-                    env.insert(var.clone(), VarType::ST(this_st.clone()));
-                } else {
-                    panic!("-session does not match -spec!! Issue is: Var {:?} is {:?} according to -spec, but should be fresh() to match -session: {:?}", var, input.get(i).unwrap(), this_st);
-                };
-            }
-            SessionMode::Ongoing(_, _) => {
-                // Check that -spec type matches (consistency)
-                if input.get(i).unwrap().to_string() == "ongoing".to_owned() {
-                    // Get session type and insert
-                    env.insert(var.clone(), VarType::ST(this_st.clone()));
-                } else {
-                    panic!("-session does not match -spec!! Issue is: Var {:?} is {:?} according to -spec, but should be ongoing() to match -session: {:?}", var, input.get(i).unwrap(), this_st);
-                };
-            }
-        }
-    }
-
-    env
-}
-
-// One one way forward: Dig into the body and see how it goes, one step at a time.
-
-fn chk_st_exprs(env: HashMap<Var, VarType>, exprs: Exprs) -> HashMap<Var, VarType> {
-    match exprs {
-        Exprs::Single(expr) => chk_st_expr(env, *expr),
-        Exprs::Values(_) => todo!(),
-    }
-}
-
-fn chk_st_expr(env: HashMap<Var, VarType>, expr: Expr) -> HashMap<Var, VarType> {
-    match expr {
-        Expr::Var(_) => todo!("var"),
-        Expr::Fname(_) => todo!("fname"),
-        Expr::Lit(_) => todo!("lit"),
-        Expr::Fun(_) => todo!("fun"),
-        Expr::Cons(_) => todo!("cons"),
-        Expr::Tuple(_) => todo!("tuple"),
-        Expr::Let(_, _, _) => todo!("let"),
-        Expr::Case(e, c) => {
-            // Make a new env for every clause where the expr is matched to the var name in the clause in the env
-            // Ignore when for now. TODO: Maybe consider to not ignore "when"
-            let mut clause_env = Vec::new();
-            for clause in &c {
-                clause_env.push(chk_st_clause(env.clone(), e.clone(), clause.clone()));
-            }
-            // Note: Nothing comes "after" the case. Everything that needs to be checked are encapsulated within.
-            // Or maybe. The condition for "passing" the st check comes after. "best" env should be passed?
-            println!("\nOh case? | {:?} | {:?}", e, c);
-            env
-        }
-        Expr::LetRec(_, _) => todo!("letrec"),
-        Expr::Apply(_, _) => todo!("apply"),
-        Expr::Call(mod_name, call_name, args) => {
-            // Ignore everything except calls that includes sending messages
-            if mod_name
-                == Single(Box::new(Expr::Lit(Lit::Atom(Atom(
-                    "gen_server_plus".to_owned(),
-                )))))
-                && call_name == Single(Box::new(Expr::Lit(Lit::Atom(Atom("call".to_owned())))))
-            {
-                panic!("YES!");
-            }
-            println!("\nOh call? {:?} {:?} {:?}", mod_name, call_name, args);
-            env
-        }
-        Expr::PrimOp(_, _) => todo!("primop"),
-        Expr::Receive(_, _, _) => todo!("receive"),
-        Expr::Try(_, _, _, _, _) => todo!("try"),
-        Expr::Do(e1, e2) => chk_st_exprs(chk_st_exprs(env, e1), e2),
-        Expr::Catch(_) => todo!("catch"),
-        Expr::Map(_, _) => todo!("map"),
-    }
-}
-
-fn chk_st_clause(
+// Check if call relates to a session type.
+pub fn try_st_env_update(
     env: HashMap<Var, VarType>,
-    exprs: Exprs,
-    clause: Clause,
-) -> HashMap<Var, VarType> {
-    todo!();
-    env
+    mod_name: &Exprs,
+    call_name: &Exprs,
+    args: &Vec<Exprs>,
+) -> Result<(VarType, HashMap<Var, VarType>), String> {
+    let (mod_name, call_name) = fun_name_extractor(mod_name, call_name);
+    match (mod_name.as_str(), call_name.as_str()) {
+        ("gen_server_plus", "call") => {
+            // Sanity check: There MUST be 3 args
+            if args.len() != 3 {
+                return Err("gen_server_plus:call is used with a wrong number of arguments. There must be three arguments.".to_owned());
+            };
+
+            // 2: If yes: Then (this is the case right here)
+            //     2a: match the ST on the argument args[0] and args[1]
+            // If args[1] == Atom('new'), then args[0] must be fresh(false,...) <-- The easiest case, let us start here
+            if *args.get(1).unwrap()
+                == Exprs::Single(Box::new(Expr::Lit(Lit::Atom(Atom("new".to_owned())))))
+            {
+                // In this case only env update is required, Session Type is "activated" on new variable.
+                // Check variable name is available etc etc
+                let Exprs::Single(st_binder_var_name) = args.get(0).unwrap() else {
+                    return Err("Invalid argument for gst+ call".to_owned());
+                };
+                let Expr::Var(st_binder_var_name) = *st_binder_var_name.clone() else {
+                    return Err("Invalid argument for gst+ call".to_owned());
+                };
+
+                match env.get(&st_binder_var_name) {
+                    Some(st) => {
+                        let VarType::ST(st) = st else {
+                            return Err(format!("Expected session type"));
+                        };
+                        let SessionMode::Fresh(false, st) = st else {
+                            return Err(format!(
+                                "Fresh session is no longer fresh, cannot start new session again!"
+                            ));
+                        };
+                        let mut env = env.clone();
+                        env.remove(&st_binder_var_name);
+                        return Ok((VarType::ST(SessionMode::Fresh(true, st.clone())), env));
+                    }
+                    None => {
+                        return Err(format!(
+                            "Tried to use non-existing session type {:?}",
+                            st_binder_var_name
+                        ))
+                    }
+                }
+            };
+
+            // If args[1] != Atom('new') then args[0] must be ongoing or fresh(true,...)
+            // Use args[1] to lookup session by the session id.
+            let Exprs::Single(session_id) = args.get(1).unwrap() else {
+                return Err(format!(
+                    "Session identifier for session type must be singular"
+                ));
+            };
+            let Expr::Var(session_id) = *session_id.clone() else {
+                return Err(format!("Session identifier for session type must be var"));
+            };
+            // TODO: OK to basically ignore the ServerPid , i.e. args[0] ??? That is what I do right now.
+            match env.get(&session_id) {
+                Some(sid_type) => {
+                    // In this case the content of the session type must be checked
+
+                    // First the type must be a session id
+                    let VarType::ST(sid_type) = sid_type else {
+                        return Err(format!("Expected a session type, found {:?}", sid_type));
+                    };
+
+                    match sid_type {
+                        SessionMode::NotST => todo!("NotST not used"),
+                        SessionMode::Fresh(true, sid_cnt) => {
+                            if sid_cnt.len() < 1 {
+                                return Err(format!(
+                                    "Session Type is empty, cannot continue, no send?"
+                                ));
+                            };
+
+                            // Send: match the sending argument type from env, args[2]
+                            // Lookup type in environment or check literal type match the ST.
+                            let dummy_m = HashMap::new();
+                            let sending_type =
+                                chk_st_exprs(&dummy_m, env.clone(), (args.get(2)).unwrap())?;
+                            let (VarType::Base(sending_type), _) = sending_type.first().unwrap()
+                            else {
+                                return Err(format!("Must send base type."));
+                            };
+                            // The Send(sending_type) === sid_cnt[0]
+
+                            let SessionType::Send(must_send_type) = sid_cnt.first().unwrap() else {
+                                return Err(format!("Next ST must be send"));
+                            };
+
+                            if *sending_type != *must_send_type {
+                                return Err(format!("Session type does not match. Must send {:?}, but call is sending {:?}", must_send_type, sending_type));
+                            };
+                            // If so, then remove this element form st and update env.
+                            // TODO: Optimize maybe find a way to avoid a bunch of clone() here?
+                            let mut env = env.clone();
+                            let mut sid_cnt = sid_cnt.clone();
+                            sid_cnt.remove(0);
+
+                            // Receive: Get receive return type for return
+                            // Receive type is used for return
+                            if sid_cnt.len() < 1 {
+                                return Err(format!(
+                                    "Session Type is empty, cannot continue, no receive?"
+                                ));
+                            };
+                            let SessionType::Receive(returned_type) = sid_cnt.first().unwrap()
+                            else {
+                                return Err(format!("Must receive in session"));
+                            };
+
+                            // Remove first TODO: Maybe possible to get and remove in one step?
+                            let mut sid_cnt = sid_cnt.clone(); // TODO: At least one more clone than strictly needed
+                            sid_cnt.remove(0);
+
+                            env.insert(
+                                session_id.clone(),
+                                VarType::ST(SessionMode::Fresh(true, sid_cnt.clone())),
+                            );
+
+                            return Ok((VarType::Base(returned_type.clone()), env));
+                        }
+                        SessionMode::Fresh(false, _) => {
+                            return Err(format!("fresh session must be initialized before use."))
+                        }
+                        SessionMode::Ongoing(_, _) => todo!("ongoing not yet implemented"),
+                    }
+                }
+                None => Err(format!("Using non-existing session!")),
+            }
+
+            // What to do with both SessionID and ServerPid? SessionID is not given in argument to client function!
+
+            // Maybe fresh requires or assumes argument to be PiD, and
+            // only allow ST to be evaluated once the ST has been moved
+            // to a "SessionID" variable?
+        }
+        _ => Err(format!("no st match on {:?}:{:?}", mod_name, call_name)),
+    }
 }
