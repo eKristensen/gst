@@ -10,6 +10,8 @@ Steal idea from https://staff.um.edu.mt/afra1/papers/Agere21.pdf
 
 # TODO
 
+- Error messages are currently mostly useless, e.g. There is no hint that to say you might have forgotten to add "." after a session types 
+
 - Test with relevant .core files, if possible with many files
 All of above will be hard work, but most likely possible
 

@@ -10,7 +10,7 @@
 
 %                       That name does not matter, what matters is that it matches the function argument
 % Client scripts         ↓↓
--session ("'negation'(server(!number. ?number. !string.),_)").
+-session ("'negation'(server(!number. ?number. !string.),_) -> _ , []").
 -spec negation(server(),number()) -> number().
 negation(ServerPid,V1) ->
     io:format("DEBUG: Started neg~n"),

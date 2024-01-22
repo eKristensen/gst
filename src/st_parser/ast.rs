@@ -6,12 +6,14 @@
 
 // Based on https://github.com/gertab/ElixirST#session-types-in-elixir
 
-use crate::cerl_parser::ast::FunHead;
+use crate::cerl_parser::ast::{FunHead, Var};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SessionDef {
     pub name: FunHead,
     pub st: Vec<SessionType>, // TODO: A map would be better, but a tuple must do for now.
+    pub return_type: Vec<SessionElement>,
+    pub binders: Vec<(Var, Vec<SessionElement>)>, // TODO: A map would be better but a tuple is easier for now.
 }
 
 // Label to differentiate branches in session types. They are assumed to be non-overlapping
@@ -39,7 +41,7 @@ pub enum Types {
 pub enum SessionElement {
     Send(Types),
     Receive(Types),
-    Branch(Vec<(Label, SessionType)>),
-    Choice(Vec<(Label, SessionType)>),
+    MakeChoice(Vec<(Label, Vec<SessionElement>)>), // TODO: Check/Ask Marco: Should make choice be a vector?
+    OfferChoice(Vec<(Label, Vec<SessionElement>)>),
     End,
 }

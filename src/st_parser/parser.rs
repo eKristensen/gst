@@ -1,17 +1,19 @@
+use std::collections::HashMap;
+
 use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::alpha1,
     combinator::{map, value},
-    multi::separated_list1,
-    sequence::{delimited, pair, tuple},
+    multi::{separated_list0, separated_list1},
+    sequence::{delimited, pair, preceded, tuple},
     IResult,
 };
 
 use crate::cerl_parser::{
-    ast::{Fname, FunHead, Integer},
+    ast::{Fname, FunHead, Integer, Var},
     helpers::ws,
-    terminals::atom,
+    terminals::{atom, var},
 };
 
 use super::ast::{Label, SessionDef, SessionElement, SessionType, Types};
@@ -33,13 +35,26 @@ pub fn st_parse(i: &str) -> IResult<&str, SessionDef> {
                 ),
                 tag(")"),
             ),
+            ws(tag("->")),
+            alt((
+                value(vec![], tag("_")),
+                delimited(tag("("), st_inner, tag(")")),
+            )),
+            ws(tag(",")),
+            delimited(
+                tag("["),
+                separated_list0(tag(","), pair(var, preceded(ws(tag(":")), st_inner))),
+                tag("]"),
+            ),
         )),
-        |(fname, sm)| SessionDef {
+        |(fname, sm, _, rt, _, b)| SessionDef {
             name: FunHead {
                 name: Fname(fname),
                 arity: Integer(sm.len().try_into().unwrap()),
             },
             st: sm,
+            return_type: rt,
+            binders: b,
         },
     )(i)
 }
@@ -53,12 +68,13 @@ fn server_st(i: &str) -> IResult<&str, SessionType> {
 
 fn session_st(i: &str) -> IResult<&str, SessionType> {
     map(
-        tuple((ws(tag("server")), delimited(tag("("), st_inner, tag(")")))),
+        tuple((ws(tag("session")), delimited(tag("("), st_inner, tag(")")))),
         |(_, o)| Session(o),
     )(i)
 }
 
 fn st_inner(i: &str) -> IResult<&str, Vec<SessionElement>> {
+    println!("inner {:?}", i);
     map(
         pair(
             separated_list1(
@@ -66,8 +82,8 @@ fn st_inner(i: &str) -> IResult<&str, Vec<SessionElement>> {
                 alt((
                     st_send,
                     st_receive,
-                    st_branch,
-                    st_choice,
+                    st_make_choice,
+                    st_offer_choice,
                     value(SessionElement::End, tag("end")),
                 )),
             ), // TODO: Add branch and choice
@@ -79,48 +95,48 @@ fn st_inner(i: &str) -> IResult<&str, Vec<SessionElement>> {
 
 // TODO: Why does it not work when rewritten to map(pair(..),|(_,o) [return here]) ??
 fn st_send(i: &str) -> IResult<&str, SessionElement> {
-    let (i, _) = tag("!")(i)?;
-    let (i, o) = alpha1(i)?;
-    Ok((i, SessionElement::Send(Types::Single(o.to_string()))))
-}
-
-// TODO: Why does it not work when rewritten to map(pair(..),|(_,o) [return here]) ??
-fn st_receive(i: &str) -> IResult<&str, SessionElement> {
-    let (i, _) = tag("?")(i)?;
-    let (i, o) = alpha1(i)?;
-    Ok((i, SessionElement::Receive(Types::Single(o.to_string()))))
-}
-
-// TODO: Avoid direct OK return
-// TODO: ElixirST has ? or ! on labels. Needed or not?
-fn st_branch(i: &str) -> IResult<&str, SessionElement> {
-    map(
-        delimited(
-            tag("&{"),
-            separated_list1(tag(","), inner_branch_choice),
-            tag("}"),
-        ),
-        SessionElement::Branch,
-    )(i)
-}
-
-// TODO: Avoid direct OK return
-// TODO: ElixirST has ? or ! on labels. Needed or not?
-fn st_choice(i: &str) -> IResult<&str, SessionElement> {
-    map(
-        delimited(
-            tag("+{"),
-            separated_list1(tag(","), inner_branch_choice),
-            tag("}"),
-        ),
-        SessionElement::Choice,
-    )(i)
-}
-
-fn inner_branch_choice(i: &str) -> IResult<&str, (Label, SessionType)> {
-    map(pair(alpha1, session_st), |(o1, o2)| {
-        (Label(o1.to_string()), o2)
+    map(preceded(tag("!"), alpha1), |o: &str| {
+        SessionElement::Send(Types::Single(o.to_string()))
     })(i)
+}
+
+fn st_receive(i: &str) -> IResult<&str, SessionElement> {
+    map(preceded(tag("?"), alpha1), |o: &str| {
+        SessionElement::Receive(Types::Single(o.to_string()))
+    })(i)
+}
+
+// TODO: Avoid direct OK return
+// TODO: ElixirST has ? or ! on labels. Needed or not?
+fn st_make_choice(i: &str) -> IResult<&str, SessionElement> {
+    map(
+        delimited(
+            ws(tag("&{")),
+            separated_list1(ws(tag(",")), inner_choice),
+            ws(tag("}")),
+        ),
+        SessionElement::MakeChoice,
+    )(i)
+}
+
+// TODO: Avoid direct OK return
+// TODO: ElixirST has ? or ! on labels. Needed or not?
+fn st_offer_choice(i: &str) -> IResult<&str, SessionElement> {
+    map(
+        delimited(
+            ws(tag("+{")),
+            separated_list1(ws(tag(",")), inner_choice),
+            ws(tag("}")),
+        ),
+        SessionElement::OfferChoice,
+    )(i)
+}
+
+fn inner_choice(i: &str) -> IResult<&str, (Label, Vec<SessionElement>)> {
+    map(
+        pair(alpha1, delimited(ws(tag("(")), st_inner, ws(tag(")")))),
+        |(o1, o2)| (Label(o1.to_string()), o2),
+    )(i)
 }
 
 #[cfg(test)]
@@ -132,9 +148,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn simple_session() {
+    fn simple_constructor_00() {
         assert_eq!(
-            st_parse("'test'(_,server(!int.))"),
+            st_parse("'test'(_,server(!int.)) -> _, []"),
             Ok((
                 "",
                 SessionDef {
@@ -144,12 +160,334 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        Server(vec!(SessionElement::Send(Types::Single("int".to_owned()))))
-                    )
+                        Server(vec!(SessionElement::Send(Types::Single("int".to_owned())),))
+                    ),
+                    return_type: vec![],
+                    binders: vec![],
                 }
             ))
         );
     }
 
-    // TODO: Test _ (NotST), Branch, Choice, Binders
+    #[test]
+    fn simple_constructor_01() {
+        assert_eq!(
+            st_parse("'test'(_,server(!int. ?string. end.)) -> _, []"),
+            Ok((
+                "",
+                SessionDef {
+                    name: FunHead {
+                        name: Fname(Atom("test".to_owned())),
+                        arity: Integer(2)
+                    },
+                    st: vec!(
+                        NotST,
+                        Server(vec!(
+                            SessionElement::Send(Types::Single("int".to_owned())),
+                            SessionElement::Receive(Types::Single("string".to_owned())),
+                            SessionElement::End,
+                        ))
+                    ),
+                    return_type: vec![],
+                    binders: vec![],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn simple_constructor_02() {
+        assert_eq!(
+            st_parse("'test'(_,server(!int. ?string. end.)) -> (end.), []"),
+            Ok((
+                "",
+                SessionDef {
+                    name: FunHead {
+                        name: Fname(Atom("test".to_owned())),
+                        arity: Integer(2)
+                    },
+                    st: vec!(
+                        NotST,
+                        Server(vec!(
+                            SessionElement::Send(Types::Single("int".to_owned())),
+                            SessionElement::Receive(Types::Single("string".to_owned())),
+                            SessionElement::End,
+                        ))
+                    ),
+                    return_type: vec![SessionElement::End],
+                    binders: vec![],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn simple_constructor_03() {
+        assert_eq!(
+            st_parse("'test'(_,server(!int. ?string. end.)) -> (end.), [SessionId: ?number. end.]"),
+            Ok((
+                "",
+                SessionDef {
+                    name: FunHead {
+                        name: Fname(Atom("test".to_owned())),
+                        arity: Integer(2)
+                    },
+                    st: vec!(
+                        NotST,
+                        Server(vec!(
+                            SessionElement::Send(Types::Single("int".to_owned())),
+                            SessionElement::Receive(Types::Single("string".to_owned())),
+                            SessionElement::End,
+                        ))
+                    ),
+                    return_type: vec![SessionElement::End],
+                    binders: vec![(
+                        Var("SessionId".to_owned()),
+                        vec![
+                            SessionElement::Receive(Types::Single("number".to_owned())),
+                            SessionElement::End,
+                        ]
+                    )],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn simple_session_00() {
+        assert_eq!(
+            st_parse("'test'(_,session(!int.)) -> _, []"),
+            Ok((
+                "",
+                SessionDef {
+                    name: FunHead {
+                        name: Fname(Atom("test".to_owned())),
+                        arity: Integer(2)
+                    },
+                    st: vec!(
+                        NotST,
+                        Session(vec!(SessionElement::Send(Types::Single("int".to_owned())),))
+                    ),
+                    return_type: vec![],
+                    binders: vec![],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn simple_session_01() {
+        assert_eq!(
+            st_parse("'test'(_,session(!int. ?string. end.)) -> _, []"),
+            Ok((
+                "",
+                SessionDef {
+                    name: FunHead {
+                        name: Fname(Atom("test".to_owned())),
+                        arity: Integer(2)
+                    },
+                    st: vec!(
+                        NotST,
+                        Session(vec!(
+                            SessionElement::Send(Types::Single("int".to_owned())),
+                            SessionElement::Receive(Types::Single("string".to_owned())),
+                            SessionElement::End,
+                        ))
+                    ),
+                    return_type: vec![],
+                    binders: vec![],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn simple_session_02() {
+        assert_eq!(
+            st_parse("'test'(_,session(!int. ?string. end.)) -> (end.), []"),
+            Ok((
+                "",
+                SessionDef {
+                    name: FunHead {
+                        name: Fname(Atom("test".to_owned())),
+                        arity: Integer(2)
+                    },
+                    st: vec!(
+                        NotST,
+                        Session(vec!(
+                            SessionElement::Send(Types::Single("int".to_owned())),
+                            SessionElement::Receive(Types::Single("string".to_owned())),
+                            SessionElement::End,
+                        ))
+                    ),
+                    return_type: vec![SessionElement::End],
+                    binders: vec![],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn simple_session_03() {
+        assert_eq!(
+            st_parse(
+                "'test'(_,session(!int. ?string. end.)) -> (end.), [SessionId: ?number. end.]"
+            ),
+            Ok((
+                "",
+                SessionDef {
+                    name: FunHead {
+                        name: Fname(Atom("test".to_owned())),
+                        arity: Integer(2)
+                    },
+                    st: vec!(
+                        NotST,
+                        Session(vec!(
+                            SessionElement::Send(Types::Single("int".to_owned())),
+                            SessionElement::Receive(Types::Single("string".to_owned())),
+                            SessionElement::End,
+                        ))
+                    ),
+                    return_type: vec![SessionElement::End],
+                    binders: vec![(
+                        Var("SessionId".to_owned()),
+                        vec![
+                            SessionElement::Receive(Types::Single("number".to_owned())),
+                            SessionElement::End,
+                        ]
+                    )],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn offer_choice_00() {
+        assert_eq!(
+            st_offer_choice("+{test(!int.)}"),
+            Ok((
+                "",
+                SessionElement::OfferChoice(vec![(
+                    Label("test".to_owned()),
+                    vec![SessionElement::Send(Types::Single("int".to_owned()))]
+                )])
+            ))
+        );
+    }
+
+    #[test]
+    fn offer_choice_01() {
+        assert_eq!(
+            st_parse("'test'(server( +{test(!int.)}.)) -> _, []"),
+            Ok((
+                "",
+                SessionDef {
+                    name: FunHead {
+                        name: Fname(Atom("test".to_owned())),
+                        arity: Integer(1)
+                    },
+                    st: vec!(Server(vec!(SessionElement::OfferChoice(vec![(
+                        Label("test".to_owned()),
+                        vec![SessionElement::Send(Types::Single("int".to_owned()))]
+                    )])))),
+                    return_type: vec![],
+                    binders: vec![],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn offer_choice_02() {
+        assert_eq!(
+            st_parse("'test'(server( +{test(!int. !int. ?string. end.)}.)) -> _, []"),
+            Ok((
+                "",
+                SessionDef {
+                    name: FunHead {
+                        name: Fname(Atom("test".to_owned())),
+                        arity: Integer(1)
+                    },
+                    st: vec!(Server(vec!(SessionElement::OfferChoice(vec![(
+                        Label("test".to_owned()),
+                        vec![
+                            SessionElement::Send(Types::Single("int".to_owned())),
+                            SessionElement::Send(Types::Single("int".to_owned())),
+                            SessionElement::Receive(Types::Single("string".to_owned())),
+                            SessionElement::End,
+                        ]
+                    )])))),
+                    return_type: vec![],
+                    binders: vec![],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn offer_choice_03() {
+        assert_eq!(
+            st_parse("'test'(server( +{test(!int. !int. ?string. end.), alt(end.)}.)) -> _, []"),
+            Ok((
+                "",
+                SessionDef {
+                    name: FunHead {
+                        name: Fname(Atom("test".to_owned())),
+                        arity: Integer(1)
+                    },
+                    st: vec!(Server(vec!(SessionElement::OfferChoice(vec![
+                        (
+                            Label("test".to_owned()),
+                            vec![
+                                SessionElement::Send(Types::Single("int".to_owned())),
+                                SessionElement::Send(Types::Single("int".to_owned())),
+                                SessionElement::Receive(Types::Single("string".to_owned())),
+                                SessionElement::End,
+                            ]
+                        ),
+                        (Label("alt".to_owned()), vec![SessionElement::End,]),
+                    ])))),
+                    return_type: vec![],
+                    binders: vec![],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn make_choice_00() {
+        assert_eq!(
+            st_make_choice("&{test(!int.)}"),
+            Ok((
+                "",
+                SessionElement::MakeChoice(vec![(
+                    Label("test".to_owned()),
+                    vec![SessionElement::Send(Types::Single("int".to_owned()))]
+                )])
+            ))
+        );
+    }
+
+    #[test]
+    fn make_choice_01() {
+        assert_eq!(
+            st_parse("'test'(server( &{test(!int.)}.)) -> _, []"),
+            Ok((
+                "",
+                SessionDef {
+                    name: FunHead {
+                        name: Fname(Atom("test".to_owned())),
+                        arity: Integer(1)
+                    },
+                    st: vec!(Server(vec!(SessionElement::MakeChoice(vec![(
+                        Label("test".to_owned()),
+                        vec![SessionElement::Send(Types::Single("int".to_owned()))]
+                    )])))),
+                    return_type: vec![],
+                    binders: vec![],
+                }
+            ))
+        );
+    }
+    // TODO: Branch, Choice
 }
