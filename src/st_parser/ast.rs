@@ -18,6 +18,7 @@ pub struct SessionDef {
 
 // Label to differentiate branches in session types. They are assumed to be non-overlapping
 // TODO: Non-overlapping assumption reconsider
+// TODO Note assumption: Labels are atoms in the erlang program. It is impossible to distinguish atoms and labels from each other currently.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Label(pub String);
 
