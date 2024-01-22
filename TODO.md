@@ -85,3 +85,23 @@ Potentially a problem. How to now what type it has.
 Core erlang allows reassignment to same variable name. This type checker will halt if a variable is reassigned to a different type than it already has. This is in order to avoid problems related to renaming and/or reusing variable names.
 
 TODO: Maybe reconsider to allow variables to be renames as core erlang allows anyways.
+
+# Change session type format
+
+After meeting we got the following as a starting point for the client example that I have
+
+```
+-type st_return() :: {}.
+
+
+-service ("ServerPid1/travel: !string. ?int. +(book: ... ; reject: ...)").
+-service ("ServerPid2/calculator: +(neg: !int. ?int. ; add: !int !int ?int)").
+-session (" SessionID: +neg: !int ?int  ").
+
+
+
+%                       That name does not matter, what matters is that it matches the function argument
+% Client scripts         ↓↓
+-session ("'negation'(fresh(!number. ?number. !string),_)").
+-spec negation(fresh(),number()) -> st_return().
+```
