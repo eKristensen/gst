@@ -9,14 +9,10 @@
 // The function information environment is not updated while checking the session-types.
 // This environment is used for lookup when variables are assigned or session-types checked.
 
-use std::{collections::HashMap, ops::Deref};
-
 use crate::{
-    cerl_parser::ast::{Atom, Expr, Exprs, FunHead, Lit, Var},
-    st_parser::ast::SessionMode,
+    cerl_parser::ast::{Atom, Expr, Exprs, Lit},
+    st_parser::ast::Types,
 };
-
-use super::{analyze_var::VarType, types::Types};
 
 use crate::cerl_parser::ast::Exprs::Single;
 

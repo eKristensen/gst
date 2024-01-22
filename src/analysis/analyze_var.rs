@@ -1,16 +1,16 @@
 // Check that session type matches the body
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{
     analysis::{analyze_fun::get_bif_fun_type, analyze_st::try_st_env_update},
     cerl_parser::ast::{Atom, Clause, Const, Expr, Exprs, FunHead, Lit, Pat, Var},
-    st_parser::ast::SessionMode,
+    st_parser::ast::{SessionType, Types},
 };
 
-use super::{compute_init_env::FunEnv, types::Types};
+use super::compute_init_env::FunEnv;
 
-use crate::st_parser::ast::SessionMode::NotST;
+use crate::st_parser::ast::SessionType::NotST;
 
 use crate::cerl_parser::ast::Exprs::Single;
 
@@ -51,16 +51,17 @@ pub fn analyze_module(m: &HashMap<FunHead, FunEnv>) -> bool {
     overall_acceptance
 }
 
+// TODO: I have a feeling that I should be able to refactor this type away
 #[derive(Debug, Clone, PartialEq)]
 pub enum VarType {
     Base(Types),
-    ST(SessionMode),
+    ST(SessionType),
 }
 
 // Bind variables to types before "evaluation"/Checking session type for concrete function.
 fn init_var_env(
     spec: &(Vec<Types>, Vec<Types>),
-    session: &Vec<SessionMode>,
+    session: &Vec<SessionType>,
     args: &Vec<Var>,
 ) -> HashMap<Var, VarType> {
     // Initial types for variables
@@ -75,22 +76,22 @@ fn init_var_env(
                 // If not session type use the type from -spec
                 env.insert(var.clone(), VarType::Base(input.get(i).unwrap().clone()));
             }
-            SessionMode::Fresh(_, _) => {
+            SessionType::Server(_) => {
                 // Check that -spec type matches (consistency)
-                if *input.get(i).unwrap() == Types::Single("fresh".to_owned()) {
+                if *input.get(i).unwrap() == Types::Single("server".to_owned()) {
                     // Get session type and insert
                     env.insert(var.clone(), VarType::ST(this_st.clone()));
                 } else {
-                    panic!("-session does not match -spec!! Issue is: Var {:?} is {:?} according to -spec, but should be fresh() to match -session: {:?}", var, input.get(i).unwrap(), this_st);
+                    panic!("-session does not match -spec!! Issue is: Var {:?} is {:?} according to -spec, but should be server() to match -session: {:?}", var, input.get(i).unwrap(), this_st);
                 };
             }
-            SessionMode::Ongoing(_, _) => {
+            SessionType::Session(_) => {
                 // Check that -spec type matches (consistency)
-                if *input.get(i).unwrap() == Types::Single("ongoing".to_owned()) {
+                if *input.get(i).unwrap() == Types::Single("session".to_owned()) {
                     // Get session type and insert
                     env.insert(var.clone(), VarType::ST(this_st.clone()));
                 } else {
-                    panic!("-session does not match -spec!! Issue is: Var {:?} is {:?} according to -spec, but should be ongoing() to match -session: {:?}", var, input.get(i).unwrap(), this_st);
+                    panic!("-session does not match -spec!! Issue is: Var {:?} is {:?} according to -spec, but should be session() to match -session: {:?}", var, input.get(i).unwrap(), this_st);
                 };
             }
         }
@@ -371,7 +372,7 @@ fn env_update_pattern_from_return_type(
         VarType::ST(st) => {
             match st {
                 NotST => todo!("NotST should maybe never be used?"),
-                SessionMode::Fresh(state, content) => {
+                SessionType::Server(content) => {
                     // TL;DR: It only works if pat has type "{VarName, 'ready'}"
                     // TODO: Maybe it is bad to hard-code ready into the analysis tool.... For later
 
@@ -385,12 +386,30 @@ fn env_update_pattern_from_return_type(
                         Some(_) => todo!(),
                         None => {
                             let mut env = env.clone();
-                            env.insert(res_val_name.clone(), VarType::ST(SessionMode::Fresh(state, content)));
+                            env.insert(res_val_name.clone(), VarType::ST(SessionType::Server(content)));
                             Ok(env)
                         },
                     }
                 },
-                SessionMode::Ongoing(_, _) => todo!("when return type is ongoing is on todo"),
+                SessionType::Session(content) => { // TODO: avoid duplicated case.....
+                    // TL;DR: It only works if pat has type "{VarName, 'ready'}"
+                    // TODO: Maybe it is bad to hard-code ready into the analysis tool.... For later
+
+                    if pat.len() != 2 {
+                        return Err(format!("Wrong pattern length for session type return inside tuple"));
+                    }
+                    let Pat::Var(res_val_name) = pat.first().unwrap() else { return Err(format!("Wrong format return value session type"))};
+
+                    // Variable name to bind is now known. Check it is usable
+                    match env.get(&res_val_name) {
+                        Some(_) => todo!(),
+                        None => {
+                            let mut env = env.clone();
+                            env.insert(res_val_name.clone(), VarType::ST(SessionType::Session(content)));
+                            Ok(env)
+                        },
+                    }
+                },
             }
         },
     }
@@ -402,13 +421,17 @@ fn validate_res_env(env: HashMap<Var, VarType>) -> bool {
             VarType::Base(_) => (),
             VarType::ST(st) => match st {
                 NotST => todo!(),
-                SessionMode::Fresh(started, st_cnt) => {
-                    if !started || st_cnt.len() != 0 {
+                SessionType::Session(st_cnt) => {
+                    // TODO: Maybe expect "end." ?
+                    if st_cnt.len() != 0 {
                         println!("Session type not consumed!");
                         return false;
                     }
                 }
-                SessionMode::Ongoing(_, _) => todo!(),
+                SessionType::Server(_) => {
+                    println!("Session type not constructed!");
+                    return false;
+                }
             },
         }
     }

@@ -6,12 +6,12 @@
 
 // Based on https://github.com/gertab/ElixirST#session-types-in-elixir
 
-use crate::{analysis::types::Types, cerl_parser::ast::FunHead};
+use crate::cerl_parser::ast::FunHead;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Session {
+pub struct SessionDef {
     pub name: FunHead,
-    pub st: Vec<SessionMode>, // TODO: A map would be better, but a tuple must do for now.
+    pub st: Vec<SessionType>, // TODO: A map would be better, but a tuple must do for now.
 }
 
 // Label to differentiate branches in session types. They are assumed to be non-overlapping
@@ -19,18 +19,27 @@ pub struct Session {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Label(pub String);
 
-// TODO: SessionMode == Bad name, very bad name indeed
+// TODO: Can constructors be nested? Would that make sense at all?
 #[derive(Debug, Clone, PartialEq)]
-pub enum SessionMode {
-    NotST, // This is odd in combination with VarType that puts SessionMode within a ST and has Base type.. TODO: Fixme
-    Fresh(bool, Vec<SessionType>), // Bool is whether the session is initialized yet or not.
-    Ongoing(Vec<SessionType>, Vec<SessionType>),
+pub enum SessionType {
+    NotST, // Needed as a placeholder for the initial session spec to be able to count the variable arguments
+    Server(Vec<SessionElement>), // Constructor for new session
+    Session(Vec<SessionElement>), // "ongoing" session
+}
+
+// https://github.com/gertab/ElixirST/blob/75d098f51df40b5ff1022c7dc56a695b0f3da9d9/lib/elixirst/session_type.ex#L122
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Types {
+    Single(String),
+    Tuple(Vec<Types>),
+    Cons(Vec<Types>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum SessionType {
+pub enum SessionElement {
     Send(Types),
     Receive(Types),
     Branch(Vec<(Label, SessionType)>),
     Choice(Vec<(Label, SessionType)>),
+    End,
 }

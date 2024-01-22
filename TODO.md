@@ -86,6 +86,12 @@ Core erlang allows reassignment to same variable name. This type checker will ha
 
 TODO: Maybe reconsider to allow variables to be renames as core erlang allows anyways.
 
+# Cargo runs all tests twice
+
+Once for lib.rs and once for main.rs
+
+What to do about it? Not a problem right now though.
+
 # Change session type format
 
 After meeting we got the following as a starting point for the client example that I have

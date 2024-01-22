@@ -6,13 +6,12 @@
 % Public functions in this module
 -export([negation/2]).
 
--type fresh() :: {}.
--type ongoing() :: {}.
+-type server() :: {}.
 
 %                       That name does not matter, what matters is that it matches the function argument
 % Client scripts         ↓↓
--session ("'negation'(fresh(!number. ?number. !string.),_)").
--spec negation(fresh(),number()) -> number().
+-session ("'negation'(server(!number. ?number. !string.),_)").
+-spec negation(server(),number()) -> number().
 negation(ServerPid,V1) ->
     io:format("DEBUG: Started neg~n"),
     % Send first message with function and arity and get SessionID

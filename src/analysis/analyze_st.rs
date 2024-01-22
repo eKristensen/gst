@@ -1,10 +1,10 @@
 // This file takes care of checking Session Types against an environment
 
-use std::{collections::HashMap, fmt::format};
+use std::collections::HashMap;
 
 use crate::{
     cerl_parser::ast::{Atom, Expr, Exprs, Lit, Var},
-    st_parser::ast::{SessionMode, SessionType},
+    st_parser::ast::{SessionElement, SessionType},
 };
 
 use super::{
@@ -47,14 +47,15 @@ pub fn try_st_env_update(
                         let VarType::ST(st) = st else {
                             return Err(format!("Expected session type"));
                         };
-                        let SessionMode::Fresh(false, st) = st else {
+                        let SessionType::Session(st) = st else {
                             return Err(format!(
-                                "Fresh session is no longer fresh, cannot start new session again!"
+                                "Session has already been started, cannot start new session again!"
                             ));
                         };
                         let mut env = env.clone();
+                        // TODO: Ask Marcro: Should constructor be preserved or removed?
                         env.remove(&st_binder_var_name);
-                        return Ok((VarType::ST(SessionMode::Fresh(true, st.clone())), env));
+                        return Ok((VarType::ST(SessionType::Session(st.clone())), env));
                     }
                     None => {
                         return Err(format!(
@@ -86,8 +87,8 @@ pub fn try_st_env_update(
                     };
 
                     match sid_type {
-                        SessionMode::NotST => todo!("NotST not used"),
-                        SessionMode::Fresh(true, sid_cnt) => {
+                        SessionType::NotST => todo!("NotST not used"),
+                        SessionType::Session(sid_cnt) => {
                             if sid_cnt.len() < 1 {
                                 return Err(format!(
                                     "Session Type is empty, cannot continue, no send?"
@@ -105,7 +106,8 @@ pub fn try_st_env_update(
                             };
                             // The Send(sending_type) === sid_cnt[0]
 
-                            let SessionType::Send(must_send_type) = sid_cnt.first().unwrap() else {
+                            let SessionElement::Send(must_send_type) = sid_cnt.first().unwrap()
+                            else {
                                 return Err(format!("Next ST must be send"));
                             };
 
@@ -125,7 +127,7 @@ pub fn try_st_env_update(
                                     "Session Type is empty, cannot continue, no receive?"
                                 ));
                             };
-                            let SessionType::Receive(returned_type) = sid_cnt.first().unwrap()
+                            let SessionElement::Receive(returned_type) = sid_cnt.first().unwrap()
                             else {
                                 return Err(format!("Must receive in session"));
                             };
@@ -136,15 +138,14 @@ pub fn try_st_env_update(
 
                             env.insert(
                                 session_id.clone(),
-                                VarType::ST(SessionMode::Fresh(true, sid_cnt.clone())),
+                                VarType::ST(SessionType::Session(sid_cnt.clone())),
                             );
 
                             return Ok((VarType::Base(returned_type.clone()), env));
                         }
-                        SessionMode::Fresh(false, _) => {
-                            return Err(format!("fresh session must be initialized before use."))
+                        SessionType::Server(_) => {
+                            return Err(format!("session must be initialized before use."))
                         }
-                        SessionMode::Ongoing(_, _) => todo!("ongoing not yet implemented"),
                     }
                 }
                 None => Err(format!("Using non-existing session!")),

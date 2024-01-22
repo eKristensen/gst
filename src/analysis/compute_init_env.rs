@@ -4,15 +4,16 @@ use std::collections::HashMap;
 
 use crate::{
     cerl_parser::ast::{Atom, Const, Fname, FunDef, FunHead, Integer, Lit, Module},
-    st_parser::{ast::SessionMode, parser::st_parse},
+    st_parser::{
+        ast::{SessionType, Types},
+        parser::st_parse,
+    },
 };
-
-use super::types::Types;
 
 #[derive(Debug, Clone)]
 pub struct FunEnv {
     pub spec: Option<(Vec<Types>, Vec<Types>)>, // TODO: Too simple to be useful in the long run (no alternative types on top-level)
-    pub session: Option<Vec<SessionMode>>,
+    pub session: Option<Vec<SessionType>>,
     pub body: Option<FunDef>,
 }
 
