@@ -6,13 +6,15 @@
 % Public functions in this module
 -export([negation/2]).
 
--type fresh() :: {}.
--type ongoing() :: {}.
+-type service() :: {}.
 
-%                       That name does not matter, what matters is that it matches the function argument
-% Client scripts         ↓↓
--session ("'negation'(fresh(!number. ?number.),_)").
--spec negation(fresh(),number()) -> number().
+-service_def("calculator: +(neg: !int. ?int. ; add: !int. !int. ?int.)").
+
+%      Connect calculator and ServerPID            Can return be ST or service or both?
+%                        ↓↓                                       ↓↓
+-session("'negation'(calculator, _) -> SessionID: &(neg: !int ?int), _  ").
+% TO ADD: multi-options for session.
+-spec negation(service(),number()) -> number().
 negation(ServerPid,V1) ->
     io:format("DEBUG: Started neg~n"),
     % Send first message with function and arity and get SessionID
