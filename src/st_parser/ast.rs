@@ -6,20 +6,24 @@
 
 // Based on https://github.com/gertab/ElixirST#session-types-in-elixir
 
+use std::collections::HashMap;
+
 use crate::cerl_parser::ast::{FunHead, Var};
 
+// TODO Multi-option function like in -spec cannot be represented right now.
+// The -session is assumed to only have a single case for now.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SessionDef {
     pub name: FunHead,
     pub st: Vec<SessionType>, // TODO: A map would be better, but a tuple must do for now.
     pub return_type: Vec<SessionElement>,
-    pub binders: Vec<(Var, Vec<SessionElement>)>, // TODO: A map would be better but a tuple is easier for now.
+    pub binders: HashMap<Var, Vec<SessionElement>>,
 }
 
 // Label to differentiate branches in session types. They are assumed to be non-overlapping
 // TODO: Non-overlapping assumption reconsider
 // TODO Note assumption: Labels are atoms in the erlang program. It is impossible to distinguish atoms and labels from each other currently.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Label(pub String);
 
 // TODO: Can constructors be nested? Would that make sense at all?
@@ -43,6 +47,6 @@ pub enum SessionElement {
     Send(Types),
     Receive(Types),
     MakeChoice(Vec<(Label, Vec<SessionElement>)>), // TODO: Check/Ask Marco: Should make choice be a vector?
-    OfferChoice(Vec<(Label, Vec<SessionElement>)>),
+    OfferChoice(HashMap<Label, Vec<SessionElement>>),
     End, // TODO: Ask Marco: Can end be consumed?
 }

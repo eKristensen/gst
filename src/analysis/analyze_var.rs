@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::{
     analysis::{analyze_fun::get_bif_fun_type, analyze_st::try_st_env_update},
     cerl_parser::ast::{Atom, Clause, Const, Expr, Exprs, FunHead, Lit, Pat, Var},
-    st_parser::ast::{SessionType, Types},
+    st_parser::ast::{SessionDef, SessionElement, SessionType, Types},
 };
 
 use super::compute_init_env::FunEnv;
@@ -36,7 +36,8 @@ pub fn analyze_module(m: &HashMap<FunHead, FunEnv>) -> bool {
             for (_, res_env) in res_analysis {
                 print!(" res env is {:?}", res_env);
                 // Check res env is acceptable
-                let acceptable_res_env = validate_res_env(res_env);
+                let acceptable_res_env =
+                    validate_res_env(&fun_env.session.as_ref().unwrap().binders, res_env);
                 if !acceptable_res_env {
                     overall_acceptance = false;
                 }
@@ -61,7 +62,7 @@ pub enum VarType {
 // Bind variables to types before "evaluation"/Checking session type for concrete function.
 fn init_var_env(
     spec: &(Vec<Types>, Vec<Types>),
-    session: &Vec<SessionType>,
+    session: &SessionDef,
     args: &Vec<Var>,
 ) -> HashMap<Var, VarType> {
     // Initial types for variables
@@ -69,8 +70,10 @@ fn init_var_env(
 
     let (input, _) = spec;
 
+    // TODO: Check length of session.st and args matches!
+
     for (i, var) in args.iter().enumerate() {
-        let this_st = session.get(i).unwrap();
+        let this_st = session.st.get(i).unwrap();
         match this_st {
             NotST => {
                 // If not session type use the type from -spec
@@ -183,6 +186,10 @@ fn chk_st_expr(
             // Ignore when for now. TODO: Maybe consider to not ignore "when"
             let e_res = chk_st_exprs(m, env, e);
             if e_res.is_err() {
+                {
+                    println!("Eliminated possible env because {:?}", e_res);
+                    ()
+                }
                 return Ok(vec![]);
             }
             let e_res = e_res.unwrap();
@@ -221,10 +228,16 @@ fn chk_st_expr(
                             let e_clause_res = chk_st_exprs(m, clause_env, &clause.res);
                             match e_clause_res {
                                 Ok(mut e_clause_res) => res.append(&mut e_clause_res),
-                                Err(_) => (),
+                                Err(e) => {
+                                    println!("Eliminated possible env because {:?}", e);
+                                    ()
+                                }
                             }
                         }
-                        Err(_) => (),
+                        Err(e) => {
+                            println!("Eliminated possible env because {:?}", e);
+                            ()
+                        }
                     }
                 }
                 // Note: Nothing comes "after" the case. Everything that needs to be checked are encapsulated within.
@@ -236,17 +249,6 @@ fn chk_st_expr(
         Expr::LetRec(_, _) => todo!("letrec"),
         Expr::Apply(_, _) => todo!("apply"),
         Expr::Call(mod_name, call_name, args) => {
-            // Ignore everything except calls that includes sending messages
-            // if *mod_name
-            //     == Single(Box::new(Expr::Lit(Lit::Atom(Atom(
-            //         "gen_server_plus".to_owned(),
-            //     )))))
-            //     && *call_name == Single(Box::new(Expr::Lit(Lit::Atom(Atom("call".to_owned())))))
-            // {
-            //     println!("YES! {:?}\n", env);
-            // }
-            // println!("\nOh call? {:?} {:?} {:?}", mod_name, call_name, args);
-
             // Try to match as a BIF
             let try_bif = get_bif_fun_type(mod_name, call_name);
             if try_bif.is_ok() {
@@ -276,36 +278,6 @@ fn chk_st_expr(
         Expr::Map(_, _) => todo!("map"),
     }
 }
-
-// Whenever a variable is set to some value, call this function
-// It could be in let or case
-// Type is derived from type in env which
-// fn assign_env(
-//     m: HashMap<FunHead, FunEnv>,
-//     env: HashMap<Var, VarType>,
-//     vars: Vec<Var>,
-//     exprs: Exprs,
-// ) -> HashMap<Var, VarType> {
-//     // This should happen here:
-//     // the vars are updated in env, based on what exprs returns.
-//     // The response type of exprs are taken via m or analyze_fun static info
-
-// }
-
-// fn chk_st_clause(
-//     m: &HashMap<FunHead, FunEnv>,
-//     env: HashMap<Var, VarType>,
-//     exprs: Exprs,
-//     clause: Clause,
-// ) -> HashMap<Var, VarType> {
-//     todo!("chk_st_clause");
-//     env
-// }
-
-// Update env in clause
-// fn env_clause(
-
-// )
 
 // This function needs to be recursive, the naive approach should be OK.
 // Remember that `_` may have different meaning in erlang and core erlang !
@@ -415,14 +387,32 @@ fn env_update_pattern_from_return_type(
     }
 }
 
-fn validate_res_env(env: HashMap<Var, VarType>) -> bool {
-    for (_, elm) in env {
+fn validate_res_env(
+    session: &HashMap<Var, Vec<SessionElement>>,
+    env: HashMap<Var, VarType>,
+) -> bool {
+    for (key, elm) in env {
         match elm {
             VarType::Base(_) => (),
             VarType::ST(st) => match st {
                 NotST => todo!(),
                 SessionType::Session(st_cnt) => {
                     // TODO: Maybe expect "end." ?
+                    match session.get(&key) {
+                        Some(val) => {
+                            if *val != st_cnt {
+                                println!(
+                                    "Var {:?} is {:?} but should be {:?} according to binder.",
+                                    key, *val, st_cnt
+                                );
+                                return false;
+                            }
+                        }
+                        None => {
+                            println!("Var {:?} does not have a binder, cannot accept env.", key);
+                            return false;
+                        }
+                    }
                     if st_cnt.len() != 0 {
                         println!("Session type not consumed!");
                         return false;

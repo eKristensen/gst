@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::{
     cerl_parser::ast::{Atom, Const, Fname, FunDef, FunHead, Integer, Lit, Module},
     st_parser::{
-        ast::{SessionType, Types},
+        ast::{SessionDef, Types},
         parser::st_parse,
     },
 };
@@ -13,7 +13,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct FunEnv {
     pub spec: Option<(Vec<Types>, Vec<Types>)>, // TODO: Too simple to be useful in the long run (no alternative types on top-level)
-    pub session: Option<Vec<SessionType>>,
+    pub session: Option<SessionDef>,
     pub body: Option<FunDef>,
 }
 
@@ -155,10 +155,10 @@ fn add_session(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
             // FunEnv exists, add spec if none
             if fun_env.session.is_none() {
                 m.insert(
-                    session_type_parsed.name,
+                    session_type_parsed.name.clone(),
                     FunEnv {
                         spec: fun_env.spec.clone(),
-                        session: Some(session_type_parsed.st),
+                        session: Some(session_type_parsed),
                         body: fun_env.body.clone(),
                     },
                 );
@@ -169,10 +169,10 @@ fn add_session(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
         None => {
             // Fresh entry, add new FunEnv
             m.insert(
-                session_type_parsed.name,
+                session_type_parsed.name.clone(),
                 FunEnv {
                     spec: None,
-                    session: Some(session_type_parsed.st),
+                    session: Some(session_type_parsed),
                     body: None,
                 },
             );
