@@ -143,7 +143,10 @@ fn add_session(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
     let (not_parsed, session_type_parsed) = st_parse(&*st_string).unwrap();
 
     if not_parsed.len() > 0 {
-        panic!("Session type could not be properly parsed!")
+        panic!(
+            "Session type could not be properly parsed! This is left over {:?}",
+            not_parsed
+        )
     }
 
     // Lookup

@@ -6,15 +6,14 @@
 % Public functions in this module
 -export([negation/2]).
 
--type service() :: {}.
+-type server() :: {}.
 
--service_def("calculator: +(neg: !int. ?int. ; add: !int. !int. ?int.)").
-
+% 
 %      Connect calculator and ServerPID            Can return be ST or service or both?
 %                        ↓↓                                       ↓↓
--session("'negation'(calculator, _) -> SessionID: &(neg: !int ?int), _  ").
+-session("'negation'(server(+{neg(!int. ?int. end.), add(!int. !int. ?int. end.)}.),_) -> _, []  ").
 % TO ADD: multi-options for session.
--spec negation(service(),number()) -> number().
+-spec negation(server(),number()) -> number().
 negation(ServerPid,V1) ->
     io:format("DEBUG: Started neg~n"),
     % Send first message with function and arity and get SessionID

@@ -44,5 +44,5 @@ pub enum SessionElement {
     Receive(Types),
     MakeChoice(Vec<(Label, Vec<SessionElement>)>), // TODO: Check/Ask Marco: Should make choice be a vector?
     OfferChoice(Vec<(Label, Vec<SessionElement>)>),
-    End,
+    End, // TODO: Ask Marco: Can end be consumed?
 }

@@ -28,23 +28,26 @@ pub fn st_parse(i: &str) -> IResult<&str, SessionDef> {
         tuple((
             atom,
             delimited(
-                tag("("),
+                ws(tag("(")),
                 separated_list1(
-                    tag(","),
-                    alt((server_st, session_st, value(NotST, tag("_")))),
+                    ws(tag(",")),
+                    alt((server_st, session_st, value(NotST, ws(tag("_"))))),
                 ),
-                tag(")"),
+                ws(tag(")")),
             ),
-            ws(tag("->")),
+            ws(ws(tag("->"))),
             alt((
-                value(vec![], tag("_")),
-                delimited(tag("("), st_inner, tag(")")),
+                value(vec![], ws(tag("_"))),
+                delimited(ws(tag("(")), st_inner, ws(tag(")"))),
             )),
-            ws(tag(",")),
+            ws(ws(tag(","))),
             delimited(
-                tag("["),
-                separated_list0(tag(","), pair(var, preceded(ws(tag(":")), st_inner))),
-                tag("]"),
+                ws(tag("[")),
+                separated_list0(
+                    ws(tag(",")),
+                    pair(var, preceded(ws(ws(tag(":"))), st_inner)),
+                ),
+                ws(tag("]")),
             ),
         )),
         |(fname, sm, _, rt, _, b)| SessionDef {
@@ -61,20 +64,25 @@ pub fn st_parse(i: &str) -> IResult<&str, SessionDef> {
 
 fn server_st(i: &str) -> IResult<&str, SessionType> {
     map(
-        tuple((ws(tag("server")), delimited(tag("("), st_inner, tag(")")))),
+        tuple((
+            ws(tag("server")),
+            delimited(ws(tag("(")), st_inner, ws(tag(")"))),
+        )),
         |(_, o)| Server(o),
     )(i)
 }
 
 fn session_st(i: &str) -> IResult<&str, SessionType> {
     map(
-        tuple((ws(tag("session")), delimited(tag("("), st_inner, tag(")")))),
+        tuple((
+            ws(tag("session")),
+            delimited(ws(tag("(")), st_inner, ws(tag(")"))),
+        )),
         |(_, o)| Session(o),
     )(i)
 }
 
 fn st_inner(i: &str) -> IResult<&str, Vec<SessionElement>> {
-    println!("inner {:?}", i);
     map(
         pair(
             separated_list1(
@@ -471,7 +479,7 @@ mod tests {
     #[test]
     fn make_choice_01() {
         assert_eq!(
-            st_parse("'test'(server( &{test(!int.)}.)) -> _, []"),
+            st_parse("'test'( server( &{ test( !int. ) } . ) ) -> _ , [  ]  "),
             Ok((
                 "",
                 SessionDef {
