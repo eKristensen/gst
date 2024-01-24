@@ -28,5 +28,5 @@ negation(ServerPid,V1) ->
     % Also updated return value to be just Res instead of {result,Res}
     % Updated is:
     Res = gen_server_plus:call(ServerPid,SessionID,V1),
-    io:format("Client sent number and got response: ~w~n", [Res]).
-    % TODO: There is an undetected spec violation. The return type for negation is "no_return()" but should be "number()"
+    io:format("Client sent number and got response: ~w~n", [Res]),
+    Res.

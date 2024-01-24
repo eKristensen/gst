@@ -12,7 +12,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct FunEnv {
-    pub spec: Option<(Vec<Types>, Vec<Types>)>, // TODO: Too simple to be useful in the long run (no alternative types on top-level)
+    pub spec: Option<(Vec<Types>, Types)>, // TODO: Too simple to be useful in the long run (no alternative types on top-level)
     pub session: Option<SessionDef>,
     pub body: Option<FunDef>,
 }
@@ -211,7 +211,7 @@ fn add_body(m: &mut HashMap<FunHead, FunEnv>, fun_head: &FunHead, fun_body: &Fun
     }
 }
 
-fn extract_spec(spec_in: &[Const]) -> (Vec<Types>, Vec<Types>) {
+fn extract_spec(spec_in: &[Const]) -> (Vec<Types>, Types) {
     // Convert tagged tuples into something that can be used to compare types
 
     // TODO: Is it possible to explain this function at all?
@@ -277,7 +277,7 @@ fn extract_spec(spec_in: &[Const]) -> (Vec<Types>, Vec<Types>) {
     };
     //println!("\n\n\nReady\nIn:{:?}\nOut:{:?}\n\n\n", main_spec_in, main_spec_out);
 
-    (res_in_types, vec![Types::Single(out_type_string.clone())])
+    (res_in_types, Types::Single(out_type_string.clone()))
 }
 
 // Add body to env

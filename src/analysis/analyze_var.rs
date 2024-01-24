@@ -33,11 +33,17 @@ pub fn analyze_module(m: &HashMap<FunHead, FunEnv>) -> bool {
                 overall_acceptance = false;
                 println!(" not OK, no result")
             }
-            for (_, res_env) in res_analysis {
+            for (return_type, res_env) in res_analysis {
                 print!(" res env is {:?}", res_env);
                 // Check res env is acceptable
-                let acceptable_res_env =
-                    validate_res_env(&fun_env.session.as_ref().unwrap().binders, res_env);
+                let (_, spec_return_type) = fun_env.spec.as_ref().unwrap();
+                let acceptable_res_env = validate_res_env(
+                    &return_type,
+                    &spec_return_type,
+                    &fun_env.session.as_ref().unwrap().return_type,
+                    &fun_env.session.as_ref().unwrap().binders,
+                    res_env,
+                );
                 if !acceptable_res_env {
                     overall_acceptance = false;
                 }
@@ -61,7 +67,7 @@ pub enum VarType {
 
 // Bind variables to types before "evaluation"/Checking session type for concrete function.
 fn init_var_env(
-    spec: &(Vec<Types>, Vec<Types>),
+    spec: &(Vec<Types>, Types),
     session: &SessionDef,
     args: &Vec<Var>,
 ) -> HashMap<Var, VarType> {
@@ -388,9 +394,37 @@ fn env_update_pattern_from_return_type(
 }
 
 fn validate_res_env(
+    st_spec_return_type: &VarType,
+    base_spec_return_type: &Types,
+    env_return_type: &Vec<SessionElement>,
     session: &HashMap<Var, Vec<SessionElement>>,
     env: HashMap<Var, VarType>,
 ) -> bool {
+    // Validate return type match
+    match st_spec_return_type {
+        VarType::Base(bt) => {
+            if *bt != *base_spec_return_type {
+                println!("Mismatch between expected return type and -spec");
+                return false;
+            }
+        }
+        VarType::ST(env_return_type) => {
+            let mut env_return_type = match env_return_type {
+                NotST => todo!("Not ST"),
+                SessionType::Server(st) => st,
+                SessionType::Session(st) => st,
+            };
+            // TODO: Better way to compare vectors
+            for (elm1, elm2) in env_return_type.iter().zip(env_return_type.iter()) {
+                if elm1 != elm2 {
+                    println!("Return type mismatch.");
+                    return false;
+                }
+            }
+        }
+    }
+
+    // Validate binders for session type variables in env
     for (key, elm) in env {
         match elm {
             VarType::Base(_) => (),
