@@ -17,14 +17,14 @@ fn main() {
 
     match std::fs::read_to_string(filename) {
         Ok(src) => {
-            println!(
-                "Ran parser with debug AST output: {:?}\n",
-                cerl_parser::top::module(&src)
-            );
+            // println!(
+            //     "Ran parser with debug AST output: {:?}\n",
+            //     cerl_parser::top::module(&src)
+            // );
             match cerl_parser::top::module(&src) {
                 Ok((_, module)) => {
                     let env = init_module_env(module);
-                    println!("Init analysis environment {:?}\n", env);
+                    //println!("Init analysis environment {:?}\n", env);
                     analyze_module(&env);
                 }
                 Err(_) => println!("Nom could not parse source"),

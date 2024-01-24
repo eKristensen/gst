@@ -166,7 +166,7 @@ pub fn try_st_env_update(
 
                                             todo!("offer choice implementing")
                                         },
-                                        SessionElement::End => todo!("what to do with end when sending? Should it be supported?"),
+                                        SessionElement::End => return Err(format!("Session type is finished with .end and cannot be used for further communication.")),
                                     }
                                 }
                                 SessionType::Server(_) => {
