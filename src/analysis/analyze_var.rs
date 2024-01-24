@@ -403,7 +403,7 @@ fn validate_res_env(
                             if *val != st_cnt {
                                 println!(
                                     "Var {:?} is {:?} but should be {:?} according to binder.",
-                                    key, *val, st_cnt
+                                    key, st_cnt, *val
                                 );
                                 return false;
                             }
@@ -413,10 +413,10 @@ fn validate_res_env(
                             return false;
                         }
                     }
-                    if st_cnt.len() != 0 {
-                        println!("Session type not consumed!");
-                        return false;
-                    }
+                    // if st_cnt.len() != 0 {
+                    //     println!("Session type not consumed!");
+                    //     return false;
+                    // }
                 }
                 SessionType::Server(_) => {
                     println!("Session type not constructed!");

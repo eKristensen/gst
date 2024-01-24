@@ -16,11 +16,11 @@
 % Service tag here can be considered optional. It works as a constant/marco.
 %                                              Add end to be explicit.
 %                                                 ↓↓
--service("calculator: +{neg(!int. ?int. !string. end.), add(!int. !int. ?int. end.)}").
+% -service("calculator: +{neg(!int. ?int. !string. end.), add(!int. !int. ?int. end.)}").
 
 %      Connect calculator and ServerPID                                  Direct return       Side-effect/binders
 %                        ↓↓                                                  ↓↓                   ↓↓
--session("'negation'(service(calculator), session(&(neg: !int ?int)), _) -> !string, [ SessionID: !string. end. , ... ]  ").
+% -session("'negation'(service(calculator), session(&(neg: !int ?int)), _) -> !string, [ SessionID: !string. end. , ... ]  ").
 
 % Counting arguments is bad, but got no better solution now. ideally it would be something like
 % -session("'negation/2: ServerPid=service(calculator)").

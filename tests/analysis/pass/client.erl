@@ -11,7 +11,7 @@
 % 
 %      Connect calculator and ServerPID            Can return be ST or service or both?
 %                        ↓↓                                       ↓↓
--session("'negation'(server(+{neg(!number. ?number. end.), add(!number. !number. ?number. end.)}.),_) -> _, []  ").
+-session("'negation'(server(+{neg(!number. ?number. end.), add(!number. !number. ?number. end.)}.),_) -> _, [ SessionID:  end. ]  ").
 % TO ADD: multi-options for session.
 -spec negation(server(),number()) -> number().
 negation(ServerPid,V1) ->
