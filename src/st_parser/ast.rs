@@ -15,7 +15,7 @@ use crate::cerl_parser::ast::{FunHead, Var};
 #[derive(Debug, Clone, PartialEq)]
 pub struct SessionDef {
     pub name: FunHead,
-    pub st: Vec<SessionType>, // TODO: A map would be better, but a tuple must do for now.
+    pub st: Vec<SessionType>,
     pub return_type: Vec<SessionElement>,
     pub binders: HashMap<Var, Vec<SessionElement>>,
 }

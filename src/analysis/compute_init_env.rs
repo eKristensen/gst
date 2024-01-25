@@ -10,6 +10,8 @@ use crate::{
     },
 };
 
+use super::wellformed::check_wf;
+
 #[derive(Debug, Clone)]
 pub struct FunEnv {
     pub spec: Option<(Vec<Types>, Types)>, // TODO: Too simple to be useful in the long run (no alternative types on top-level)
@@ -42,6 +44,12 @@ pub fn init_module_env(m: Module) -> HashMap<FunHead, FunEnv> {
     // For all functions: Decode "spec" to something that is consumable.
     // Maybe better to "just" decode them "at once"?
     // How to deal with split spec definitions? Multi-case spec
+
+    // Finally check data is well formed
+    let wf_res = check_wf(m, &env);
+    if wf_res.is_err() {
+        panic!("Well-formed check failed {:?}", wf_res)
+    }
 
     env
 }
