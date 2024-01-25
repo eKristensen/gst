@@ -43,15 +43,15 @@ pub fn try_st_env_update(
                                     let VarType::ST(st) = st else {
                                         return Err(format!("Expected session type"));
                                     };
-                                    let SessionType::Server(st) = st else {
+                                    let SessionType::New(st) = st else {
                                         return Err(format!(
                                             "Session has already been started, cannot start new session again!"
                                         ));
                                     };
                                     let mut env = env.clone();
-                                    // TODO: Ask Marcro: Should constructor be preserved or removed?
+                                    // TODO: Ask Marco: Should constructor be preserved or removed?
                                     env.remove(&st_binder_var_name);
-                                    return Ok((VarType::ST(SessionType::Session(st.clone())), env));
+                                    return Ok((VarType::ST(SessionType::Ongoing(st.clone(),None)), env));
                                 }
                                 None => {
                                     return Err(format!(
@@ -88,7 +88,7 @@ pub fn try_st_env_update(
 
                             match sid_type {
                                 SessionType::NotST => todo!("NotST not used"),
-                                SessionType::Session(sid_cnt) => {
+                                SessionType::Ongoing(sid_cnt, local_binder_res) => {
                                     if sid_cnt.len() < 1 {
                                         return Err(format!(
                                             "Session Type is empty, cannot continue, no send?"
@@ -134,13 +134,13 @@ pub fn try_st_env_update(
 
                                             env.insert(
                                                 session_id.clone(),
-                                                VarType::ST(SessionType::Session(sid_cnt.clone())),
+                                                VarType::ST(SessionType::Ongoing(sid_cnt.clone(),local_binder_res.clone())),
                                             );
 
                                             return Ok((VarType::Base(returned_type.clone()), env));
                                         },
                                         SessionElement::Receive(_) => return Err(format!("Receive not supported when sending")),
-                                        SessionElement::MakeChoice(_) => todo!("make choice when sending impl"),
+                                        SessionElement::MakeChoice(_,_) => todo!("make choice when sending impl"),
                                         SessionElement::OfferChoice(choices) => {
                                             // When the session-type offers a choice, the action must be something that makes a choice. In this case a choice is sending an atom, which must correspond to one of the choices available.
 
@@ -154,22 +154,17 @@ pub fn try_st_env_update(
                                                     let mut env = env.clone();
                                                     env.insert(
                                                         session_id.clone(),
-                                                        VarType::ST(SessionType::Session(inner_st.clone())),
+                                                        VarType::ST(SessionType::Ongoing(inner_st.clone(),local_binder_res.clone())),
                                                     );
                                                     return Ok((VarType::Base(Types::Tuple(vec![])),env)); // TODO: ugly return type, this will properly give problems later
                                                 },
                                                 None => return Err(format!("Requested choice {:?} not found in {:?}", choice_label, choices)),
                                             }
-
-
-
-
-                                            todo!("offer choice implementing")
                                         },
                                         SessionElement::End => return Err(format!("Session type is finished with .end and cannot be used for further communication.")),
                                     }
                                 }
-                                SessionType::Server(_) => {
+                                SessionType::New(_) => {
                                     return Err(format!("session must be initialized before use."))
                                 }
                             }

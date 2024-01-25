@@ -10,7 +10,13 @@ Steal idea from https://staff.um.edu.mt/afra1/papers/Agere21.pdf
 
 # TODO
 
+- TODO IMPORTANT: Being able to write (!int. end. ?int) should be a syntax error (will be added as a well-formedness constrain)
+
+Improve code quality:
+- Resolve Rust warnings and make clippy happy
+- Handle all panic and todo: In other words: There should not be anywhere errors are not handled.
 - Error messages are currently mostly useless, e.g. There is no hint that to say you might have forgotten to add "." after a session types 
+- Limit use of clone()
 
 - Test with relevant .core files, if possible with many files
 All of above will be hard work, but most likely possible
@@ -58,7 +64,7 @@ https://github.com/erlang/otp/blob/master/lib/compiler/src/core_scan.erl
 Nice links:
 - https://naiveai.hashnode.dev/practical-parsing-nom#heading-putting-it-all-together
 
-God liste med eksempler:
+Good list of examples:
 https://github.com/gertab/ElixirST/tree/master/lib/elixirst/examples
 
 Native types supported in Elixir ST:
@@ -113,3 +119,11 @@ After meeting we got the following as a starting point for the client example th
 -session ("'negation'(fresh(!number. ?number. !string),_)").
 -spec negation(fresh(),number()) -> st_return().
 ```
+
+# Opening n new sessions in a function
+
+Note 25. jan 2025: If the number of sessions that a function opens is not static the typing system should reject that function.
+
+However it might be relevant to consider later
+
+Maybe we will need to work with dependent types.

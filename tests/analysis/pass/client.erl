@@ -6,15 +6,15 @@
 % Public functions in this module
 -export([negation/2]).
 
--type server() :: {}. % new()
--type session() :: {}. % ongoing()
+-type new() :: {}. % changed from server() as constructor
+-type ongoing() :: {}. % changed from session()
 
 % 
 %      Connect calculator and ServerPID            Can return be ST or service or both?
 %                        ↓↓                                       ↓↓
--session("'negation'(server(+{neg(!number. ?number. end.), add(!number. !number. ?number. end.)}.),_) -> _, [ SessionID:  end. ]  ").
+-session("'negation'(new(+{neg(!number. ?number. end.), add(!number. !number. ?number. end.)}.),_) -> _, [ SessionID:  end. ]  ").
 % TO ADD: multi-options for session.
--spec negation(server(),number()) -> number().
+-spec negation(new(),number()) -> number().
 negation(ServerPid,V1) ->
     io:format("DEBUG: Started neg~n"),
     % Send first message with function and arity and get SessionID

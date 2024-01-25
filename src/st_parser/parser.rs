@@ -11,14 +11,14 @@ use nom::{
 };
 
 use crate::cerl_parser::{
-    ast::{Fname, FunHead, Integer, Var},
+    ast::{Fname, FunHead, Integer},
     helpers::ws,
     terminals::{atom, var},
 };
 
 use super::ast::{Label, SessionDef, SessionElement, SessionType, Types};
 
-use crate::st_parser::parser::SessionType::{NotST, Server, Session};
+use crate::st_parser::parser::SessionType::{New, NotST, Ongoing};
 
 // TODO: Reuse of functions from cerl parser allows for comments and maybe annotations inside the ST which is odd
 // Better to not reuse or rewrite so the core can be reused rather than the whole code.
@@ -31,7 +31,7 @@ pub fn st_parse(i: &str) -> IResult<&str, SessionDef> {
                 ws(tag("(")),
                 separated_list1(
                     ws(tag(",")),
-                    alt((server_st, session_st, value(NotST, ws(tag("_"))))),
+                    alt((new_st, ongoing_st, value(NotST, ws(tag("_"))))),
                 ),
                 ws(tag(")")),
             ),
@@ -73,23 +73,27 @@ pub fn st_parse(i: &str) -> IResult<&str, SessionDef> {
     )(i)
 }
 
-fn server_st(i: &str) -> IResult<&str, SessionType> {
+fn new_st(i: &str) -> IResult<&str, SessionType> {
     map(
         tuple((
-            ws(tag("server")),
+            ws(tag("new")),
             delimited(ws(tag("(")), st_inner, ws(tag(")"))),
         )),
-        |(_, o)| Server(o),
+        |(_, o)| New(o),
     )(i)
 }
 
-fn session_st(i: &str) -> IResult<&str, SessionType> {
+fn ongoing_st(i: &str) -> IResult<&str, SessionType> {
     map(
         tuple((
-            ws(tag("session")),
-            delimited(ws(tag("(")), st_inner, ws(tag(")"))),
+            ws(tag("ongoing")),
+            delimited(
+                ws(tag("(")),
+                tuple((st_inner, ws(tag("->")), st_inner)),
+                ws(tag(")")),
+            ),
         )),
-        |(_, o)| Session(o),
+        |(_, (o1, _, o2))| Ongoing(o1, Some(o2)),
     )(i)
 }
 
@@ -129,12 +133,8 @@ fn st_receive(i: &str) -> IResult<&str, SessionElement> {
 // TODO: ElixirST has ? or ! on labels. Needed or not?
 fn st_make_choice(i: &str) -> IResult<&str, SessionElement> {
     map(
-        delimited(
-            ws(tag("&{")),
-            separated_list1(ws(tag(",")), inner_choice),
-            ws(tag("}")),
-        ),
-        SessionElement::MakeChoice,
+        delimited(ws(tag("&{")), inner_choice, ws(tag("}"))),
+        |(o1, o2)| SessionElement::MakeChoice(o1, o2),
     )(i)
 }
 
@@ -171,16 +171,16 @@ fn inner_choice(i: &str) -> IResult<&str, (Label, Vec<SessionElement>)> {
 
 #[cfg(test)]
 mod tests {
-    use crate::cerl_parser::ast::{Atom, Fname, FunHead, Integer};
+    use crate::cerl_parser::ast::{Atom, Fname, FunHead, Integer, Var};
     use crate::st_parser::ast::SessionElement;
-    use crate::st_parser::ast::SessionType::{NotST, Server};
+    use crate::st_parser::ast::SessionType::{New, NotST, Ongoing};
 
     use super::*;
 
     #[test]
     fn simple_constructor_00() {
         assert_eq!(
-            st_parse("'test'(_,server(!int.)) -> _, []"),
+            st_parse("'test'(_,new(!int.)) -> _, []"),
             Ok((
                 "",
                 SessionDef {
@@ -190,7 +190,7 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        Server(vec!(SessionElement::Send(Types::Single("int".to_owned())),))
+                        New(vec!(SessionElement::Send(Types::Single("int".to_owned())),))
                     ),
                     return_type: vec![],
                     binders: HashMap::new(),
@@ -202,7 +202,7 @@ mod tests {
     #[test]
     fn simple_constructor_01() {
         assert_eq!(
-            st_parse("'test'(_,server(!int. ?string. end.)) -> _, []"),
+            st_parse("'test'(_,new(!int. ?string. end.)) -> _, []"),
             Ok((
                 "",
                 SessionDef {
@@ -212,7 +212,7 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        Server(vec!(
+                        New(vec!(
                             SessionElement::Send(Types::Single("int".to_owned())),
                             SessionElement::Receive(Types::Single("string".to_owned())),
                             SessionElement::End,
@@ -228,7 +228,7 @@ mod tests {
     #[test]
     fn simple_constructor_02() {
         assert_eq!(
-            st_parse("'test'(_,server(!int. ?string. end.)) -> (end.), []"),
+            st_parse("'test'(_,new(!int. ?string. end.)) -> (end.), []"),
             Ok((
                 "",
                 SessionDef {
@@ -238,7 +238,7 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        Server(vec!(
+                        New(vec!(
                             SessionElement::Send(Types::Single("int".to_owned())),
                             SessionElement::Receive(Types::Single("string".to_owned())),
                             SessionElement::End,
@@ -254,7 +254,7 @@ mod tests {
     #[test]
     fn simple_constructor_03() {
         assert_eq!(
-            st_parse("'test'(_,server(!int. ?string. end.)) -> (end.), [SessionId: ?number. end.]"),
+            st_parse("'test'(_,new(!int. ?string. end.)) -> ( end. ), [SessionId: ?number. end.]"),
             Ok((
                 "",
                 SessionDef {
@@ -264,7 +264,7 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        Server(vec!(
+                        New(vec!(
                             SessionElement::Send(Types::Single("int".to_owned())),
                             SessionElement::Receive(Types::Single("string".to_owned())),
                             SessionElement::End,
@@ -284,9 +284,9 @@ mod tests {
     }
 
     #[test]
-    fn simple_session_00() {
+    fn simple_ongoing_00() {
         assert_eq!(
-            st_parse("'test'(_,session(!int.)) -> _, []"),
+            st_parse("'test'(_,ongoing(!int. -> end. )) -> _, []"),
             Ok((
                 "",
                 SessionDef {
@@ -296,7 +296,10 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        Session(vec!(SessionElement::Send(Types::Single("int".to_owned())),))
+                        Ongoing(
+                            vec!(SessionElement::Send(Types::Single("int".to_owned())),),
+                            Some(vec![SessionElement::End])
+                        )
                     ),
                     return_type: vec![],
                     binders: HashMap::new(),
@@ -306,9 +309,9 @@ mod tests {
     }
 
     #[test]
-    fn simple_session_01() {
+    fn simple_ongoing_01() {
         assert_eq!(
-            st_parse("'test'(_,session(!int. ?string. end.)) -> _, []"),
+            st_parse("'test'(_,ongoing(!int. ?string. -> end.)) -> _, []"),
             Ok((
                 "",
                 SessionDef {
@@ -318,11 +321,13 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        Session(vec!(
-                            SessionElement::Send(Types::Single("int".to_owned())),
-                            SessionElement::Receive(Types::Single("string".to_owned())),
-                            SessionElement::End,
-                        ))
+                        Ongoing(
+                            vec!(
+                                SessionElement::Send(Types::Single("int".to_owned())),
+                                SessionElement::Receive(Types::Single("string".to_owned())),
+                            ),
+                            Some(vec![SessionElement::End])
+                        )
                     ),
                     return_type: vec![],
                     binders: HashMap::new(),
@@ -332,9 +337,9 @@ mod tests {
     }
 
     #[test]
-    fn simple_session_02() {
+    fn simple_ongoing_02() {
         assert_eq!(
-            st_parse("'test'(_,session(!int. ?string. end.)) -> (end.), []"),
+            st_parse("'test'(_,ongoing(!int. ?string. -> end.)) -> (end.), []"),
             Ok((
                 "",
                 SessionDef {
@@ -344,11 +349,13 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        Session(vec!(
-                            SessionElement::Send(Types::Single("int".to_owned())),
-                            SessionElement::Receive(Types::Single("string".to_owned())),
-                            SessionElement::End,
-                        ))
+                        Ongoing(
+                            vec!(
+                                SessionElement::Send(Types::Single("int".to_owned())),
+                                SessionElement::Receive(Types::Single("string".to_owned())),
+                            ),
+                            Some(vec![SessionElement::End])
+                        )
                     ),
                     return_type: vec![SessionElement::End],
                     binders: HashMap::new(),
@@ -358,10 +365,10 @@ mod tests {
     }
 
     #[test]
-    fn simple_session_03() {
+    fn simple_ongoing_03() {
         assert_eq!(
             st_parse(
-                "'test'(_,session(!int. ?string. end.)) -> (end.), [SessionId: ?number. end.]"
+                "'test'(_,ongoing(!int. ?string. -> end.)) -> (end.), [SessionId: ?number. end.]"
             ),
             Ok((
                 "",
@@ -372,11 +379,13 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        Session(vec!(
-                            SessionElement::Send(Types::Single("int".to_owned())),
-                            SessionElement::Receive(Types::Single("string".to_owned())),
-                            SessionElement::End,
-                        ))
+                        Ongoing(
+                            vec!(
+                                SessionElement::Send(Types::Single("int".to_owned())),
+                                SessionElement::Receive(Types::Single("string".to_owned())),
+                            ),
+                            Some(vec![SessionElement::End])
+                        )
                     ),
                     return_type: vec![SessionElement::End],
                     binders: HashMap::from([(
@@ -408,7 +417,7 @@ mod tests {
     #[test]
     fn offer_choice_01() {
         assert_eq!(
-            st_parse("'test'(server( +{test(!int.)}.)) -> _, []"),
+            st_parse("'test'(new( +{test(!int.)}.)) -> _, []"),
             Ok((
                 "",
                 SessionDef {
@@ -416,12 +425,10 @@ mod tests {
                         name: Fname(Atom("test".to_owned())),
                         arity: Integer(1)
                     },
-                    st: vec!(Server(vec!(SessionElement::OfferChoice(HashMap::from([
-                        (
-                            Label("test".to_owned()),
-                            vec![SessionElement::Send(Types::Single("int".to_owned()))]
-                        )
-                    ]))))),
+                    st: vec!(New(vec!(SessionElement::OfferChoice(HashMap::from([(
+                        Label("test".to_owned()),
+                        vec![SessionElement::Send(Types::Single("int".to_owned()))]
+                    )]))))),
                     return_type: vec![],
                     binders: HashMap::new(),
                 }
@@ -432,7 +439,7 @@ mod tests {
     #[test]
     fn offer_choice_02() {
         assert_eq!(
-            st_parse("'test'(server( +{test(!int. !int. ?string. end.)}.)) -> _, []"),
+            st_parse("'test'(new( +{test(!int. !int. ?string. end.)}.)) -> _, []"),
             Ok((
                 "",
                 SessionDef {
@@ -440,17 +447,15 @@ mod tests {
                         name: Fname(Atom("test".to_owned())),
                         arity: Integer(1)
                     },
-                    st: vec!(Server(vec!(SessionElement::OfferChoice(HashMap::from([
-                        (
-                            Label("test".to_owned()),
-                            vec![
-                                SessionElement::Send(Types::Single("int".to_owned())),
-                                SessionElement::Send(Types::Single("int".to_owned())),
-                                SessionElement::Receive(Types::Single("string".to_owned())),
-                                SessionElement::End,
-                            ]
-                        )
-                    ]))))),
+                    st: vec!(New(vec!(SessionElement::OfferChoice(HashMap::from([(
+                        Label("test".to_owned()),
+                        vec![
+                            SessionElement::Send(Types::Single("int".to_owned())),
+                            SessionElement::Send(Types::Single("int".to_owned())),
+                            SessionElement::Receive(Types::Single("string".to_owned())),
+                            SessionElement::End,
+                        ]
+                    )]))))),
                     return_type: vec![],
                     binders: HashMap::new(),
                 }
@@ -461,7 +466,7 @@ mod tests {
     #[test]
     fn offer_choice_03() {
         assert_eq!(
-            st_parse("'test'(server( +{test(!int. !int. ?string. end.), alt(end.)}.)) -> _, []"),
+            st_parse("'test'(new( +{test(!int. !int. ?string. end.), alt(end.)}.)) -> _, []"),
             Ok((
                 "",
                 SessionDef {
@@ -469,7 +474,7 @@ mod tests {
                         name: Fname(Atom("test".to_owned())),
                         arity: Integer(1)
                     },
-                    st: vec!(Server(vec!(SessionElement::OfferChoice(HashMap::from([
+                    st: vec!(New(vec!(SessionElement::OfferChoice(HashMap::from([
                         (
                             Label("test".to_owned()),
                             vec![
@@ -494,10 +499,10 @@ mod tests {
             st_make_choice("&{test(!int.)}"),
             Ok((
                 "",
-                SessionElement::MakeChoice(vec![(
+                SessionElement::MakeChoice(
                     Label("test".to_owned()),
                     vec![SessionElement::Send(Types::Single("int".to_owned()))]
-                )])
+                )
             ))
         );
     }
@@ -505,7 +510,7 @@ mod tests {
     #[test]
     fn make_choice_01() {
         assert_eq!(
-            st_parse("'test'( server( &{ test( !int. ) } . ) ) -> _ , [  ]  "),
+            st_parse("'test'( new( &{ test( !int. ) } . ) ) -> _ , [  ]  "),
             Ok((
                 "",
                 SessionDef {
@@ -513,10 +518,10 @@ mod tests {
                         name: Fname(Atom("test".to_owned())),
                         arity: Integer(1)
                     },
-                    st: vec!(Server(vec!(SessionElement::MakeChoice(vec![(
+                    st: vec!(New(vec!(SessionElement::MakeChoice(
                         Label("test".to_owned()),
                         vec![SessionElement::Send(Types::Single("int".to_owned()))]
-                    )])))),
+                    )))),
                     return_type: vec![],
                     binders: HashMap::new(),
                 }

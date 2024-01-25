@@ -85,18 +85,18 @@ fn init_var_env(
                 // If not session type use the type from -spec
                 env.insert(var.clone(), VarType::Base(input.get(i).unwrap().clone()));
             }
-            SessionType::Server(_) => {
+            SessionType::New(_) => {
                 // Check that -spec type matches (consistency)
-                if *input.get(i).unwrap() == Types::Single("server".to_owned()) {
+                if *input.get(i).unwrap() == Types::Single("new".to_owned()) {
                     // Get session type and insert
                     env.insert(var.clone(), VarType::ST(this_st.clone()));
                 } else {
                     panic!("-session does not match -spec!! Issue is: Var {:?} is {:?} according to -spec, but should be server() to match -session: {:?}", var, input.get(i).unwrap(), this_st);
                 };
             }
-            SessionType::Session(_) => {
+            SessionType::Ongoing(_, _) => {
                 // Check that -spec type matches (consistency)
-                if *input.get(i).unwrap() == Types::Single("session".to_owned()) {
+                if *input.get(i).unwrap() == Types::Single("ongoing".to_owned()) {
                     // Get session type and insert
                     env.insert(var.clone(), VarType::ST(this_st.clone()));
                 } else {
@@ -350,7 +350,7 @@ fn env_update_pattern_from_return_type(
         VarType::ST(st) => {
             match st {
                 NotST => todo!("NotST should maybe never be used?"),
-                SessionType::Server(content) => {
+                SessionType::New(content) => {
                     // TL;DR: It only works if pat has type "{VarName, 'ready'}"
                     // TODO: Maybe it is bad to hard-code ready into the analysis tool.... For later
 
@@ -364,12 +364,12 @@ fn env_update_pattern_from_return_type(
                         Some(_) => todo!(),
                         None => {
                             let mut env = env.clone();
-                            env.insert(res_val_name.clone(), VarType::ST(SessionType::Server(content)));
+                            env.insert(res_val_name.clone(), VarType::ST(SessionType::New(content)));
                             Ok(env)
                         },
                     }
                 },
-                SessionType::Session(content) => { // TODO: avoid duplicated case.....
+                SessionType::Ongoing(content, residual) => { // TODO: avoid duplicated case.....
                     // TL;DR: It only works if pat has type "{VarName, 'ready'}"
                     // TODO: Maybe it is bad to hard-code ready into the analysis tool.... For later
 
@@ -383,7 +383,7 @@ fn env_update_pattern_from_return_type(
                         Some(_) => todo!(),
                         None => {
                             let mut env = env.clone();
-                            env.insert(res_val_name.clone(), VarType::ST(SessionType::Session(content)));
+                            env.insert(res_val_name.clone(), VarType::ST(SessionType::Ongoing(content, residual)));
                             Ok(env)
                         },
                     }
@@ -411,8 +411,8 @@ fn validate_res_env(
         VarType::ST(env_return_type) => {
             let mut env_return_type = match env_return_type {
                 NotST => todo!("Not ST"),
-                SessionType::Server(st) => st,
-                SessionType::Session(st) => st,
+                SessionType::New(st) => st,
+                SessionType::Ongoing(st, _) => st,
             };
             // TODO: Better way to compare vectors
             for (elm1, elm2) in env_return_type.iter().zip(env_return_type.iter()) {
@@ -428,35 +428,52 @@ fn validate_res_env(
     for (key, elm) in env {
         match elm {
             VarType::Base(_) => (),
-            VarType::ST(st) => match st {
-                NotST => todo!(),
-                SessionType::Session(st_cnt) => {
-                    // TODO: Maybe expect "end." ?
-                    match session.get(&key) {
-                        Some(val) => {
-                            if *val != st_cnt {
-                                println!(
-                                    "Var {:?} is {:?} but should be {:?} according to binder.",
-                                    key, st_cnt, *val
-                                );
-                                return false;
+            VarType::ST(st) => {
+                match st {
+                    NotST => todo!(),
+                    SessionType::Ongoing(st_cnt, local_res_binder) => {
+                        // TODO: Maybe expect "end." ?
+                        match session.get(&key) {
+                            Some(val) => {
+                                if *val != st_cnt {
+                                    println!(
+                                        "Var {:?} is {:?} but should be {:?} according to binder.",
+                                        key, st_cnt, *val
+                                    );
+                                    return false;
+                                }
+                                if local_res_binder.is_some() {
+                                    println!("Local binder and var binder is contradictory. Unacceptable.");
+                                    return false;
+                                }
                             }
+                            None => match local_res_binder {
+                                Some(local_res_binder) => {
+                                    if local_res_binder != st_cnt {
+                                        println!("Local binder session type check does not match: Expected {:?} but found {:?}. Validation failed.", local_res_binder, st_cnt);
+                                        return false;
+                                    }
+                                }
+                                None => {
+                                    println!(
+                                        "Var {:?} does not have a binder, cannot accept env.",
+                                        key
+                                    );
+                                    return false;
+                                }
+                            },
                         }
-                        None => {
-                            println!("Var {:?} does not have a binder, cannot accept env.", key);
-                            return false;
-                        }
+                        // if st_cnt.len() != 0 {
+                        //     println!("Session type not consumed!");
+                        //     return false;
+                        // }
                     }
-                    // if st_cnt.len() != 0 {
-                    //     println!("Session type not consumed!");
-                    //     return false;
-                    // }
+                    SessionType::New(_) => {
+                        println!("Session type not constructed!");
+                        return false;
+                    }
                 }
-                SessionType::Server(_) => {
-                    println!("Session type not constructed!");
-                    return false;
-                }
-            },
+            }
         }
     }
     true

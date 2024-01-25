@@ -30,8 +30,17 @@ pub struct Label(pub String);
 #[derive(Debug, Clone, PartialEq)]
 pub enum SessionType {
     NotST, // Needed as a placeholder for the initial session spec to be able to count the variable arguments
-    Server(Vec<SessionElement>), // Constructor for new session
-    Session(Vec<SessionElement>), // "ongoing" session
+    New(Vec<SessionElement>), // Constructor for new session
+    Ongoing(Vec<SessionElement>, Option<Vec<SessionElement>>), // "ongoing" session: (ST,ST')
+           // Development notes ( TODO move somewhere else)
+           // Idea: Ongoing checking consistent: When ongoing is constructed copy the expected return type from binders
+           // This idea would also change how to accept an env after type checking.
+           // Or maybe it is better the other way around: Ongoing adds to the binders? Hmm. Properly not, with this option
+           // Name clashes can happen. So that is not going to happen.
+           // Nope, actually I need to look it up in the end no matter what.
+           // I cannot construct ongoing with a sensible return type inside the function body as
+           // I would have to look forward to construct the session type. The information I need is the variable name
+           // that the session type is bound to, and even then it might be bad to rely on keeping that information
 }
 
 // https://github.com/gertab/ElixirST/blob/75d098f51df40b5ff1022c7dc56a695b0f3da9d9/lib/elixirst/session_type.ex#L122
@@ -46,7 +55,7 @@ pub enum Types {
 pub enum SessionElement {
     Send(Types),
     Receive(Types),
-    MakeChoice(Vec<(Label, Vec<SessionElement>)>), // TODO: Check/Ask Marco: Should make choice be a vector?
+    MakeChoice(Label, Vec<SessionElement>),
     OfferChoice(HashMap<Label, Vec<SessionElement>>),
-    End, // TODO: Ask Marco: Can end be consumed?
+    End, // End is never consumed
 }

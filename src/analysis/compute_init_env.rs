@@ -81,6 +81,7 @@ fn add_spec(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
     let (fun_in, fun_out) = extract_spec(spec_val);
 
     // Lookup
+    // TODO: A bit repetitive can repetition be avoided?
     match m.get(&fun_head) {
         Some(fun_env) => {
             // FunEnv exists, add spec if none
@@ -150,6 +151,7 @@ fn add_session(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
     }
 
     // Lookup
+    // TODO: Repetitive?
     match m.get(&session_type_parsed.name) {
         Some(fun_env) => {
             // FunEnv exists, add spec if none
