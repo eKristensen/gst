@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    cerl_parser::ast::{Atom, Const, Fname, FunDef, FunHead, Integer, Lit, Module},
+    cerl_parser::ast::{Atom, FunDef, FunName, Lit, Module},
     st_parser::{
         ast::{SessionDef, Types},
         parser::st_parse,
@@ -20,9 +20,9 @@ pub struct FunEnv {
 }
 
 // Extract relevant parts of the core erlang module for analysis
-pub fn init_module_env(m: Module) -> HashMap<FunHead, FunEnv> {
+pub fn init_module_env(m: Module) -> HashMap<FunName, FunEnv> {
     // Info: Name of module and module exports not relevant yet
-    let mut env: HashMap<FunHead, FunEnv> = HashMap::new();
+    let mut env: HashMap<FunName, FunEnv> = HashMap::new();
 
     // Use attributes to get spec and session
     for attribute in &m.attributes {
@@ -57,30 +57,33 @@ pub fn init_module_env(m: Module) -> HashMap<FunHead, FunEnv> {
 // Add spec to env
 // New fun if not exists
 // Error if spec already exists for fun
-fn add_spec(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
+fn add_spec(m: &mut HashMap<FunName, FunEnv>, v: &Lit) -> () {
     // Find function name via the deep nested spec representation
 
     // TODO: A nicer way to unwrap?
-    let Const::Cons(val_const) = v else { todo!() };
+    let Lit::Cons(val_const) = v else { todo!() };
     let outer_tuple = val_const.first().unwrap();
-    let Const::Tuple(spec_tuple) = outer_tuple else {
+    let Lit::Tuple(spec_tuple) = outer_tuple else {
         todo!()
     };
     let fname_tuple = spec_tuple.first().unwrap();
-    let Const::Tuple(fname_list) = fname_tuple else {
+    let Lit::Tuple(fname_list) = fname_tuple else {
         todo!()
     };
-    let Const::Lit(Lit::Atom(fname)) = fname_list.first().unwrap() else {
+    let Lit::Atom(fun_name) = fname_list.first().unwrap() else {
         todo!()
     };
-    let Const::Lit(Lit::Int(arity)) = &fname_list[1] else {
+    let Lit::Int(arity) = &fname_list[1] else {
         todo!()
     };
     //println!("Got function name finally {:?} {:?}", fname, arity);
+    if *arity < 0 {
+        todo!("Handle negative arity.")
+    }
 
-    let fun_head = FunHead {
-        name: Fname((*fname).clone()),
-        arity: (*arity).clone(),
+    let fun_name = FunName {
+        name: (*fun_name).clone(),
+        arity: (*arity).clone() as u64, // TODO: Does "as u64" convert as expected or just override the type definition?
     };
 
     // TODO: Potentially dangerous assumption about spec structure. Data may be lost here
@@ -90,12 +93,12 @@ fn add_spec(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
 
     // Lookup
     // TODO: A bit repetitive can repetition be avoided?
-    match m.get(&fun_head) {
+    match m.get(&fun_name) {
         Some(fun_env) => {
             // FunEnv exists, add spec if none
             if fun_env.spec.is_none() {
                 m.insert(
-                    fun_head,
+                    fun_name,
                     FunEnv {
                         spec: Some((fun_in, fun_out)),
                         session: fun_env.session.clone(),
@@ -103,13 +106,13 @@ fn add_spec(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
                     },
                 );
             } else {
-                panic!("Duplicate spec for {:?}", fun_head);
+                panic!("Duplicate spec for {:?}", fun_name);
             }
         }
         None => {
             // Fresh entry, add new FunEnv
             m.insert(
-                fun_head,
+                fun_name,
                 FunEnv {
                     spec: Some((fun_in, fun_out)),
                     session: None,
@@ -125,20 +128,20 @@ fn add_spec(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
 // Add session to env
 // New fun if not exists
 // Error if session already exists for fun
-fn add_session(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
+fn add_session(m: &mut HashMap<FunName, FunEnv>, v: &Lit) -> () {
     // Run session parser
     // Session type is wrapped within a list and then as the name of an atom
     // Get function name
     // Add Session type to map if possible or give error
 
     // TODO: A nicer way to unwrap?
-    let Const::Cons(val_const) = v else { todo!() };
+    let Lit::Cons(val_const) = v else { todo!() };
     //println!("got that odd {:?}", v);
 
     // ASCII Decimal to string conversion...
     let mut st_string: String = String::new();
     for item in val_const {
-        let Const::Lit(Lit::Int(Integer(char_to_decode))) = item else {
+        let Lit::Int(char_to_decode) = item else {
             todo!()
         };
         let char_to_decode_bytes = char_to_decode.to_be_bytes();
@@ -190,7 +193,7 @@ fn add_session(m: &mut HashMap<FunHead, FunEnv>, v: &Const) -> () {
     }
 }
 
-fn add_body(m: &mut HashMap<FunHead, FunEnv>, fun_head: &FunHead, fun_body: &FunDef) -> () {
+fn add_body(m: &mut HashMap<FunName, FunEnv>, fun_head: &FunName, fun_body: &FunDef) -> () {
     match m.get(fun_head) {
         Some(fun_env) => {
             // FunEnv exists, add spec if none
@@ -221,7 +224,7 @@ fn add_body(m: &mut HashMap<FunHead, FunEnv>, fun_head: &FunHead, fun_body: &Fun
     }
 }
 
-fn extract_spec(spec_in: &[Const]) -> (Vec<Types>, Types) {
+fn extract_spec(spec_in: &[Lit]) -> (Vec<Types>, Types) {
     // Convert tagged tuples into something that can be used to compare types
 
     // TODO: Is it possible to explain this function at all?
@@ -237,17 +240,17 @@ fn extract_spec(spec_in: &[Const]) -> (Vec<Types>, Types) {
 
     // Location markers are removed (left over from the erlang abstract format)
     let outer_unwrap = spec_in.first().unwrap();
-    let Const::Cons(outer_list) = outer_unwrap else {
+    let Lit::Cons(outer_list) = outer_unwrap else {
         todo!()
     };
-    let Const::Tuple(outer_tuple) = outer_list.first().unwrap() else {
+    let Lit::Tuple(outer_tuple) = outer_list.first().unwrap() else {
         todo!()
     };
 
     // Make the tuple mutable by clone
     let mut outer_tuple = outer_tuple.clone(); // TODO: Seems a bit dirty...
     outer_tuple.drain(0..3); // TODO: Instead of mut copy + drain: Try ".get(4)" directly [4] did not work, but that may be fine?
-    let Const::Cons(main_spec_io_cons) = outer_tuple.first().unwrap() else {
+    let Lit::Cons(main_spec_io_cons) = outer_tuple.first().unwrap() else {
         todo!()
     };
     //let mut main_spec_io_cons = main_spec_io_cons.clone();
@@ -256,33 +259,33 @@ fn extract_spec(spec_in: &[Const]) -> (Vec<Types>, Types) {
     let main_spec_out = main_spec_io_cons.get(1).unwrap();
 
     // Focus on input type extraction
-    let Const::Tuple(mut main_spec_in) = main_spec_in.clone() else {
+    let Lit::Tuple(mut main_spec_in) = main_spec_in.clone() else {
         todo!()
     };
     main_spec_in.drain(0..3);
-    let Const::Cons(main_spec_in) = main_spec_in.first().unwrap() else {
+    let Lit::Cons(main_spec_in) = main_spec_in.first().unwrap() else {
         todo!()
     };
 
     let mut res_in_types: Vec<Types> = vec![];
     for in_spec_type in main_spec_in {
-        let Const::Tuple(mut in_spec_type) = in_spec_type.clone() else {
+        let Lit::Tuple(mut in_spec_type) = in_spec_type.clone() else {
             todo!()
         };
         in_spec_type.drain(0..2);
-        let Const::Lit(Lit::Atom(Atom(type_string))) = in_spec_type.first().unwrap() else {
+        let Lit::Atom(Atom(type_string)) = in_spec_type.first().unwrap() else {
             todo!()
         };
         res_in_types.push(Types::Single(type_string.clone()));
     }
 
     // Focus on output type extraction
-    let Const::Tuple(mut main_spec_out) = main_spec_out.clone() else {
+    let Lit::Tuple(mut main_spec_out) = main_spec_out.clone() else {
         todo!()
     };
     main_spec_out.drain(0..2);
     // TODO: Also support other types of types
-    let Const::Lit(Lit::Atom(Atom(out_type_string))) = main_spec_out.first().unwrap() else {
+    let Lit::Atom(Atom(out_type_string)) = main_spec_out.first().unwrap() else {
         todo!()
     };
     //println!("\n\n\nReady\nIn:{:?}\nOut:{:?}\n\n\n", main_spec_in, main_spec_out);

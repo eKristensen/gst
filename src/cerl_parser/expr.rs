@@ -8,7 +8,7 @@ use nom::{
 };
 
 use super::{
-    ast::{Clause, Expr, Exprs, MapPair, MapPairType, Var},
+    ast::{Clause, Expr, Exprs, FunCall, FunKind, MapPair, MapPairType, Var},
     helpers::{comma_sep_list, opt_annotation, ws},
     lex::{fname, lit},
     pat::pats,
@@ -19,24 +19,12 @@ use super::{
 // TODO: Common pattern for nested list, avoid manual rewrite!
 fn expr_nested_list(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("["))(i)?;
-    let (i, expr) = ws(exprs)(i)?;
-    let head = match expr {
-        Exprs::Single(expr) => match *expr {
-            Expr::Cons(exprs) => exprs,
-            val => vec![Exprs::Single(Box::new(val))],
-        },
-        otherwise => vec![otherwise], // Value list should not be flatted
-    };
+    let (i, head) = ws(exprs)(i)?;
+    let head = vec![head];
 
     let (i, _) = ws(tag("|"))(i)?;
-    let (i, expr) = ws(exprs)(i)?;
-    let tail = match expr {
-        Exprs::Single(expr) => match *expr {
-            Expr::Cons(exprs) => exprs,
-            val => vec![Exprs::Single(Box::new(val))],
-        },
-        otherwise => vec![otherwise], // Value list should not be flatted
-    };
+    let (i, tail) = ws(exprs)(i)?;
+    let tail = vec![tail];
     let (i, _) = ws(tag("]"))(i)?;
 
     let cons = [&head[..], &tail[..]].concat();
@@ -65,25 +53,52 @@ fn letrec(i: &str) -> IResult<&str, Expr> {
 
 fn apply(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("apply"))(i)?;
-    let (i, exprs0) = ws(exprs)(i)?;
+    let (i, name) = ws(atom)(i)?;
     let (i, exprs_args) = comma_sep_list("(", ")", ws(exprs))(i)?;
-    Ok((i, crate::cerl_parser::ast::Expr::Apply(exprs0, exprs_args)))
+    Ok((
+        i,
+        crate::cerl_parser::ast::Expr::Call(
+            FunCall {
+                kind: FunKind::Apply,
+                name,
+            },
+            exprs_args,
+        ),
+    ))
 }
 
 fn call(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("call"))(i)?;
-    let (i, module) = ws(exprs)(i)?;
+    let (i, module) = ws(atom)(i)?;
     let (i, _) = ws(tag(":"))(i)?;
-    let (i, name) = ws(exprs)(i)?;
+    let (i, name) = ws(atom)(i)?;
     let (i, args) = comma_sep_list("(", ")", exprs)(i)?;
-    Ok((i, crate::cerl_parser::ast::Expr::Call(module, name, args)))
+    Ok((
+        i,
+        crate::cerl_parser::ast::Expr::Call(
+            FunCall {
+                kind: FunKind::Call(module),
+                name,
+            },
+            args,
+        ),
+    ))
 }
 
 fn primop(i: &str) -> IResult<&str, Expr> {
     let (i, _) = ws(tag("primop"))(i)?;
     let (i, name) = ws(atom)(i)?;
     let (i, args) = comma_sep_list("(", ")", exprs)(i)?;
-    Ok((i, crate::cerl_parser::ast::Expr::PrimOp(name, args)))
+    Ok((
+        i,
+        crate::cerl_parser::ast::Expr::Call(
+            FunCall {
+                kind: FunKind::PrimOp,
+                name,
+            },
+            args,
+        ),
+    ))
 }
 
 fn receive(i: &str) -> IResult<&str, Expr> {
@@ -248,12 +263,10 @@ pub fn exprs(i: &str) -> IResult<&str, Exprs> {
 // TODO: Redundant opt_annotation here?
 fn exprs_inner(i: &str) -> IResult<&str, Exprs> {
     ws(alt((
-        map(expr, |o| {
-            crate::cerl_parser::ast::Exprs::Single(Box::new(o))
-        }),
+        map(expr, |o| crate::cerl_parser::ast::Exprs(vec![o])),
         map(
             comma_sep_list("<", ">", opt_annotation(expr)),
-            crate::cerl_parser::ast::Exprs::Values,
+            crate::cerl_parser::ast::Exprs,
         ),
     )))(i)
 }

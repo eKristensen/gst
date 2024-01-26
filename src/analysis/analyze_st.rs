@@ -3,38 +3,41 @@
 use std::collections::HashMap;
 
 use crate::{
-    cerl_parser::ast::{Atom, Expr, Exprs, Lit, Var},
+    cerl_parser::ast::{Atom, Expr, Exprs, FunCall, FunKind, Lit, Var},
     st_parser::ast::{Label, SessionElement, SessionType, Types},
 };
 
-use super::{
-    analyze_fun::fun_name_extractor,
-    analyze_var::{chk_st_exprs, VarType},
-};
+use super::analyze_var::{chk_st_exprs, VarType};
 
 // Check if call relates to a session type.
 pub fn try_st_env_update(
     env: HashMap<Var, VarType>,
-    mod_name: &Exprs,
-    call_name: &Exprs,
+    call: &FunCall,
     args: &Vec<Exprs>,
 ) -> Result<(VarType, HashMap<Var, VarType>), String> {
-    let (mod_name, call_name) = fun_name_extractor(mod_name, call_name);
-    match (mod_name.as_str(), call_name.as_str()) {
+    let FunCall {
+        kind: FunKind::Call(Atom(kind)),
+        name: Atom(name),
+    } = call
+    else {
+        return Err(format!("Only call supported so far"));
+    };
+    match (kind.as_str(), name.as_str()) {
         ("gen_server_plus", "call") => {
             // Process differently depending on the number of arguments
             match args.len() {
                 2 => {
                     // If args[1] == Atom('new'), then args[0] must be fresh(false,...) <-- The easiest case, let us start here
                     if *args.get(1).unwrap()
-                            == Exprs::Single(Box::new(Expr::Lit(Lit::Atom(Atom("new".to_owned())))))
+                            == Exprs(vec!(Expr::Lit(Lit::Atom(Atom("new".to_owned())))))
                         {
                             // In this case only env update is required, Session Type is "activated" on new variable.
                             // Check variable name is available etc etc
-                            let Exprs::Single(st_binder_var_name) = args.get(0).unwrap() else {
-                                return Err("Invalid argument for gst+ call".to_owned());
-                            };
-                            let Expr::Var(st_binder_var_name) = *st_binder_var_name.clone() else {
+                            let Exprs(st_binder_var_name) = args.get(0).unwrap();
+                            if st_binder_var_name.len() != 1 {
+                                return Err(format!("Expected one argument in gs+call"));
+                            }
+                            let Expr::Var(st_binder_var_name) = st_binder_var_name.first().unwrap().clone() else {
                                 return Err("Invalid argument for gst+ call".to_owned());
                             };
 
@@ -68,12 +71,11 @@ pub fn try_st_env_update(
                 3 => {
                     // If args[1] != Atom('new') then args[0] must be ongoing or fresh(true,...)
                     // Use args[1] to lookup session by the session id.
-                    let Exprs::Single(session_id) = args.get(1).unwrap() else {
-                        return Err(format!(
-                            "Session identifier for session type must be singular"
-                        ));
-                    };
-                    let Expr::Var(session_id) = *session_id.clone() else {
+                    let Exprs(session_id) = args.get(1).unwrap();
+                    if session_id.len() != 1 {
+                        return Err(format!("Session ID cannot be composed of more than one thing."));
+                    }
+                    let Expr::Var(session_id) = session_id.first().unwrap().clone() else {
                         return Err(format!("Session identifier for session type must be var"));
                     };
                     // TODO: OK to basically ignore the ServerPid , i.e. args[0] ??? That is what I do right now.
@@ -144,9 +146,10 @@ pub fn try_st_env_update(
                                         SessionElement::OfferChoice(choices) => {
                                             // When the session-type offers a choice, the action must be something that makes a choice. In this case a choice is sending an atom, which must correspond to one of the choices available.
 
-                                            let Exprs::Single(choice_label) = args.get(2).unwrap().clone() else { return Err(format!("Offer choice must be matched with a make choice label within a single expr"))};
-                                            let Expr::Lit(Lit::Atom(Atom(choice_label))) = *choice_label else { return Err(format!("Officer choice labe must be an atom"))};
-                                            let choice_label = Label(choice_label);
+                                            let Exprs(choice_label) = args.get(2).unwrap().clone();
+                                            if choice_label.len() != 1 { return Err(format!("Choice label must be just a single expr.")) }
+                                            let Expr::Lit(Lit::Atom(Atom(choice_label))) = choice_label.first().unwrap() else { return Err(format!("Officer choice labe must be an atom"))};
+                                            let choice_label = Label(choice_label.clone());
 
                                             match choices.get(&choice_label) {
                                                 Some(inner_st) => {
@@ -181,6 +184,6 @@ pub fn try_st_env_update(
             // only allow ST to be evaluated once the ST has been moved
             // to a "SessionID" variable?
         }
-        _ => Err(format!("no st match on {:?}:{:?}", mod_name, call_name)),
+        _ => Err(format!("no st match on {:?}", call)),
     }
 }

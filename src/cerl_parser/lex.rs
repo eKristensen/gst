@@ -3,15 +3,15 @@ use std::ops::RangeFrom;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::is_digit,
-    combinator::map,
+    character::{complete::digit1, is_digit},
+    combinator::{map, map_res},
     error::{ErrorKind, ParseError},
     sequence::tuple,
     AsChar, Err, IResult, InputIter, InputLength, Slice,
 };
 
 use super::{
-    ast::{Const, Fname, FunHead, Lit},
+    ast::{FunName, Lit},
     helpers::{comma_sep_list, opt_annotation, ws},
     terminals::{atom, char_, float, integer, string},
 };
@@ -97,57 +97,44 @@ where
 }
 
 // Move to "non-terminals"?
-pub fn fname(i: &str) -> IResult<&str, FunHead> {
+pub fn fname(i: &str) -> IResult<&str, FunName> {
     opt_annotation(fname_inner)(i)
 }
 
 // Move to "non-terminals"?
-pub fn fname_inner(i: &str) -> IResult<&str, FunHead> {
+pub fn fname_inner(i: &str) -> IResult<&str, FunName> {
     ws(map(
         tuple((
             atom,
             tag("/"), // TODO: Check whether whitespace is allowed around this tag in this context
-            integer,
+            map_res(digit1, str::parse::<u64>),
         )),
-        |(name, _, arity)| FunHead {
-            name: Fname(name),
+        |(name, _, arity)| FunName {
+            name: name,
             arity: arity,
         },
     ))(i)
 }
 
 // TODO: Common pattern for nested list, avoid manual rewrite!
-fn const_nested_list(i: &str) -> IResult<&str, Const> {
+fn lit_nested_list(i: &str) -> IResult<&str, Lit> {
     let (i, _) = ws(tag("["))(i)?;
-    let (i, constant) = ws(const_)(i)?;
+    let (i, constant) = ws(lit)(i)?;
     let head = match constant {
-        Const::Cons(inner_list) => inner_list,
+        Lit::Cons(inner_list) => inner_list,
         _ => vec![constant],
     };
 
     let (i, _) = ws(tag("|"))(i)?;
-    let (i, constant) = ws(const_)(i)?;
+    let (i, constant) = ws(lit)(i)?;
     let tail = match constant {
-        Const::Cons(inner_list) => inner_list,
+        Lit::Cons(inner_list) => inner_list,
         _ => vec![constant],
     };
     let (i, _) = ws(tag("]"))(i)?;
 
     let cons = [&head[..], &tail[..]].concat();
-    Ok((i, crate::cerl_parser::ast::Const::Cons(cons)))
-}
-
-// const is a keyword in rust, const_ is used instead
-pub fn const_(i: &str) -> IResult<&str, Const> {
-    alt((
-        map(lit, crate::cerl_parser::ast::Const::Lit),
-        const_nested_list,
-        map(comma_sep_list("[", "]", const_), super::ast::Const::Cons),
-        map(
-            comma_sep_list("{", "}", const_),
-            crate::cerl_parser::ast::Const::Tuple,
-        ),
-    ))(i)
+    Ok((i, crate::cerl_parser::ast::Lit::Cons(cons)))
 }
 
 pub fn lit(i: &str) -> IResult<&str, Lit> {
@@ -157,6 +144,12 @@ pub fn lit(i: &str) -> IResult<&str, Lit> {
         map(atom, crate::cerl_parser::ast::Lit::Atom),
         map(char_, crate::cerl_parser::ast::Lit::Char),
         map(string, crate::cerl_parser::ast::Lit::String),
+        lit_nested_list,
+        map(comma_sep_list("[", "]", lit), super::ast::Lit::Cons),
+        map(
+            comma_sep_list("{", "}", lit),
+            crate::cerl_parser::ast::Lit::Tuple,
+        ),
         empty_list,
     ))(i)
 }

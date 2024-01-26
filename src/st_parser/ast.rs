@@ -8,13 +8,13 @@
 
 use std::collections::HashMap;
 
-use crate::cerl_parser::ast::{FunHead, Var};
+use crate::cerl_parser::ast::{FunName, Var};
 
 // TODO Multi-option function like in -spec cannot be represented right now.
 // The -session is assumed to only have a single case for now.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SessionDef {
-    pub name: FunHead,
+    pub name: FunName,
     pub st: Vec<SessionType>,
     pub return_type: Vec<SessionElement>,
     pub binders: HashMap<Var, Vec<SessionElement>>,

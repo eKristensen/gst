@@ -1,0 +1,54 @@
+module 'baby_steps' ['additionClient'/3,
+		     'module_info'/0,
+		     'module_info'/1]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[116|[101|[115|[116|[115|[47|[99|[101|[114|[108|[95|[112|[97|[114|[115|[101|[114|[47|[112|[97|[115|[115|[47|[98|[97|[98|[121|[95|[115|[116|[101|[112|[115|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],1}]]
+
+'additionClient'/3 =
+    %% Line 36
+    ( fun (_0,_1,_2) ->
+	  let <_3> =
+	      call %% Line 37
+		   'erlang':%% Line 37
+			    'self'
+		  ()
+	  in  do  %% Line 37
+		  call 'erlang':'!'
+		      (_0, {_3,'add',_1,_2})
+		  ( letrec
+			'recv$^0'/0 =
+			    fun () ->
+				let <_9,_7> =
+				    primop 'recv_peek_message'
+					()
+				in  case _9 of
+				      <'true'> when 'true' ->
+					  do  primop 'remove_message'
+						  ()
+					      _7
+				      <'false'> when 'true' ->
+					  let <_8> =
+					      primop 'recv_wait_timeout'
+						  (%% Line 40
+						   2000)
+					  in  42
+				    end
+		    in  ( apply 'recv$^0'/0
+			      ()
+			  -| ['dialyzer_ignore'] )
+		    -| ['letrec_goto','no_inline'] )
+      -| [{'function',{'additionClient',3}}] )
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('baby_steps')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('baby_steps', ( _0
+			       -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end

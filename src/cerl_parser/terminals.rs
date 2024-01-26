@@ -11,7 +11,7 @@ use nom::{
 };
 
 use super::{
-    ast::{Atom, Integer, Var},
+    ast::{Atom, Var},
     helpers::{opt_annotation, ws},
     lex::{is_control, is_ctlchar, is_inputchar, is_uppercase, namechar},
 };
@@ -133,7 +133,7 @@ pub fn atom(i: &str) -> IResult<&str, Atom> {
     .parse(i)
 }
 
-pub fn integer(i: &str) -> IResult<&str, Integer> {
+pub fn integer(i: &str) -> IResult<&str, i64> {
     map(
         tuple((
             // Consume + or - or nothing and save the sign
@@ -147,9 +147,9 @@ pub fn integer(i: &str) -> IResult<&str, Integer> {
         )),
         |(plus, i)| {
             if plus {
-                Integer(i)
+                i
             } else {
-                Integer(-i)
+                -i
             }
         },
     )(i)
@@ -336,19 +336,19 @@ mod tests {
     #[test]
     fn test_integer_literals() {
         // Tests based on Core Erlang 1.03 specification Appendix A
-        assert_eq!(integer("8"), Ok(("", Integer(8))));
-        assert_eq!(integer("+17"), Ok(("", Integer(17))));
-        assert_eq!(integer("299792458"), Ok(("", Integer(299792458))));
-        assert_eq!(integer("-4711"), Ok(("", Integer(-4711))));
+        assert_eq!(integer("8"), Ok(("", 8)));
+        assert_eq!(integer("+17"), Ok(("", 17)));
+        assert_eq!(integer("299792458"), Ok(("", 299792458)));
+        assert_eq!(integer("-4711"), Ok(("", -4711)));
 
         // TODO Move "lit" tests to lex.rs ?
-        assert_eq!(lit("8"), Ok(("", Lit::Int(Integer(8)))));
-        assert_eq!(lit("+17"), Ok(("", Lit::Int(Integer(17)))));
-        assert_eq!(lit("299792458"), Ok(("", Lit::Int(Integer(299792458)))));
-        assert_eq!(lit("-4711"), Ok(("", Lit::Int(Integer(-4711)))));
+        assert_eq!(lit("8"), Ok(("", Lit::Int(8))));
+        assert_eq!(lit("+17"), Ok(("", Lit::Int(17))));
+        assert_eq!(lit("299792458"), Ok(("", Lit::Int(299792458))));
+        assert_eq!(lit("-4711"), Ok(("", Lit::Int(-4711))));
 
         // Mindless sanity check
-        assert_ne!(lit("8"), Ok(("", Lit::Int(Integer(42)))));
+        assert_ne!(lit("8"), Ok(("", Lit::Int(42))));
 
         // TODO: Negative / Expect Error test
     }

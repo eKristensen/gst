@@ -1,14 +1,14 @@
 use nom::{bytes::complete::tag, combinator::map, multi::many0, sequence::tuple, IResult};
 
 use super::{
-    ast::{Attribute, FunDef, FunHead, Module},
+    ast::{Attribute, FunDef, FunName, Module},
     expr::exprs,
     helpers::{comma_sep_list, opt_annotation, ws},
-    lex::{const_, fname},
+    lex::{fname, lit},
     terminals::{atom, var},
 };
 
-pub fn fun_def(i: &str) -> IResult<&str, (FunHead, FunDef)> {
+pub fn fun_def(i: &str) -> IResult<&str, (FunName, FunDef)> {
     let (i, head) = fname(i)?;
     let (i, _) = ws(tag("="))(i)?;
     let (i, def) = opt_annotation(fun)(i)?;
@@ -34,13 +34,12 @@ pub fn fun(i: &str) -> IResult<&str, FunDef> {
 // But it should be (please note the absence of Cons)
 // Attribute { name: Atom("mspec"), value: Lit(Atom(Atom("?neg !ready. ?int !int"))) }
 fn attribute(i: &str) -> IResult<&str, Attribute> {
-    ws(map(
-        tuple((atom, ws(tag("=")), const_)),
-        |(atom, _, val)| Attribute {
+    ws(map(tuple((atom, ws(tag("=")), lit)), |(atom, _, val)| {
+        Attribute {
             name: atom,
             value: val,
-        },
-    ))(i)
+        }
+    }))(i)
 }
 
 pub fn module(i: &str) -> IResult<&str, Module> {

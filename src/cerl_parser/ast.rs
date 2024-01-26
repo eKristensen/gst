@@ -2,13 +2,7 @@
 
 // "New" types
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Fname(pub Atom);
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Atom(pub String);
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Integer(pub i64);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Var(pub String);
@@ -17,21 +11,34 @@ pub struct Var(pub String);
 #[derive(Debug)]
 pub struct Module {
     pub name: Atom,
-    pub exports: Vec<FunHead>,
+    pub exports: Vec<FunName>,
     pub attributes: Vec<Attribute>,
-    pub body: Vec<(FunHead, FunDef)>,
+    pub body: Vec<(FunName, FunDef)>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct FunHead {
-    pub name: Fname,
-    pub arity: Integer, // TODO: Hmm Integer here does allow arity to be negative.....
+pub struct FunCall {
+    pub kind: FunKind,
+    pub name: Atom,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct FunName {
+    pub name: Atom,
+    pub arity: u64,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum FunKind {
+    PrimOp,
+    Apply,
+    Call(Atom), // Place module name in here
 }
 
 #[derive(Debug, Clone)]
 pub struct Attribute {
     pub name: Atom,
-    pub value: Const,
+    pub value: Lit,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -42,28 +49,20 @@ pub struct FunDef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Lit {
-    Int(Integer),
+    Int(i64),
     Float(f32),
     Atom(Atom),
-    Char(String),      // TODO: Wut? A char is not a char, It could be e.g. $\101
-    Cons(Vec<Const>),  // TODO: Implement parser
-    Tuple(Vec<Const>), // TODO: Implement parser
+    Char(String), // TODO note down: Wut? A char is not a char, It could be e.g. $\101
+    Cons(Vec<Lit>),
+    Tuple(Vec<Lit>),
     String(String),
     Nil,
 }
 
+// Parser will technically interpret X alone as <X>
+// TODO: Change if this becomes a problem
 #[derive(Debug, Clone, PartialEq)]
-pub enum Const {
-    Lit(Lit),
-    Cons(Vec<Const>),
-    Tuple(Vec<Const>),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Exprs {
-    Single(Box<Expr>),
-    Values(Vec<Expr>),
-}
+pub struct Exprs(pub Vec<Expr>);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MapPairType {
@@ -82,17 +81,15 @@ pub struct MapPair {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Var(Var),
-    Fname(FunHead),
+    Fname(FunName), // Note fname is for e.g. 'foo/1 = fun (X) -> 1+X end.
     Lit(Lit),
     Fun(FunDef),
     Cons(Vec<Exprs>),
     Tuple(Vec<Exprs>),
     Let(Vec<Var>, Exprs, Exprs),
     Case(Exprs, Vec<Clause>),
-    LetRec(Vec<(FunHead, FunDef)>, Exprs),
-    Apply(Exprs, Vec<Exprs>),
-    Call(Exprs, Exprs, Vec<Exprs>),
-    PrimOp(Atom, Vec<Exprs>),
+    LetRec(Vec<(FunName, FunDef)>, Exprs),
+    Call(FunCall, Vec<Exprs>), // Merge call, apply and primop to avoid duplication
     Receive(Vec<Clause>, Exprs, Exprs),
     Try(Exprs, Vec<Var>, Exprs, Vec<Var>, Exprs),
     Do(Exprs, Exprs), // TODO: Maybe merge into one Expr list ?

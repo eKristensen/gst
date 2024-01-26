@@ -11,7 +11,7 @@ use nom::{
 };
 
 use crate::cerl_parser::{
-    ast::{Fname, FunHead, Integer},
+    ast::FunName,
     helpers::ws,
     terminals::{atom, var},
 };
@@ -61,9 +61,9 @@ pub fn st_parse(i: &str) -> IResult<&str, SessionDef> {
             }
 
             SessionDef {
-                name: FunHead {
-                    name: Fname(fname),
-                    arity: Integer(sm.len().try_into().unwrap()),
+                name: FunName {
+                    name: fname,
+                    arity: sm.len().try_into().unwrap(),
                 },
                 st: sm,
                 return_type: rt,
@@ -171,7 +171,7 @@ fn inner_choice(i: &str) -> IResult<&str, (Label, Vec<SessionElement>)> {
 
 #[cfg(test)]
 mod tests {
-    use crate::cerl_parser::ast::{Atom, Fname, FunHead, Integer, Var};
+    use crate::cerl_parser::ast::{Atom, FunName, Var};
     use crate::st_parser::ast::SessionElement;
     use crate::st_parser::ast::SessionType::{New, NotST, Ongoing};
 
@@ -184,9 +184,9 @@ mod tests {
             Ok((
                 "",
                 SessionDef {
-                    name: FunHead {
-                        name: Fname(Atom("test".to_owned())),
-                        arity: Integer(2)
+                    name: FunName {
+                        name: Atom("test".to_owned()),
+                        arity: 2,
                     },
                     st: vec!(
                         NotST,
@@ -206,9 +206,9 @@ mod tests {
             Ok((
                 "",
                 SessionDef {
-                    name: FunHead {
-                        name: Fname(Atom("test".to_owned())),
-                        arity: Integer(2)
+                    name: FunName {
+                        name: Atom("test".to_owned()),
+                        arity: 2,
                     },
                     st: vec!(
                         NotST,
@@ -232,9 +232,9 @@ mod tests {
             Ok((
                 "",
                 SessionDef {
-                    name: FunHead {
-                        name: Fname(Atom("test".to_owned())),
-                        arity: Integer(2)
+                    name: FunName {
+                        name: Atom("test".to_owned()),
+                        arity: 2,
                     },
                     st: vec!(
                         NotST,
@@ -258,9 +258,9 @@ mod tests {
             Ok((
                 "",
                 SessionDef {
-                    name: FunHead {
-                        name: Fname(Atom("test".to_owned())),
-                        arity: Integer(2)
+                    name: FunName {
+                        name: Atom("test".to_owned()),
+                        arity: 2,
                     },
                     st: vec!(
                         NotST,
@@ -290,9 +290,9 @@ mod tests {
             Ok((
                 "",
                 SessionDef {
-                    name: FunHead {
-                        name: Fname(Atom("test".to_owned())),
-                        arity: Integer(2)
+                    name: FunName {
+                        name: Atom("test".to_owned()),
+                        arity: 2,
                     },
                     st: vec!(
                         NotST,
@@ -315,9 +315,9 @@ mod tests {
             Ok((
                 "",
                 SessionDef {
-                    name: FunHead {
-                        name: Fname(Atom("test".to_owned())),
-                        arity: Integer(2)
+                    name: FunName {
+                        name: Atom("test".to_owned()),
+                        arity: 2,
                     },
                     st: vec!(
                         NotST,
@@ -343,9 +343,9 @@ mod tests {
             Ok((
                 "",
                 SessionDef {
-                    name: FunHead {
-                        name: Fname(Atom("test".to_owned())),
-                        arity: Integer(2)
+                    name: FunName {
+                        name: Atom("test".to_owned()),
+                        arity: 2,
                     },
                     st: vec!(
                         NotST,
@@ -373,9 +373,9 @@ mod tests {
             Ok((
                 "",
                 SessionDef {
-                    name: FunHead {
-                        name: Fname(Atom("test".to_owned())),
-                        arity: Integer(2)
+                    name: FunName {
+                        name: Atom("test".to_owned()),
+                        arity: 2,
                     },
                     st: vec!(
                         NotST,
@@ -421,9 +421,9 @@ mod tests {
             Ok((
                 "",
                 SessionDef {
-                    name: FunHead {
-                        name: Fname(Atom("test".to_owned())),
-                        arity: Integer(1)
+                    name: FunName {
+                        name: Atom("test".to_owned()),
+                        arity: 1,
                     },
                     st: vec!(New(vec!(SessionElement::OfferChoice(HashMap::from([(
                         Label("test".to_owned()),
@@ -443,9 +443,9 @@ mod tests {
             Ok((
                 "",
                 SessionDef {
-                    name: FunHead {
-                        name: Fname(Atom("test".to_owned())),
-                        arity: Integer(1)
+                    name: FunName {
+                        name: Atom("test".to_owned()),
+                        arity: 1,
                     },
                     st: vec!(New(vec!(SessionElement::OfferChoice(HashMap::from([(
                         Label("test".to_owned()),
@@ -470,9 +470,9 @@ mod tests {
             Ok((
                 "",
                 SessionDef {
-                    name: FunHead {
-                        name: Fname(Atom("test".to_owned())),
-                        arity: Integer(1)
+                    name: FunName {
+                        name: Atom("test".to_owned()),
+                        arity: 1,
                     },
                     st: vec!(New(vec!(SessionElement::OfferChoice(HashMap::from([
                         (
@@ -514,9 +514,9 @@ mod tests {
             Ok((
                 "",
                 SessionDef {
-                    name: FunHead {
-                        name: Fname(Atom("test".to_owned())),
-                        arity: Integer(1)
+                    name: FunName {
+                        name: Atom("test".to_owned()),
+                        arity: 1,
                     },
                     st: vec!(New(vec!(SessionElement::MakeChoice(
                         Label("test".to_owned()),
