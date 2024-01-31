@@ -1,6 +1,5 @@
-use nom::{
-    branch::alt, bytes::complete::tag, combinator::map, error::ParseError, sequence::tuple, IResult,
-};
+use nom::{branch::alt, combinator::map, sequence::tuple, IResult};
+use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
     ast::Pat,
@@ -10,12 +9,7 @@ use super::{
 };
 
 // TODO: Common pattern for nested list, avoid manual rewrite!
-fn pat_nested_list<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Pat, E> {
+fn pat_nested_list(i: &str) -> IResult<&str, Pat, ErrorTree<&str>> {
     let (i, _) = ws(tag("["))(i)?;
     let (i, pattern) = ws(pat)(i)?;
     let head = match pattern {
@@ -35,32 +29,17 @@ fn pat_nested_list<
     Ok((i, crate::cerl_parser::ast::Pat::Cons(cons)))
 }
 
-fn alias<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Pat, E> {
+fn alias(i: &str) -> IResult<&str, Pat, ErrorTree<&str>> {
     map(tuple((var, ws(tag("=")), pat)), |(variable, _, pattern)| {
         crate::cerl_parser::ast::Pat::Alias(variable, Box::new(pattern))
     })(i)
 }
 
-fn pat<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Pat, E> {
+fn pat(i: &str) -> IResult<&str, Pat, ErrorTree<&str>> {
     opt_annotation(pat_inner)(i)
 }
 
-fn pat_inner<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Pat, E> {
+fn pat_inner(i: &str) -> IResult<&str, Pat, ErrorTree<&str>> {
     alt((
         map(var, crate::cerl_parser::ast::Pat::Var),
         map(lit, crate::cerl_parser::ast::Pat::Lit),
@@ -77,11 +56,6 @@ fn pat_inner<
     ))(i)
 }
 
-pub fn pats<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Vec<Pat>, E> {
+pub fn pats(i: &str) -> IResult<&str, Vec<Pat>, ErrorTree<&str>> {
     alt((map(pat, |o| vec![o]), comma_sep_list("<", ">", pat)))(i)
 }

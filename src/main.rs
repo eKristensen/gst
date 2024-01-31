@@ -4,13 +4,6 @@ mod st_parser;
 
 use std::env;
 
-use nom::{
-    combinator::map,
-    error::{convert_error, ErrorKind, VerboseError},
-    Finish,
-};
-use nom_supreme::error::ErrorTree;
-
 use crate::analysis::{analyze_var::analyze_module, compute_init_env::init_module_env};
 
 use nom::Err;
@@ -30,7 +23,7 @@ fn main() {
             //     "Ran parser with debug AST output: {:?}\n",
             //     cerl_parser::top::module(&src)
             // );
-            match cerl_parser::top::module::<ErrorTree<&str>>(&src) {
+            match cerl_parser::top::module(&src) {
                 // TODO: Add ".finish()" here and in tests or even better in common module.
                 Ok((_, module)) => {
                     let env = init_module_env(module);

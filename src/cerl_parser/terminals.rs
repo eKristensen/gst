@@ -9,6 +9,7 @@ use nom::{
     sequence::{delimited, tuple},
     AsChar, Err, IResult, InputIter, InputLength, InputTakeAtPosition, Parser, Slice,
 };
+use nom_supreme::error::ErrorTree;
 
 use super::{
     ast::{Atom, Var},
@@ -18,7 +19,7 @@ use super::{
 
 // TODO: Check terminology: Is everything in here "terminals"?
 
-fn octal<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, String, E> {
+fn octal(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     let mut str: String = "".to_owned();
     let (i, out) = one_of("01234567")(i)?; // TODO: Use is_oct_digit or oct_digit1 instead?
                                            // TODO Rewrite. This is impossible to read!
@@ -40,7 +41,7 @@ fn octal<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, String, E> {
     }
 }
 
-fn escapechar<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, char, E> {
+fn escapechar(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
     alt((
         char('b'), // escapechar
         char('d'),
@@ -56,7 +57,7 @@ fn escapechar<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, char, E> 
     ))(i)
 }
 
-fn hat_ctlchar<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, String, E> {
+fn hat_ctlchar(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     map(tuple((char('^'), parse_ctlchar)), |(o1, o2)| {
         format!("{}{}", o1, o2)
     })(i)
@@ -64,7 +65,7 @@ fn hat_ctlchar<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, String, 
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/examples/string.rs
 /// Parse an escaped character: \n, \t, \r, \u{00AC}, etc.
-pub fn parse_escaped<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, String, E> {
+pub fn parse_escaped(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     map(
         tuple((
             char('\\'),
@@ -96,18 +97,23 @@ where
 }
 
 // TODO Can it this be integrated into atom somehow?
-fn parse_atom_fragments<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, String, E> {
+fn parse_atom_fragments(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     alt((
         map(parse_atom_input_chr, |o: &str| o.to_string()),
         map(parse_escaped, |o| o),
     ))(i)
 }
 
+// Note: Apparently atoms can be annotated as well
+pub fn atom(i: &str) -> IResult<&str, Atom, ErrorTree<&str>> {
+    opt_annotation(atom_inner)(i)
+}
+
 // TODO: Accept atoms with escaped chars
 // Inspired by :
 // - https://docs.rs/nom/latest/nom/recipes/index.html#escaped-strings
 // - https://github.com/rust-bakery/nom/blob/main/examples/string.rs
-pub fn atom<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, Atom, E> {
+fn atom_inner(i: &str) -> IResult<&str, Atom, ErrorTree<&str>> {
     // fold is the equivalent of iterator::fold. It runs a parser in a loop,
     // and for each output value, calls a folding function on each output value.
     let build_string = fold_many0(
@@ -211,7 +217,7 @@ where
 }
 
 // TODO Can it this be integrated into string somehow?
-fn parse_string_fragments<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, String, E> {
+fn parse_string_fragments(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     alt((
         map(parse_string_input_chr, |o: &str| o.to_string()),
         map(parse_escaped, |o| o),
@@ -219,7 +225,7 @@ fn parse_string_fragments<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&st
 }
 
 // TODO: Deduplicate, a lot like fn atom
-fn string_quoted<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, String, E> {
+fn string_quoted(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     // fold is the equivalent of iterator::fold. It runs a parser in a loop,
     // and for each output value, calls a folding function on each output value.
     let build_string = fold_many0(
@@ -245,14 +251,14 @@ fn string_quoted<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, String
     .parse(i)
 }
 
-pub fn string<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, String, E> {
+pub fn string(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     fold_many1(ws(string_quoted), String::new, |mut string, fragment| {
         string.push_str(&fragment);
         string
     })(i)
 }
 
-pub fn char_<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, String, E> {
+pub fn char_(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     let (i, _) = char('$')(i)?;
     alt((map(char_name, |o| o.to_string()), parse_escaped))(i)
 }
@@ -305,7 +311,7 @@ where
 }
 
 // TODO: Test var annotation works as intended
-pub fn var<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, Var, E> {
+pub fn var(i: &str) -> IResult<&str, Var, ErrorTree<&str>> {
     opt_annotation(var_inner)(i)
 }
 
@@ -348,13 +354,13 @@ mod tests {
 
         // TODO Move "lit" tests to lex.rs ?
         // TODO: Somehow make "::<()>" optional instead of having to type it...
-        assert_eq!(lit::<()>("8"), Ok(("", Lit::Int(8))));
-        assert_eq!(lit::<()>("+17"), Ok(("", Lit::Int(17))));
-        assert_eq!(lit::<()>("299792458"), Ok(("", Lit::Int(299792458))));
-        assert_eq!(lit::<()>("-4711"), Ok(("", Lit::Int(-4711))));
+        assert_eq!(lit("8").unwrap(), ("", Lit::Int(8)));
+        assert_eq!(lit("+17").unwrap(), ("", Lit::Int(17)));
+        assert_eq!(lit("299792458").unwrap(), ("", Lit::Int(299792458)));
+        assert_eq!(lit("-4711").unwrap(), ("", Lit::Int(-4711)));
 
         // Mindless sanity check
-        assert_ne!(lit::<()>("8"), Ok(("", Lit::Int(42))));
+        assert_ne!(lit("8").unwrap(), ("", Lit::Int(42)));
 
         // TODO: Negative / Expect Error test
     }
@@ -371,12 +377,12 @@ mod tests {
         assert_eq!(float::<()>("1.0e+9"), Ok(("", 1.0e9)));
 
         // TODO Move "lit" tests to lex.rs ?
-        assert_eq!(lit::<()>("0.0"), Ok(("", Lit::Float(0.0))));
-        assert_eq!(lit::<()>("2.7182818"), Ok(("", Lit::Float(2.7182818))));
-        assert_eq!(lit::<()>("-3.14"), Ok(("", Lit::Float(-3.14))));
-        assert_eq!(lit::<()>("+1.2E-6"), Ok(("", Lit::Float(1.2e-6))));
-        assert_eq!(lit::<()>("-1.23e12"), Ok(("", Lit::Float(-1.23e12))));
-        assert_eq!(lit::<()>("1.0e+9"), Ok(("", Lit::Float(1.0e9))));
+        assert_eq!(lit("0.0").unwrap(), ("", Lit::Float(0.0)));
+        assert_eq!(lit("2.7182818").unwrap(), ("", Lit::Float(2.7182818)));
+        assert_eq!(lit("-3.14").unwrap(), ("", Lit::Float(-3.14)));
+        assert_eq!(lit("+1.2E-6").unwrap(), ("", Lit::Float(1.2e-6)));
+        assert_eq!(lit("-1.23e12").unwrap(), ("", Lit::Float(-1.23e12)));
+        assert_eq!(lit("1.0e+9").unwrap(), ("", Lit::Float(1.0e9)));
 
         // Mindless sanity check
         assert_ne!(float::<()>("0.0"), Ok(("", 2.0)));
@@ -387,85 +393,82 @@ mod tests {
     #[test]
     fn test_atom() {
         // Tests based on Core Erlang 1.03 specification Appendix A
-        assert_eq!(atom::<()>("'foo'"), Ok(("", Atom("foo".to_owned()))));
-        assert_eq!(atom::<()>("'Bar'"), Ok(("", Atom("Bar".to_owned()))));
-        assert_eq!(
-            atom::<()>("'foo bar'"),
-            Ok(("", Atom("foo bar".to_owned())))
-        );
-        assert_eq!(atom::<()>("''"), Ok(("", Atom("".to_owned()))));
+        assert_eq!(atom("'foo'").unwrap(), ("", Atom("foo".to_owned())));
+        assert_eq!(atom("'Bar'").unwrap(), ("", Atom("Bar".to_owned())));
+        assert_eq!(atom("'foo bar'").unwrap(), ("", Atom("foo bar".to_owned())));
+        assert_eq!(atom("''").unwrap(), ("", Atom("".to_owned())));
 
         // TODO: Is the test correct with \\ == \ in the string?
-        assert_eq!(octal::<()>("012"), Ok(("", "012".to_owned())));
-        assert_eq!(parse_escaped::<()>("\\011"), Ok(("", "\\011".to_owned())));
-        assert_eq!(atom::<()>("'\\010'"), Ok(("", Atom("\\010".to_owned()))));
+        assert_eq!(octal("012").unwrap(), ("", "012".to_owned()));
+        assert_eq!(parse_escaped("\\011").unwrap(), ("", "\\011".to_owned()));
+        assert_eq!(atom("'\\010'").unwrap(), ("", Atom("\\010".to_owned())));
         // Literal output expected "%#\010@\n!"
         assert_eq!(
-            atom::<()>("'%#\\010@\\n!'"),
-            Ok(("", Atom("%#\\010@\\n!".to_owned())))
+            atom("'%#\\010@\\n!'").unwrap(),
+            ("", Atom("%#\\010@\\n!".to_owned()))
         );
 
         assert_eq!(
-            atom::<()>("'_hello_world'"),
-            Ok(("", Atom("_hello_world".to_owned())))
+            atom("'_hello_world'").unwrap(),
+            ("", Atom("_hello_world".to_owned()))
         );
-        assert_eq!(atom::<()>("'=:='"), Ok(("", Atom("=:=".to_owned()))));
+        assert_eq!(atom("'=:='").unwrap(), ("", Atom("=:=".to_owned())));
 
         // TODO Move "lit" tests to lex.rs ?
         assert_eq!(
-            lit::<()>("'foo'"),
-            Ok(("", Lit::Atom(Atom("foo".to_owned()))))
+            lit("'foo'").unwrap(),
+            ("", Lit::Atom(Atom("foo".to_owned())))
         );
         assert_eq!(
-            lit::<()>("'Bar'"),
-            Ok(("", Lit::Atom(Atom("Bar".to_owned()))))
+            lit("'Bar'").unwrap(),
+            ("", Lit::Atom(Atom("Bar".to_owned())))
         );
         assert_eq!(
-            lit::<()>("'foo bar'"),
-            Ok(("", Lit::Atom(Atom("foo bar".to_owned()))))
+            lit("'foo bar'").unwrap(),
+            ("", Lit::Atom(Atom("foo bar".to_owned())))
         );
-        assert_eq!(lit::<()>("''"), Ok(("", Lit::Atom(Atom("".to_owned())))));
+        assert_eq!(lit("''").unwrap(), ("", Lit::Atom(Atom("".to_owned()))));
         assert_eq!(
-            lit::<()>("'%#\\010@\\n!'"),
-            Ok(("", Lit::Atom(Atom("%#\\010@\\n!".to_owned()))))
-        );
-        assert_eq!(
-            lit::<()>("'_hello_world'"),
-            Ok(("", Lit::Atom(Atom("_hello_world".to_owned()))))
+            lit("'%#\\010@\\n!'").unwrap(),
+            ("", Lit::Atom(Atom("%#\\010@\\n!".to_owned())))
         );
         assert_eq!(
-            lit::<()>("'=:='"),
-            Ok(("", Lit::Atom(Atom("=:=".to_owned()))))
+            lit("'_hello_world'").unwrap(),
+            ("", Lit::Atom(Atom("_hello_world".to_owned())))
+        );
+        assert_eq!(
+            lit("'=:='").unwrap(),
+            ("", Lit::Atom(Atom("=:=".to_owned())))
         );
 
         // Mindless sanity check
-        assert_ne!(atom::<()>("'foo'"), Ok(("", Atom("bar".to_owned()))));
+        assert_ne!(atom("'foo'").unwrap(), ("", Atom("bar".to_owned())));
     }
 
     #[test]
     fn test_char_literal() {
         // Tests based on Core Erlang 1.03 specification Appendix A
-        assert_eq!(char_::<()>("$A"), Ok(("", "A".to_owned())));
-        assert_eq!(char_::<()>("$$"), Ok(("", "$".to_owned())));
-        assert_eq!(char_::<()>("$\\n"), Ok(("", "\\n".to_owned())));
-        assert_eq!(char_::<()>("$\\s"), Ok(("", "\\s".to_owned())));
-        assert_eq!(char_::<()>("$\\\\"), Ok(("", "\\\\".to_owned())));
-        assert_eq!(char_::<()>("$\\12"), Ok(("", "\\12".to_owned())));
-        assert_eq!(char_::<()>("$\\101"), Ok(("", "\\101".to_owned())));
-        assert_eq!(char_::<()>("$\\^A"), Ok(("", "\\^A".to_owned())));
+        assert_eq!(char_("$A").unwrap(), ("", "A".to_owned()));
+        assert_eq!(char_("$$").unwrap(), ("", "$".to_owned()));
+        assert_eq!(char_("$\\n").unwrap(), ("", "\\n".to_owned()));
+        assert_eq!(char_("$\\s").unwrap(), ("", "\\s".to_owned()));
+        assert_eq!(char_("$\\\\").unwrap(), ("", "\\\\".to_owned()));
+        assert_eq!(char_("$\\12").unwrap(), ("", "\\12".to_owned()));
+        assert_eq!(char_("$\\101").unwrap(), ("", "\\101".to_owned()));
+        assert_eq!(char_("$\\^A").unwrap(), ("", "\\^A".to_owned()));
 
         // TODO Move "lit" tests to lex.rs ?
-        assert_eq!(lit::<()>("$A"), Ok(("", Lit::Char("A".to_owned()))));
-        assert_eq!(lit::<()>("$$"), Ok(("", Lit::Char("$".to_owned()))));
-        assert_eq!(lit::<()>("$\\n"), Ok(("", Lit::Char("\\n".to_owned()))));
-        assert_eq!(lit::<()>("$\\s"), Ok(("", Lit::Char("\\s".to_owned()))));
-        assert_eq!(lit::<()>("$\\\\"), Ok(("", Lit::Char("\\\\".to_owned()))));
-        assert_eq!(lit::<()>("$\\12"), Ok(("", Lit::Char("\\12".to_owned()))));
-        assert_eq!(lit::<()>("$\\101"), Ok(("", Lit::Char("\\101".to_owned()))));
-        assert_eq!(lit::<()>("$\\^A"), Ok(("", Lit::Char("\\^A".to_owned()))));
+        assert_eq!(lit("$A").unwrap(), ("", Lit::Char("A".to_owned())));
+        assert_eq!(lit("$$").unwrap(), ("", Lit::Char("$".to_owned())));
+        assert_eq!(lit("$\\n").unwrap(), ("", Lit::Char("\\n".to_owned())));
+        assert_eq!(lit("$\\s").unwrap(), ("", Lit::Char("\\s".to_owned())));
+        assert_eq!(lit("$\\\\").unwrap(), ("", Lit::Char("\\\\".to_owned())));
+        assert_eq!(lit("$\\12").unwrap(), ("", Lit::Char("\\12".to_owned())));
+        assert_eq!(lit("$\\101").unwrap(), ("", Lit::Char("\\101".to_owned())));
+        assert_eq!(lit("$\\^A").unwrap(), ("", Lit::Char("\\^A".to_owned())));
 
         // Mindless sanity check
-        assert_ne!(char_::<()>("$A"), Ok(("", "B".to_owned())));
+        assert_ne!(char_("$A").unwrap(), ("", "B".to_owned()));
 
         // TODO: Negative / Expect Error test
     }
@@ -474,34 +477,34 @@ mod tests {
     fn test_strings() {
         // Tests based on Core Erlang 1.03 specification Appendix A
         assert_eq!(
-            string::<()>("\"Hello, World!\""),
-            Ok(("", "Hello, World!".to_owned()))
+            string("\"Hello, World!\"").unwrap(),
+            ("", "Hello, World!".to_owned())
         );
         assert_eq!(
-            string::<()>("\"Two\\nlines\""),
-            Ok(("", "Two\\nlines".to_owned()))
+            string("\"Two\\nlines\"").unwrap(),
+            ("", "Two\\nlines".to_owned())
         );
         assert_eq!(
-            string::<()>("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\""),
-            Ok(("", "Ring\\^GMy\\7Bell\\007!".to_owned()))
+            string("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\"").unwrap(),
+            ("", "Ring\\^GMy\\7Bell\\007!".to_owned())
         );
 
         // TODO Move "lit" tests to lex.rs ?
         assert_eq!(
-            lit::<()>("\"Hello, World!\""),
-            Ok(("", Lit::String("Hello, World!".to_owned())))
+            lit("\"Hello, World!\"").unwrap(),
+            ("", Lit::String("Hello, World!".to_owned()))
         );
         assert_eq!(
-            lit::<()>("\"Two\\nlines\""),
-            Ok(("", Lit::String("Two\\nlines".to_owned())))
+            lit("\"Two\\nlines\"").unwrap(),
+            ("", Lit::String("Two\\nlines".to_owned()))
         );
         assert_eq!(
-            lit::<()>("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\""),
-            Ok(("", Lit::String("Ring\\^GMy\\7Bell\\007!".to_owned())))
+            lit("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\"").unwrap(),
+            ("", Lit::String("Ring\\^GMy\\7Bell\\007!".to_owned()))
         );
 
         // Mindless sanity check
-        assert_ne!(string::<()>("\"Foo\""), Ok(("", "Bar".to_owned())));
+        assert_ne!(string("\"Foo\"").unwrap(), ("", "Bar".to_owned()));
 
         // TODO: Negative / Expect Error test
     }
@@ -509,30 +512,24 @@ mod tests {
     #[test]
     fn test_variables() {
         // Tests based on Core Erlang 1.03 specification Appendix A
-        assert_eq!(var::<()>("X"), Ok(("", Var("X".to_owned()))));
-        assert_eq!(var::<()>("Bar"), Ok(("", Var("Bar".to_owned()))));
-        assert_eq!(var::<()>("Value_2"), Ok(("", Var("Value_2".to_owned()))));
+        assert_eq!(var("X").unwrap(), ("", Var("X".to_owned())));
+        assert_eq!(var("Bar").unwrap(), ("", Var("Bar".to_owned())));
+        assert_eq!(var("Value_2").unwrap(), ("", Var("Value_2".to_owned())));
+        assert_eq!(var("One2Three").unwrap(), ("", Var("One2Three".to_owned())));
+        assert_eq!(var("Stay@home").unwrap(), ("", Var("Stay@home".to_owned())));
         assert_eq!(
-            var::<()>("One2Three"),
-            Ok(("", Var("One2Three".to_owned())))
-        );
-        assert_eq!(
-            var::<()>("Stay@home"),
-            Ok(("", Var("Stay@home".to_owned())))
-        );
-        assert_eq!(
-            var::<()>("_hello_world"),
-            Ok(("", Var("_hello_world".to_owned())))
+            var("_hello_world").unwrap(),
+            ("", Var("_hello_world".to_owned()))
         );
 
         // Lowercase var must give error
-        assert!(var::<()>("lowercase").is_err());
+        assert!(var("lowercase").is_err());
 
         // Core erlang accepts "_" as a var despite spec version 1.03 explicitly says this is invalid
-        assert_eq!(var::<()>("_"), Ok(("", Var("_".to_owned()))));
+        assert_eq!(var("_").unwrap(), ("", Var("_".to_owned())));
 
         // Mindless sanity check
-        assert_ne!(var::<()>("A"), Ok(("", Var("B".to_owned()))));
+        assert_ne!(var("A").unwrap(), ("", Var("B".to_owned())));
 
         // TODO: Negative / Expect Error test
     }

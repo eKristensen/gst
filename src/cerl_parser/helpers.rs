@@ -1,17 +1,17 @@
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_until},
+    bytes::complete::take_until,
     character::complete::multispace0,
     combinator::map,
-    error::ParseError,
     multi::{many0, separated_list0},
     sequence::{delimited, tuple},
     IResult, Parser,
 };
+use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#-ceol-style-comments
 // Comment
-fn comment<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, (), E> {
+fn comment(i: &str) -> IResult<&str, (), ErrorTree<&str>> {
     // TODO: Better to use char('%') instead of tag("%") ??
     map(
         tuple((
@@ -24,11 +24,9 @@ fn comment<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, (), E> {
 }
 
 // Removes annotation
-fn annotation<'a, F, O, E: ParseError<&'a str>>(
-    inner: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+fn annotation<'a, F, O>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O, ErrorTree<&str>>
 where
-    F: Parser<&'a str, O, E>,
+    F: Parser<&'a str, O, ErrorTree<&'a str>>,
 {
     map(
         tuple((
@@ -42,11 +40,11 @@ where
     )
 }
 
-pub fn opt_annotation<'a, F, O, E: ParseError<&'a str>>(
+pub fn opt_annotation<'a, F, O>(
     inner: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+) -> impl FnMut(&'a str) -> IResult<&'a str, O, ErrorTree<&str>>
 where
-    F: Parser<&'a str, O, E> + Clone,
+    F: Parser<&'a str, O, ErrorTree<&'a str>> + Clone,
 {
     alt((inner.clone(), annotation(inner)))
 }
@@ -55,11 +53,9 @@ where
 /// A combinator that takes a parser `inner` and produces a parser that also consumes both leading and
 /// trailing whitespace, returning the output of `inner`.
 // TODO: Stupid comment implementation maybe something better exists?
-pub fn ws<'a, F, O, E: ParseError<&'a str>>(
-    inner: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+pub fn ws<'a, F, O>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O, ErrorTree<&str>>
 where
-    F: Parser<&'a str, O, E>,
+    F: Parser<&'a str, O, ErrorTree<&'a str>>,
     &'a str: nom::InputLength + nom::InputTakeAtPosition + Clone,
     <&'a str as nom::InputTakeAtPosition>::Item: nom::AsChar,
     <&'a str as nom::InputTakeAtPosition>::Item: Clone,
@@ -80,13 +76,13 @@ where
 
 // General helper for comma-separated lists
 // TODO: Maybe too general? Some lists may require a least one element... e.g. is expr "<>" allowed? is "{}" allowed?
-pub fn comma_sep_list<'a, O, E: ParseError<&'a str>, F>(
-    start: &'a str,
-    end: &'a str,
+pub fn comma_sep_list<'a, O, F>(
+    start: &'static str, // TODO: Static not great, but idk what else to do now
+    end: &'static str,   // TODO: Static lifetime not great
     elements: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, E>
+) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, ErrorTree<&str>>
 where
-    F: Parser<&'a str, O, E>,
+    F: Parser<&'a str, O, ErrorTree<&'a str>>,
 {
     delimited(tag(start), separated_list0(tag(","), elements), tag(end))
 }

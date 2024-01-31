@@ -2,13 +2,13 @@ use std::ops::RangeFrom;
 
 use nom::{
     branch::alt,
-    bytes::complete::tag,
     character::{complete::digit1, is_digit},
     combinator::{map, map_res},
     error::{ErrorKind, ParseError},
     sequence::tuple,
     AsChar, Err, IResult, InputIter, InputLength, Slice,
 };
+use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
     ast::{FunName, Lit},
@@ -97,22 +97,12 @@ where
 }
 
 // Move to "non-terminals"?
-pub fn fname<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, FunName, E> {
+pub fn fname(i: &str) -> IResult<&str, FunName, ErrorTree<&str>> {
     opt_annotation(fname_inner)(i)
 }
 
 // Move to "non-terminals"?
-pub fn fname_inner<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, FunName, E> {
+pub fn fname_inner(i: &str) -> IResult<&str, FunName, ErrorTree<&str>> {
     ws(map(
         tuple((
             atom,
@@ -127,12 +117,7 @@ pub fn fname_inner<
 }
 
 // TODO: Common pattern for nested list, avoid manual rewrite!
-fn lit_nested_list<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Lit, E> {
+fn lit_nested_list(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
     let (i, _) = ws(tag("["))(i)?;
     let (i, constant) = ws(lit)(i)?;
     let head = match constant {
@@ -152,12 +137,7 @@ fn lit_nested_list<
     Ok((i, crate::cerl_parser::ast::Lit::Cons(cons)))
 }
 
-pub fn lit<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Lit, E> {
+pub fn lit(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
     alt((
         map(float, super::ast::Lit::Float),
         map(integer, super::ast::Lit::Int),
@@ -174,7 +154,7 @@ pub fn lit<
     ))(i)
 }
 
-fn empty_list<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, Lit, E> {
+fn empty_list(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
     let (i, _) = ws(tag("["))(i)?;
     let (i, _) = ws(tag("]"))(i)?;
     Ok((i, super::ast::Lit::Nil))
@@ -190,8 +170,8 @@ mod tests {
     #[test]
     fn test_lit_atom_in_list() {
         assert_eq!(
-            lit::<()>("'new', 'neg')"),
-            Ok((", 'neg')", Lit::Atom(Atom("new".to_owned()))))
+            lit("'new', 'neg')").unwrap(),
+            (", 'neg')", Lit::Atom(Atom("new".to_owned())))
         );
     }
 }

@@ -1,12 +1,11 @@
 use nom::{
     branch::alt,
-    bytes::complete::tag,
     combinator::{map, opt, value},
-    error::ParseError,
     multi::{many0, separated_list0},
     sequence::{delimited, preceded, tuple},
     IResult,
 };
+use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
     ast::{Clause, Expr, Exprs, FunCall, FunKind, MapPair, MapPairType, Var},
@@ -18,12 +17,7 @@ use super::{
 };
 
 // TODO: Common pattern for nested list, avoid manual rewrite!
-fn expr_nested_list<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn expr_nested_list(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("["))(i)?;
     let (i, head) = ws(exprs)(i)?;
     let head = vec![head];
@@ -37,12 +31,7 @@ fn expr_nested_list<
     Ok((i, crate::cerl_parser::ast::Expr::Cons(cons)))
 }
 
-fn case_of<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn case_of(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("case"))(i)?;
     let (i, exprs) = exprs(i)?;
     let (i, _) = ws(tag("of"))(i)?;
@@ -51,12 +40,7 @@ fn case_of<
     Ok((i, crate::cerl_parser::ast::Expr::Case(exprs, clauses)))
 }
 
-fn letrec<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn letrec(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("letrec"))(i)?;
     let (i, fundefs) = many0(ws(fun_def))(i)?;
     let (i, _) = ws(tag("in"))(i)?;
@@ -67,12 +51,7 @@ fn letrec<
     ))
 }
 
-fn apply<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn apply(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("apply"))(i)?;
     let (i, name) = ws(atom)(i)?;
     let (i, exprs_args) = comma_sep_list("(", ")", ws(exprs))(i)?;
@@ -88,12 +67,7 @@ fn apply<
     ))
 }
 
-fn call<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn call(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("call"))(i)?;
     let (i, module) = ws(atom)(i)?;
     let (i, _) = ws(tag(":"))(i)?;
@@ -111,12 +85,7 @@ fn call<
     ))
 }
 
-fn primop<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn primop(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("primop"))(i)?;
     let (i, name) = ws(atom)(i)?;
     let (i, args) = comma_sep_list("(", ")", exprs)(i)?;
@@ -132,12 +101,7 @@ fn primop<
     ))
 }
 
-fn receive<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn receive(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("receive"))(i)?;
     let (i, clauses) = many0(clause)(i)?;
     let (i, _) = ws(tag("after"))(i)?;
@@ -150,12 +114,7 @@ fn receive<
     ))
 }
 
-fn try_expr<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn try_expr(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("try"))(i)?;
     let (i, arg) = ws(exprs)(i)?;
     let (i, _) = ws(tag("of"))(i)?;
@@ -173,12 +132,7 @@ fn try_expr<
 }
 
 // TODO: Annotations can be any odd place, not implemented yet for maps
-fn map_expr<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn map_expr(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     map(
         delimited(
             ws(tag("~{")),
@@ -197,12 +151,7 @@ fn map_expr<
     )(i)
 }
 
-fn map_pair<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, MapPair, E> {
+fn map_pair(i: &str) -> IResult<&str, MapPair, ErrorTree<&str>> {
     map(
         tuple((
             expr,
@@ -220,45 +169,25 @@ fn map_pair<
     )(i)
 }
 
-fn do_expr<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn do_expr(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("do"))(i)?;
     let (i, exprs1) = ws(exprs)(i)?;
     let (i, exprs2) = ws(exprs)(i)?;
     Ok((i, crate::cerl_parser::ast::Expr::Do(exprs1, exprs2)))
 }
 
-fn catch<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn catch(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("catch"))(i)?;
     let (i, exprs1) = ws(exprs)(i)?;
     Ok((i, crate::cerl_parser::ast::Expr::Catch(exprs1)))
 }
 
 // TODO: More elegant way to add opt_annotation.
-fn clause<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Clause, E> {
+fn clause(i: &str) -> IResult<&str, Clause, ErrorTree<&str>> {
     opt_annotation(clause_inner)(i)
 }
 
-fn clause_inner<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Clause, E> {
+fn clause_inner(i: &str) -> IResult<&str, Clause, ErrorTree<&str>> {
     let (i, pats) = pats(i)?;
     let (i, _) = ws(tag("when"))(i)?;
     let (i, exprs1) = exprs(i)?;
@@ -274,12 +203,7 @@ fn clause_inner<
     ))
 }
 
-fn let_in<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn let_in(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("let"))(i)?;
     // Delay thinking about how the vars and exprs match in the equal sign
     let (i, vars) = vars(i)?;
@@ -290,30 +214,20 @@ fn let_in<
     Ok((i, crate::cerl_parser::ast::Expr::Let(vars, exprs1, exprs2)))
 }
 
-fn vars<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, Vec<Var>, E> {
+fn vars(i: &str) -> IResult<&str, Vec<Var>, ErrorTree<&str>> {
     opt_annotation(vars_inner)(i)
 }
 
 // TODO: Move? It is here in lack of a better fitting module
-fn vars_inner<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, Vec<Var>, E> {
+fn vars_inner(i: &str) -> IResult<&str, Vec<Var>, ErrorTree<&str>> {
     alt((map(var, |o| vec![o]), comma_sep_list("<", ">", var)))(i)
 }
 
-fn expr<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn expr(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     opt_annotation(expr_inner)(i)
 }
 
-fn expr_inner<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Expr, E> {
+fn expr_inner(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     ws(alt((
         map(var, crate::cerl_parser::ast::Expr::Var),
         map(fname, crate::cerl_parser::ast::Expr::Fname),
@@ -342,22 +256,12 @@ fn expr_inner<
     )))(i)
 }
 
-pub fn exprs<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Exprs, E> {
+pub fn exprs(i: &str) -> IResult<&str, Exprs, ErrorTree<&str>> {
     opt_annotation(exprs_inner)(i)
 }
 
 // TODO: Redundant opt_annotation here?
-fn exprs_inner<
-    'a,
-    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(
-    i: &'a str,
-) -> IResult<&str, Exprs, E> {
+fn exprs_inner(i: &str) -> IResult<&str, Exprs, ErrorTree<&str>> {
     ws(alt((
         map(expr, |o| crate::cerl_parser::ast::Exprs(vec![o])),
         map(
@@ -375,10 +279,9 @@ mod tests {
     // TODO: Check output maybe?
     #[test]
     fn test_exprs_call_args_list() {
-        assert!(exprs::<()>(
-            " case call 'a':'b' (_0, 'new', 'neg') of <_2> when 'true' -> [] end "
-        )
-        .is_ok());
+        assert!(
+            exprs(" case call 'a':'b' (_0, 'new', 'neg') of <_2> when 'true' -> [] end ").is_ok()
+        );
     }
     /*
     TODO: Test this
