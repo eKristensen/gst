@@ -1,4 +1,7 @@
-use nom::{bytes::complete::tag, combinator::map, multi::many0, sequence::tuple, IResult};
+use nom::{
+    bytes::complete::tag, combinator::map, error::ParseError, multi::many0, sequence::tuple,
+    IResult,
+};
 
 use super::{
     ast::{Attribute, FunDef, FunName, Module},
@@ -8,7 +11,12 @@ use super::{
     terminals::{atom, var},
 };
 
-pub fn fun_def(i: &str) -> IResult<&str, (FunName, FunDef)> {
+pub fn fun_def<
+    'a,
+    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
+>(
+    i: &'a str,
+) -> IResult<&str, (FunName, FunDef), E> {
     let (i, head) = fname(i)?;
     let (i, _) = ws(tag("="))(i)?;
     let (i, def) = opt_annotation(fun)(i)?;
@@ -16,7 +24,12 @@ pub fn fun_def(i: &str) -> IResult<&str, (FunName, FunDef)> {
     Ok((i, (head, def)))
 }
 
-pub fn fun(i: &str) -> IResult<&str, FunDef> {
+pub fn fun<
+    'a,
+    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
+>(
+    i: &'a str,
+) -> IResult<&str, FunDef, E> {
     let (i, _) = ws(tag("fun"))(i)?;
 
     // TODO: function arguments parsing, must be able to parse variables
@@ -33,7 +46,12 @@ pub fn fun(i: &str) -> IResult<&str, FunDef> {
 // Attribute { name: Atom("mspec"), value: Cons([Lit(Atom(Atom("?neg !ready. ?int !int")))]) }
 // But it should be (please note the absence of Cons)
 // Attribute { name: Atom("mspec"), value: Lit(Atom(Atom("?neg !ready. ?int !int"))) }
-fn attribute(i: &str) -> IResult<&str, Attribute> {
+fn attribute<
+    'a,
+    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
+>(
+    i: &'a str,
+) -> IResult<&str, Attribute, E> {
     ws(map(tuple((atom, ws(tag("=")), lit)), |(atom, _, val)| {
         Attribute {
             name: atom,
@@ -42,12 +60,22 @@ fn attribute(i: &str) -> IResult<&str, Attribute> {
     }))(i)
 }
 
-pub fn module(i: &str) -> IResult<&str, Module> {
+pub fn module<
+    'a,
+    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
+>(
+    i: &'a str,
+) -> IResult<&str, Module, E> {
     opt_annotation(module_inner)(i)
 }
 
 // Top level module definition
-fn module_inner(i: &str) -> IResult<&str, Module> {
+fn module_inner<
+    'a,
+    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
+>(
+    i: &'a str,
+) -> IResult<&str, Module, E> {
     // TODO: Check that "tag" requires "module" and does not work with partial data such as "mod"
     // Scan module
     let (i, _) = ws(tag("module"))(i)?;

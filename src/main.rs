@@ -4,9 +4,16 @@ mod st_parser;
 
 use std::env;
 
-use nom::Finish;
+use nom::{
+    combinator::map,
+    error::{convert_error, ErrorKind, VerboseError},
+    Finish,
+};
+use nom_supreme::error::ErrorTree;
 
 use crate::analysis::{analyze_var::analyze_module, compute_init_env::init_module_env};
+
+use nom::Err;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -23,13 +30,17 @@ fn main() {
             //     "Ran parser with debug AST output: {:?}\n",
             //     cerl_parser::top::module(&src)
             // );
-            match cerl_parser::top::module(&src).finish() { // TODO: Also use ".finish()" in tests or even better in common module.
+            match cerl_parser::top::module::<ErrorTree<&str>>(&src) {
+                // TODO: Add ".finish()" here and in tests or even better in common module.
                 Ok((_, module)) => {
                     let env = init_module_env(module);
                     //println!("Init analysis environment {:?}\n", env);
                     analyze_module(&env);
                 }
-                Err(e) => println!("Nom could not parse source {:?}", e),
+                Err(Err::Error(e)) | Err(Err::Failure(e)) => {
+                    println!("Nom could not parse source\n\n{}", e);
+                }
+                _ => panic!("Unknown error"),
             }
         } // TODO: Pretty print
         Err(err) => panic!("Could not read file {} because {}", filename, err),
