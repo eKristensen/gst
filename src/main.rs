@@ -31,6 +31,7 @@ fn main() {
                     analyze_module(&env);
                 }
                 Err(Err::Error(e)) | Err(Err::Failure(e)) => {
+                    // TODO: More compact error messages possible?
                     println!("Nom could not parse source\n\n{}", e);
                 }
                 _ => panic!("Unknown error"),

@@ -1,14 +1,14 @@
 use nom::{
     branch::alt,
     combinator::{map, opt, value},
-    multi::{many0, separated_list0},
+    multi::{many0, many1, separated_list0},
     sequence::{delimited, preceded, tuple},
     IResult,
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
-    ast::{Clause, Expr, Exprs, FunCall, FunKind, MapPair, MapPairType, Var},
+    ast::{Clause, Expr, Exprs, FunCall, FunKind, FunName, MapPair, MapPairType, Var},
     helpers::{comma_sep_list, opt_annotation, ws},
     lex::{fname, lit},
     pat::pats,
@@ -35,14 +35,14 @@ fn case_of(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("case"))(i)?;
     let (i, exprs) = exprs(i)?;
     let (i, _) = ws(tag("of"))(i)?;
-    let (i, clauses) = many0(clause)(i)?;
+    let (i, clauses) = many1(clause)(i)?;
     let (i, _) = ws(tag("end"))(i)?;
     Ok((i, crate::cerl_parser::ast::Expr::Case(exprs, clauses)))
 }
 
 fn letrec(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("letrec"))(i)?;
-    let (i, fundefs) = many0(ws(fun_def))(i)?;
+    let (i, fundefs) = many1(ws(fun_def))(i)?;
     let (i, _) = ws(tag("in"))(i)?;
     let (i, expressions) = exprs(i)?;
     Ok((
@@ -53,8 +53,17 @@ fn letrec(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
 
 fn apply(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("apply"))(i)?;
-    let (i, name) = ws(atom)(i)?;
+    let (i, fname) = ws(fname)(i)?; // Note: Apparently fname is used here
     let (i, exprs_args) = comma_sep_list("(", ")", ws(exprs))(i)?;
+    let FunName { name, arity } = fname;
+    if arity != exprs_args.len().try_into().unwrap() {
+        panic!(
+            "Sanity check for {:?} failed. Expected {} args but found {}",
+            name,
+            arity,
+            exprs_args.len()
+        )
+    };
     Ok((
         i,
         crate::cerl_parser::ast::Expr::Call(

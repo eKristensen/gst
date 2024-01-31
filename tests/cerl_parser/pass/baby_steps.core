@@ -1,11 +1,123 @@
 module 'baby_steps' ['additionClient'/3,
+		     'computeServer'/0,
 		     'module_info'/0,
-		     'module_info'/1]
+		     'module_info'/1,
+		     'negationClient'/2]
     attributes [%% Line 1
 		'file' =
 		    %% Line 1
 		    [{[116|[101|[115|[116|[115|[47|[99|[101|[114|[108|[95|[112|[97|[114|[115|[101|[114|[47|[112|[97|[115|[115|[47|[98|[97|[98|[121|[95|[115|[116|[101|[112|[115|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],1}]]
-
+'computeServer'/0 =
+    %% Line 12
+    ( fun () ->
+	  ( letrec
+		'recv$^0'/0 =
+		    fun () ->
+			let <_4,_2> =
+			    primop 'recv_peek_message'
+				()
+			in  case _4 of
+			      <'true'> when 'true' ->
+				  %% Line 15
+				  case _2 of
+				    %% Line 16
+				    <{From,'neg',V1}> when 'true' ->
+					do  primop 'remove_message'
+						()
+					    let <_0> =
+						call %% Line 17
+						     'erlang':%% Line 17
+							      '-'
+						    (%% Line 17
+						     V1)
+					    in  %% Line 17
+						call 'erlang':'!'
+						    (From, _0)
+				    %% Line 18
+				    <{From,'add',V1,V2}> when 'true' ->
+					do  primop 'remove_message'
+						()
+					    let <_1> =
+						call %% Line 19
+						     'erlang':%% Line 19
+							      '+'
+						    (%% Line 19
+						     V1, %% Line 19
+							 V2)
+					    in  %% Line 19
+						call 'erlang':'!'
+						    (From, _1)
+				    ( <Other> when 'true' ->
+					  do  primop 'recv_next'
+						  ()
+					      ( apply 'recv$^0'/0
+						    ()
+						-| ['dialyzer_ignore'] )
+				      -| ['compiler_generated','dialyzer_ignore'] )
+				  end
+			      ( <'false'> when 'true' ->
+				    let <_3> =
+					primop 'recv_wait_timeout'
+					    ('infinity')
+				    in  case _3 of
+					  <'true'> when 'true' ->
+					      'true'
+					  ( <'false'> when 'true' ->
+						( apply 'recv$^0'/0
+						      ()
+						  -| ['dialyzer_ignore'] )
+					    -| ['dialyzer_ignore'] )
+					end
+				-| ['dialyzer_ignore'] )
+			    end
+	    in  ( apply 'recv$^0'/0
+		      ()
+		  -| ['dialyzer_ignore'] )
+	    -| ['letrec_goto','no_inline'] )
+      -| [{'function',{'computeServer',0}}] )
+'negationClient'/2 =
+    %% Line 28
+    ( fun (_0,_1) ->
+	  let <_2> =
+	      call %% Line 29
+		   'erlang':%% Line 29
+			    'self'
+		  ()
+	  in  do  %% Line 29
+		  call 'erlang':'!'
+		      (_0, {_2,'neg',_1})
+		  ( letrec
+			'recv$^0'/0 =
+			    fun () ->
+				let <_7,_5> =
+				    primop 'recv_peek_message'
+					()
+				in  case _7 of
+				      <'true'> when 'true' ->
+					  do  primop 'remove_message'
+						  ()
+					      _5
+				      <'false'> when 'true' ->
+					  let <_6> =
+					      primop 'recv_wait_timeout'
+						  (%% Line 32
+						   2000)
+					  in  case _6 of
+						<'true'> when 'true' ->
+						    %% Line 32
+						    'timeout'
+						( <'false'> when 'true' ->
+						      ( apply 'recv$^0'/0
+							    ()
+							-| ['dialyzer_ignore'] )
+						  -| ['dialyzer_ignore'] )
+					      end
+				    end
+		    in  ( apply 'recv$^0'/0
+			      ()
+			  -| ['dialyzer_ignore'] )
+		    -| ['letrec_goto','no_inline'] )
+      -| [{'function',{'negationClient',2}}] )
 'additionClient'/3 =
     %% Line 36
     ( fun (_0,_1,_2) ->
@@ -33,7 +145,16 @@ module 'baby_steps' ['additionClient'/3,
 					      primop 'recv_wait_timeout'
 						  (%% Line 40
 						   2000)
-					  in  42
+					  in  case _8 of
+						<'true'> when 'true' ->
+						    %% Line 40
+						    'timeout'
+						( <'false'> when 'true' ->
+						      ( apply 'recv$^0'/0
+							    ()
+							-| ['dialyzer_ignore'] )
+						  -| ['dialyzer_ignore'] )
+					      end
 				    end
 		    in  ( apply 'recv$^0'/0
 			      ()
