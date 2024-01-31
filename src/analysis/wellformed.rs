@@ -2,10 +2,10 @@
 // They could for the most case be included when parsing with nom, but splitting responsibilities makes it easer to read, write and maintain the source code at the expense that well formed checks could be "forgotten".
 // However the data-structure does allows to store data that makes no sense so using this for sanity check makes sense in any case.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{
-    cerl_parser::ast::{Expr, Exprs, FunDef, FunName, Module, Var},
+    cerl_parser::ast::{FunName, Module},
     st_parser::ast::{SessionElement, SessionType},
 };
 

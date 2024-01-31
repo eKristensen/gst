@@ -38,7 +38,6 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
                 let acceptable_res_env = validate_res_env(
                     &return_type,
                     &spec_return_type,
-                    &fun_env.session.as_ref().unwrap().return_type,
                     &fun_env.session.as_ref().unwrap().binders,
                     res_env,
                 );
@@ -337,7 +336,7 @@ fn env_update_pattern_from_return_type(
                 }
                 Ok(env)
             }
-            Types::Cons(cons) => todo!("cons not yet implemented"),
+            Types::Cons(_) => todo!("cons not yet implemented"),
         },
         VarType::ST(st) => {
             match st {
@@ -388,7 +387,6 @@ fn env_update_pattern_from_return_type(
 fn validate_res_env(
     st_spec_return_type: &VarType,
     base_spec_return_type: &Types,
-    env_return_type: &Vec<SessionElement>,
     session: &HashMap<Var, Vec<SessionElement>>,
     env: HashMap<Var, VarType>,
 ) -> bool {
@@ -401,7 +399,7 @@ fn validate_res_env(
             }
         }
         VarType::ST(env_return_type) => {
-            let mut env_return_type = match env_return_type {
+            let env_return_type = match env_return_type {
                 NotST => todo!("Not ST"),
                 SessionType::New(st) => st,
                 SessionType::Ongoing(st, _) => st,
