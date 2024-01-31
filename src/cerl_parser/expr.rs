@@ -78,10 +78,7 @@ fn apply(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
 
 fn call(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("call"))(i)?;
-        let (i, module) = ws(alt((
-            map(atom,|Atom(o)| o),
-            map(var, |Var(o)| o),
-        )))(i)?; // Note: Can also be variable
+    let (i, module) = ws(alt((map(atom, |Atom(o)| o), map(var, |Var(o)| o))))(i)?; // Note: Can also be variable
     let (i, _) = ws(tag(":"))(i)?;
     let (i, name) = ws(atom)(i)?;
     let (i, args) = comma_sep_list("(", ")", exprs)(i)?;
