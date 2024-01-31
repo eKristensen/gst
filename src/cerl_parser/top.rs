@@ -66,6 +66,7 @@ fn module_inner(i: &str) -> IResult<&str, Module, ErrorTree<&str>> {
     let (i, attributes) = ws(comma_sep_list("[", "]", attribute))(i)?;
 
     // Module Body - Function definitions
+    // TODO: Somehow collect debug messages from this branch?
     let (i, body) = many0(ws(fun_def))(i)?;
 
     // Require end keyword

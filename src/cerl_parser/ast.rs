@@ -32,7 +32,8 @@ pub struct FunName {
 pub enum FunKind {
     PrimOp,
     Apply,
-    Call(Atom), // Place module name in here
+    // Note: A function name is an atom in most cases, but it might be referred via variable name. Therefore String is used
+    Call(String), // Place module name in here
 }
 
 #[derive(Debug, Clone)]

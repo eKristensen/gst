@@ -20,7 +20,7 @@ use crate::{
 
 pub fn get_bif_fun_type(call: &FunCall) -> Result<Types, String> {
     let FunCall {
-        kind: FunKind::Call(Atom(kind)),
+        kind: FunKind::Call(kind),
         name: Atom(name),
     } = call
     else {

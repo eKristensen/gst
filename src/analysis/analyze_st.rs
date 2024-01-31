@@ -16,7 +16,7 @@ pub fn try_st_env_update(
     args: &Vec<Exprs>,
 ) -> Result<(VarType, HashMap<Var, VarType>), String> {
     let FunCall {
-        kind: FunKind::Call(Atom(kind)),
+        kind: FunKind::Call(kind),
         name: Atom(name),
     } = call
     else {
