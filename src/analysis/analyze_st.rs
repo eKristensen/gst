@@ -11,7 +11,7 @@ use super::analyze_var::{chk_st_exprs, VarType};
 
 // Check if call relates to a session type.
 pub fn try_st_env_update(
-    env: HashMap<Var, VarType>,
+    env: &HashMap<Var, VarType>,
     call: &FunCall,
     args: &Vec<Exprs>,
 ) -> Result<(VarType, HashMap<Var, VarType>), String> {
@@ -20,7 +20,10 @@ pub fn try_st_env_update(
         name: Atom(name),
     } = call
     else {
-        return Err(format!("Only call supported so far"));
+        return Err(format!(
+            "Only call supported so far st check but found {:?}",
+            call
+        ));
     };
     match (kind.as_str(), name.as_str()) {
         ("gen_server_plus", "call") => {
@@ -51,10 +54,10 @@ pub fn try_st_env_update(
                                             "Session has already been started, cannot start new session again!"
                                         ));
                                     };
-                                    let mut env = env.clone();
+                                    //let mut env = env.clone();
                                     // TODO: Ask Marco: Should constructor be preserved or removed?
-                                    env.remove(&st_binder_var_name);
-                                    return Ok((VarType::ST(SessionType::Ongoing(st.clone(),None)), env));
+                                    //env.remove(&st_binder_var_name);
+                                    return Ok((VarType::ST(SessionType::Ongoing(st.clone(),None)), env.clone()));
                                 }
                                 None => {
                                     return Err(format!(
@@ -101,7 +104,7 @@ pub fn try_st_env_update(
                                     // Lookup type in environment or check literal type match the ST.
                                     let dummy_m = HashMap::new();
                                     let sending_type =
-                                        chk_st_exprs(&dummy_m, env.clone(), (args.get(2)).unwrap())?;
+                                        chk_st_exprs(&dummy_m, env, (args.get(2)).unwrap())?;
                                     let (VarType::Base(sending_type), _) = sending_type.first().unwrap()
                                     else {
                                         return Err(format!("Must send base type."));
@@ -185,5 +188,35 @@ pub fn try_st_env_update(
             // to a "SessionID" variable?
         }
         _ => Err(format!("no st match on {:?}", call)),
+    }
+}
+
+// Type information is not merged into one place. Maybe that is a mistake on me? TODO: Should they be?
+pub fn extract_var_type(session_type: &SessionType, spec_type: &Types) -> VarType {
+    match session_type {
+        SessionType::NotST => {
+            // If not session type use the type from -spec
+            return VarType::Base(spec_type.clone());
+        }
+        SessionType::New(_) => {
+            // Check that -spec type matches (consistency)
+            if *spec_type == Types::Single("new".to_owned()) {
+                // Get session type and insert
+                return VarType::ST(session_type.clone());
+            } else {
+                // Should move that part to well formed instead of potentially running check twice
+                panic!("-session does not match -spec!! Issue is: {:?} according to -spec, but should be server() to match -session: {:?}", spec_type, session_type);
+            };
+        }
+        SessionType::Ongoing(_, _) => {
+            // Check that -spec type matches (consistency)
+            if *spec_type == Types::Single("ongoing".to_owned()) {
+                // Get session type and insert
+                return VarType::ST(session_type.clone());
+            } else {
+                // Should move that part to well formed instead of potentially running check twice
+                panic!("-session does not match -spec!! Issue is: {:?} according to -spec, but should be session() to match -session: {:?}", spec_type, session_type);
+            };
+        }
     }
 }

@@ -8,7 +8,9 @@ use crate::{
     st_parser::ast::{SessionDef, SessionElement, SessionType, Types},
 };
 
-use super::compute_init_env::FunEnv;
+use super::{
+    analyze_fun::get_user_fun_type, analyze_st::extract_var_type, compute_init_env::FunEnv,
+};
 
 use crate::st_parser::ast::SessionType::NotST;
 
@@ -26,7 +28,7 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
             print!("init analyze env {:?}", var_env);
             // TODO: Find a nice way to represent multiple possible cases
             let res_analysis =
-                chk_st_exprs(m, var_env, &fun_env.body.as_ref().unwrap().body).unwrap();
+                chk_st_exprs(m, &var_env, &fun_env.body.as_ref().unwrap().body).unwrap();
             if res_analysis.len() < 1 {
                 overall_acceptance = false;
                 println!(" not OK, no result")
@@ -77,30 +79,11 @@ fn init_var_env(
 
     for (i, var) in args.iter().enumerate() {
         let this_st = session.st.get(i).unwrap();
-        match this_st {
-            NotST => {
-                // If not session type use the type from -spec
-                env.insert(var.clone(), VarType::Base(input.get(i).unwrap().clone()));
-            }
-            SessionType::New(_) => {
-                // Check that -spec type matches (consistency)
-                if *input.get(i).unwrap() == Types::Single("new".to_owned()) {
-                    // Get session type and insert
-                    env.insert(var.clone(), VarType::ST(this_st.clone()));
-                } else {
-                    panic!("-session does not match -spec!! Issue is: Var {:?} is {:?} according to -spec, but should be server() to match -session: {:?}", var, input.get(i).unwrap(), this_st);
-                };
-            }
-            SessionType::Ongoing(_, _) => {
-                // Check that -spec type matches (consistency)
-                if *input.get(i).unwrap() == Types::Single("ongoing".to_owned()) {
-                    // Get session type and insert
-                    env.insert(var.clone(), VarType::ST(this_st.clone()));
-                } else {
-                    panic!("-session does not match -spec!! Issue is: Var {:?} is {:?} according to -spec, but should be session() to match -session: {:?}", var, input.get(i).unwrap(), this_st);
-                };
-            }
-        }
+
+        env.insert(
+            var.clone(),
+            extract_var_type(this_st, input.get(i).unwrap()),
+        );
     }
 
     env
@@ -110,14 +93,14 @@ fn init_var_env(
 
 pub fn chk_st_exprs(
     m: &HashMap<FunName, FunEnv>,
-    env: HashMap<Var, VarType>,
+    env: &HashMap<Var, VarType>,
     exprs: &Exprs,
 ) -> Result<Vec<(VarType, HashMap<Var, VarType>)>, String> {
     let Exprs(exprs) = exprs;
     let mut res: Vec<(VarType, HashMap<Var, VarType>)> = vec![];
     for elm in exprs {
         // TODO: What happens to the environment in values? is the environment update from value 1 kept until value 2 or are they all starting with the same base environment. I made this last assumption as it is easier.
-        let mut res_tmp = chk_st_expr(m, env.clone(), elm)?;
+        let mut res_tmp = chk_st_expr(m, env, elm)?;
         res.append(&mut res_tmp);
     }
     Ok(res)
@@ -144,16 +127,17 @@ fn chk_lit(l: &Lit) -> Types {
 
 fn chk_st_expr(
     m: &HashMap<FunName, FunEnv>,
-    env: HashMap<Var, VarType>,
+    env: &HashMap<Var, VarType>,
     expr: &Expr,
 ) -> Result<Vec<(VarType, HashMap<Var, VarType>)>, String> {
     match expr {
         Expr::Var(v) => {
             // TODO: Maybe not assume variable is defined?
-            Ok(vec![(env.get(&v).unwrap().clone(), env)])
+            //println!("DEBUG: Lookup var {:?} in {:?}", v, env);
+            Ok(vec![(env.get(&v).unwrap().clone(), env.clone())])
         }
         Expr::Fname(_) => todo!("What is the type of fname?"),
-        Expr::Lit(l) => Ok(vec![(VarType::Base(chk_lit(l)), env)]),
+        Expr::Lit(l) => Ok(vec![(VarType::Base(chk_lit(l)), env.clone())]),
         Expr::Fun(_) => todo!("fun"),
         Expr::Cons(_) => todo!("cons"),
         Expr::Tuple(_) => todo!("tuple"),
@@ -224,7 +208,7 @@ fn chk_st_expr(
 
                             // Use clause env when checking the expression contained within the clause
                             // There may be multiple options when checking the expression contained within
-                            let e_clause_res = chk_st_exprs(m, clause_env, &clause.res);
+                            let e_clause_res = chk_st_exprs(m, &clause_env, &clause.res);
                             match e_clause_res {
                                 Ok(mut e_clause_res) => res.append(&mut e_clause_res),
                                 Err(e) => {
@@ -250,8 +234,17 @@ fn chk_st_expr(
             // Try to match as a BIF
             let try_bif = get_bif_fun_type(call);
             if try_bif.is_ok() {
-                return Ok(vec![(VarType::Base(try_bif.unwrap()), env)]);
+                return Ok(vec![(VarType::Base(try_bif.unwrap()), env.clone())]);
             };
+
+            // Try user-defined function which might include session types
+            // UPDATE: Errors must be passed along, if there are no matches then return empty vector
+            // Right now error messages are lost due to this stupid chain method I got here.
+            let try_user_fun = get_user_fun_type(m, &env, call, args);
+            if try_user_fun.is_ok() {
+                return try_user_fun;
+            }
+            println!("\n\nFailed user fun check {:?}", try_user_fun);
 
             // Try to check if function is part of a session-type
             // Function: try_st_env_update
@@ -266,7 +259,7 @@ fn chk_st_expr(
             // It is possible that e1 contains something that leads to more options.
             for elm in e1_res {
                 let (_, elm_env) = elm;
-                let mut e2_res = chk_st_exprs(m, elm_env, e2)?;
+                let mut e2_res = chk_st_exprs(m, &elm_env, e2)?;
                 res.append(&mut e2_res);
             }
             Ok(res)
@@ -278,7 +271,7 @@ fn chk_st_expr(
 
 // This function needs to be recursive, the naive approach should be OK.
 // Remember that `_` may have different meaning in erlang and core erlang !
-fn env_update_pattern_from_return_type(
+pub fn env_update_pattern_from_return_type(
     mut env: HashMap<Var, VarType>,
     pat: Vec<Pat>,
     value: VarType,
@@ -293,7 +286,8 @@ fn env_update_pattern_from_return_type(
                     Some(v_old) => {
                         if *v_old != value {
                             // TODO: ST value change is expected. How to handle.
-                            return Err("Change variable type is not yet supported".to_owned());
+                            //return Err(format!("Change variable type is not yet supported {:?} {:?}", v_old, value));
+                            env.insert(v.clone(), value);
                         }
                     }
                     None => {
@@ -440,7 +434,7 @@ fn validate_res_env(
                             None => match local_res_binder {
                                 Some(local_res_binder) => {
                                     if local_res_binder != st_cnt {
-                                        println!("Local binder session type check does not match: Expected {:?} but found {:?}. Validation failed.", local_res_binder, st_cnt);
+                                        println!("Local binder session type check does not match: Expected {:?} but found {:?}. Validation failed.", st_cnt, local_res_binder);
                                         return false;
                                     }
                                 }
@@ -459,8 +453,8 @@ fn validate_res_env(
                         // }
                     }
                     SessionType::New(_) => {
-                        println!("Session type not constructed!");
-                        return false;
+                        // println!("Session type not constructed!");
+                        // return false;
                     }
                 }
             }

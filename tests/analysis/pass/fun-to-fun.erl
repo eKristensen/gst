@@ -11,16 +11,17 @@
 
 % TODO: Bad: Syntax does not allow custom tags after function definitions! Maybe we should have used comments instead?
 % Though I would have ad to use erlang directly then.
--session("'foo'(new(!number. ?string. !string. ?number.  end.),_) -> _, [ SessionID:  end. ]  ").
--session("'bar'(_,ongoing(!string. ?number. -> end.),_) -> _, []").
+-session("'foo'(new(!number. ?string. !string. ?number.  end.)) -> _, [ SessionID:  end. ]  ").
+% Duplicating new(!number. ?string. !string. ?number.  end.) here is not nice.
+-session("'bar'(new(!number. ?string. !string. ?number.  end.),ongoing(!string. ?number. -> end.),_) -> _, []").
 
 -spec foo(new()) -> number().
 foo(ServerPid) ->
     SessionID = gen_server_plus:call(ServerPid,new), 
-    Res = gen_server_plus:call(ServerPid,SessionID,42),
+    Res = gen_server_plus:call(ServerPid,SessionID,42+3),
 
     bar(ServerPid, SessionID, Res).
 
--spec bar(pid(),ongoing(),string()) -> number().
+-spec bar(new(),ongoing(),string()) -> number().
 bar(ServerPid, SessionID, Str) ->
     gen_server_plus:call(ServerPid,SessionID,Str).
