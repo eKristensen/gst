@@ -20,10 +20,11 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
     for (fun_head, fun_env) in m {
         print!("Analyzing {:?} ... ", fun_head);
         if fun_env.spec.is_some() && fun_env.session.is_some() && fun_env.body.is_some() {
-            let var_env = init_var_env(
+            let (var_env, new_binders) = init_var_env(
                 fun_env.spec.as_ref().unwrap(),
                 fun_env.session.as_ref().unwrap(),
                 &fun_env.body.as_ref().unwrap().args,
+                &fun_env.session.as_ref().unwrap().binders,
             );
             print!("init analyze env {:?}", var_env);
             // TODO: Find a nice way to represent multiple possible cases
@@ -37,12 +38,8 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
                 print!(" res env is {:?}", res_env);
                 // Check res env is acceptable
                 let (_, spec_return_type) = fun_env.spec.as_ref().unwrap();
-                let acceptable_res_env = validate_res_env(
-                    &return_type,
-                    &spec_return_type,
-                    &fun_env.session.as_ref().unwrap().binders,
-                    res_env,
-                );
+                let acceptable_res_env =
+                    validate_res_env(&return_type, &spec_return_type, &new_binders, res_env);
                 if !acceptable_res_env {
                     overall_acceptance = false;
                 }
@@ -69,9 +66,12 @@ fn init_var_env(
     spec: &(Vec<Types>, Types),
     session: &SessionDef,
     args: &Vec<Var>,
-) -> HashMap<Var, VarType> {
+    binders: &HashMap<Var, Vec<SessionElement>>,
+) -> (HashMap<Var, VarType>, HashMap<Var, Vec<SessionElement>>) // Returns: env, binders
+{
     // Initial types for variables
     let mut env: HashMap<Var, VarType> = HashMap::new();
+    let mut binders = binders.clone(); // TODO: Inefficient!
 
     let (input, _) = spec;
 
@@ -80,13 +80,19 @@ fn init_var_env(
     for (i, var) in args.iter().enumerate() {
         let this_st = session.st.get(i).unwrap();
 
-        env.insert(
-            var.clone(),
-            extract_var_type(this_st, input.get(i).unwrap()),
-        );
+        let fun_head_arg_type = extract_var_type(this_st, input.get(i).unwrap());
+
+        env.insert(var.clone(), fun_head_arg_type.clone());
+
+        if let VarType::ST(SessionType::Ongoing(_, Some(fun_head_rt_add_binder))) =
+            fun_head_arg_type
+        {
+            binders.insert(var.clone(), fun_head_rt_add_binder);
+        };
     }
 
-    env
+    println!("Binders created are: {:?}", binders);
+    (env, binders)
 }
 
 // One one way forward: Dig into the body and see how it goes, one step at a time.
@@ -415,8 +421,16 @@ fn validate_res_env(
             VarType::ST(st) => {
                 match st {
                     NotST => todo!(),
-                    SessionType::Ongoing(st_cnt, local_res_binder) => {
+                    SessionType::Ongoing(mut st_cnt, local_res_binder) => {
                         // TODO: Maybe expect "end." ?
+                        // I'll choose to merge the two branches of ongoing for end check
+                        // It means a returned type of ongoing(!string. -> end.) would match binder _1=[!string. end.]
+                        // TODO: Ask Marco about the above
+                        // Flattening of ongoing
+                        if local_res_binder.is_some() {
+                            let mut local_res_binder = local_res_binder.clone().unwrap();
+                            st_cnt.append(&mut local_res_binder);
+                        }
                         match session.get(&key) {
                             Some(val) => {
                                 if *val != st_cnt {
@@ -426,15 +440,15 @@ fn validate_res_env(
                                     );
                                     return false;
                                 }
-                                if local_res_binder.is_some() {
-                                    println!("Local binder and var binder is contradictory. Unacceptable.");
-                                    return false;
-                                }
+                                // if local_res_binder.is_some() {
+                                //     println!("Local binder and var binder is contradictory. Unacceptable.");
+                                //     return false;
+                                // }
                             }
                             None => match local_res_binder {
                                 Some(local_res_binder) => {
                                     if local_res_binder != st_cnt {
-                                        println!("Local binder session type check does not match: Expected {:?} but found {:?}. Validation failed.", st_cnt, local_res_binder);
+                                        println!("Local binder session type check for {:?} does not match: Expected {:?} but found {:?}. Validation failed.", key, st_cnt, local_res_binder);
                                         return false;
                                     }
                                 }
