@@ -112,10 +112,7 @@ pub fn fname_inner(i: &str) -> IResult<&str, FunName, ErrorTree<&str>> {
             tag("/"), // TODO: Check whether whitespace is allowed around this tag in this context
             map_res(digit1, str::parse::<u64>),
         )),
-        |(name, _, arity)| FunName {
-            name,
-            arity,
-        },
+        |(name, _, arity)| FunName { name, arity },
     ))(i)
 }
 

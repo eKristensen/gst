@@ -65,7 +65,7 @@ pub enum VarType {
 fn init_var_env(
     spec: &(Vec<Types>, Types),
     session: &SessionDef,
-    args: &Vec<Var>,
+    args: &[Var],
     binders: &HashMap<Var, Vec<SessionElement>>,
 ) -> (HashMap<Var, VarType>, HashMap<Var, Vec<SessionElement>>) // Returns: env, binders
 {
@@ -177,7 +177,6 @@ fn chk_st_expr(
             if e_res.is_err() {
                 {
                     println!("Eliminated possible env because {:?}", e_res);
-                    
                 }
                 return Ok(vec![]);
             }
@@ -219,13 +218,11 @@ fn chk_st_expr(
                                 Ok(mut e_clause_res) => res.append(&mut e_clause_res),
                                 Err(e) => {
                                     println!("Eliminated possible env because {:?}", e);
-                                    
                                 }
                             }
                         }
                         Err(e) => {
                             println!("Eliminated possible env because {:?}", e);
-                            
                         }
                     }
                 }

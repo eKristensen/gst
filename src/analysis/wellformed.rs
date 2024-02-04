@@ -16,7 +16,7 @@ use super::compute_init_env::FunEnv;
 // cerl parsed module
 // init_env includes parsed session types
 pub fn check_wf(_: Module, env: &HashMap<FunName, FunEnv>) -> Result<(), String> {
-    for (_, elm) in env {
+    for elm in env.values() {
         match &elm.session {
             Some(session) => {
                 // Check no ST has elements after "end."
@@ -44,7 +44,9 @@ fn check_wf_st_t(st: &Vec<SessionType>) -> Result<(), String> {
                 check_wf_st_elm(st1)?;
                 if *st1.last().unwrap() == SessionElement::End {
                     // TODO Ask Marco about this assumption for well formed session types
-                    return Err("Last element of first part of ongoing st type cannot be end.".to_string());
+                    return Err(
+                        "Last element of first part of ongoing st type cannot be end.".to_string(),
+                    );
                 }
                 match st2 {
                     Some(st2) => check_wf_st_elm(st2)?,
@@ -68,7 +70,7 @@ fn check_wf_st_elm(st: &Vec<SessionElement>) -> Result<(), String> {
             SessionElement::Receive(_) => (),
             SessionElement::MakeChoice(_, mc_st) => check_wf_st_elm(mc_st)?,
             SessionElement::OfferChoice(oc) => {
-                for (_, oc_em) in oc {
+                for oc_em in oc.values() {
                     check_wf_st_elm(oc_em)?
                 }
             }

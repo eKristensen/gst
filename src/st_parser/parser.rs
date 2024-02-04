@@ -54,9 +54,8 @@ pub fn st_parse(i: &str) -> IResult<&str, SessionDef, ErrorTree<&str>> {
             let mut binders = HashMap::new();
 
             for (key, elm) in b {
-                match binders.insert(key.clone(), elm.clone()) {
-                    Some(_) => panic!("Duplicate var in st binders"),
-                    None => (),
+                if binders.insert(key.clone(), elm.clone()).is_some() {
+                    panic!("Duplicate var in st binders")
                 }
             }
 
@@ -151,9 +150,8 @@ fn st_offer_choice(i: &str) -> IResult<&str, SessionElement, ErrorTree<&str>> {
             let mut offer_choice = HashMap::new();
 
             for (label, elm) in o {
-                match offer_choice.insert(label.clone(), elm.clone()) {
-                    Some(_) => panic!("Duplicate label in offer choice"),
-                    None => (),
+                if offer_choice.insert(label.clone(), elm.clone()).is_some() {
+                    panic!("Duplicate label in offer choice")
                 }
             }
 

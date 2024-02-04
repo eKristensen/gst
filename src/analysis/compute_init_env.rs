@@ -154,7 +154,7 @@ fn add_session(m: &mut HashMap<FunName, FunEnv>, v: &Lit) {
     }
 
     //println!("\n\n{:?}\n\n", st_parse(&*st_string));
-    
+
     let session_type_parsed: SessionDef = match st_parse(&st_string).finish() {
         Ok((_, res)) => res,
         Err(e) => panic!("Nom could not parse session type\n\n{}", e),

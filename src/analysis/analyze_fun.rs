@@ -64,7 +64,7 @@ pub fn get_user_fun_type(
     };
 
     // 1) Is function defined at all? - check m
-    
+
     let fun_env: &FunEnv = match m.get(&fun_name) {
         Some(res) => res,
         None => return Err(format!("Function {:?} was not found", fun_name)),
@@ -90,10 +90,14 @@ pub fn get_user_fun_type(
         //            Solution would be to use chk_st_exprs and check all possible outcomes there.
         let Exprs(var) = elm;
         if var.len() != 1 {
-            return Err("Does only support st where arg is exprs of length one currently".to_string());
+            return Err(
+                "Does only support st where arg is exprs of length one currently".to_string(),
+            );
         }
         let Expr::Var(var) = var.first().unwrap() else {
-            return Err("Analyzer currently required all arguments to be variable names.".to_string());
+            return Err(
+                "Analyzer currently required all arguments to be variable names.".to_string(),
+            );
         };
         if seen_arg_names.contains(var) {
             return Err("Cannot handle duplicate argument names currently.".to_string());
