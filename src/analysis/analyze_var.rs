@@ -336,7 +336,7 @@ pub fn env_update_pattern_from_return_type(
                 }
                 Ok(env)
             }
-            Types::Cons(_) => todo!("cons not yet implemented"),
+            //Types::Cons(_) => todo!("cons not yet implemented"),
         },
         VarType::ST(st) => {
             match st {

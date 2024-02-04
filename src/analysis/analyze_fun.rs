@@ -9,11 +9,7 @@
 // The function information environment is not updated while checking the session-types.
 // This environment is used for lookup when variables are assigned or session-types checked.
 
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::format,
-    ops::Deref,
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     analysis::analyze_var::env_update_pattern_from_return_type,
@@ -21,11 +17,7 @@ use crate::{
     st_parser::ast::{SessionType, Types},
 };
 
-use super::{
-    analyze_st::extract_var_type,
-    analyze_var::{chk_st_exprs, VarType},
-    compute_init_env::FunEnv,
-};
+use super::{analyze_st::extract_var_type, analyze_var::VarType, compute_init_env::FunEnv};
 
 // TODO: Function to be used for lookup
 // Algorithm: First look in environment, no match=Check statically for hard-coded types of

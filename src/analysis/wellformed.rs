@@ -15,7 +15,7 @@ use super::compute_init_env::FunEnv;
 
 // cerl parsed module
 // init_env includes parsed session types
-pub fn check_wf(m: Module, env: &HashMap<FunName, FunEnv>) -> Result<(), String> {
+pub fn check_wf(_: Module, env: &HashMap<FunName, FunEnv>) -> Result<(), String> {
     for (_, elm) in env {
         match &elm.session {
             Some(session) => {

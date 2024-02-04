@@ -34,7 +34,6 @@ fn main() {
                     // TODO: More compact error messages possible?
                     println!("Nom could not parse source\n\n{}", e);
                 }
-                _ => panic!("Unknown error"),
             }
         } // TODO: Pretty print
         Err(err) => panic!("Could not read file {} because {}", filename, err),

@@ -48,7 +48,7 @@ pub enum SessionType {
 pub enum Types {
     Single(String),
     Tuple(Vec<Types>),
-    Cons(Vec<Types>),
+    // Cons(Vec<Types>), // TODO implement Cons
 }
 
 #[derive(Debug, Clone, PartialEq)]

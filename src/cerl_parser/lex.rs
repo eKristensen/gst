@@ -16,10 +16,11 @@ use super::{
     terminals::{atom, char_, float, integer, string},
 };
 
-#[inline]
-fn is_sign(chr: u8) -> bool {
-    chr <= 0x2B || chr == 0x2D
-}
+// TODO: Either use or remove completely
+// #[inline]
+// fn is_sign(chr: u8) -> bool {
+//     chr <= 0x2B || chr == 0x2D
+// }
 
 #[inline]
 fn is_lowercase(chr: u8) -> bool {
@@ -28,7 +29,7 @@ fn is_lowercase(chr: u8) -> bool {
 
 #[inline]
 pub fn is_uppercase(chr: u8) -> bool {
-    (chr >= 0x41 && chr <= 0x5A) || (chr >= 0xDF && chr <= 0xF6) || (chr >= 0xF8 && chr <= 0xFF)
+    (chr >= 0x41 && chr <= 0x5A) || (chr >= 0xDF && chr <= 0xF6) || (chr >= 0xF8)
 }
 
 #[inline]
@@ -38,13 +39,14 @@ pub fn is_inputchar(chr: u8) -> bool {
 
 #[inline]
 pub fn is_control(chr: u8) -> bool {
-    chr >= 0x00 && chr <= 0x1F
+    chr <= 0x1F
 }
 
-#[inline]
-fn is_space(chr: u8) -> bool {
-    chr == 0x20
-}
+// TODO: Either use or remove completely
+// #[inline]
+// fn is_space(chr: u8) -> bool {
+//     chr == 0x20
+// }
 
 #[inline]
 pub fn is_namechar(chr: u8) -> bool {
@@ -57,21 +59,22 @@ pub fn is_ctlchar(chr: u8) -> bool {
     chr >= 0x40 && chr <= 0x5F
 }
 
-fn is_escapechar(chr: u8) -> bool {
-    // bdefnrstv"'\
-    chr == 0x62
-        || chr == 0x64
-        || chr == 0x65
-        || chr == 0x66
-        || chr == 0x6E
-        || chr == 0x72
-        || chr == 0x73
-        || chr == 0x74
-        || chr == 0x76
-        || chr == 0x22
-        || chr == 0x27
-        || chr == 0x5C
-}
+// TODO: Either use or remove completely
+// fn is_escapechar(chr: u8) -> bool {
+//     // bdefnrstv"'\
+//     chr == 0x62
+//         || chr == 0x64
+//         || chr == 0x65
+//         || chr == 0x66
+//         || chr == 0x6E
+//         || chr == 0x72
+//         || chr == 0x73
+//         || chr == 0x74
+//         || chr == 0x76
+//         || chr == 0x22
+//         || chr == 0x27
+//         || chr == 0x5C
+// }
 
 // TODO: There must exist a easier way to do this
 pub fn namechar<T, E: ParseError<T>>(input: T) -> IResult<T, char, E>
