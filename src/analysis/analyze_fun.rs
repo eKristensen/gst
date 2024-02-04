@@ -29,7 +29,7 @@ pub fn get_bif_fun_type(call: &FunCall) -> Result<Types, String> {
         name: Atom(name),
     } = call
     else {
-        return Err(format!("Only call supported so far bif check"));
+        return Err("Only call supported so far bif check".to_string());
     };
     // TODO: Does as_str imply a clone ?
     match (kind.as_str(), name.as_str()) {
@@ -64,11 +64,11 @@ pub fn get_user_fun_type(
     };
 
     // 1) Is function defined at all? - check m
-    let fun_env: &FunEnv;
-    match m.get(&fun_name) {
-        Some(res) => fun_env = res,
+    
+    let fun_env: &FunEnv = match m.get(&fun_name) {
+        Some(res) => res,
         None => return Err(format!("Function {:?} was not found", fun_name)),
-    }
+    };
 
     let mut cur_env = env.clone();
 
@@ -90,17 +90,13 @@ pub fn get_user_fun_type(
         //            Solution would be to use chk_st_exprs and check all possible outcomes there.
         let Exprs(var) = elm;
         if var.len() != 1 {
-            return Err(format!(
-                "Does only support st where arg is exprs of length one currently"
-            ));
+            return Err("Does only support st where arg is exprs of length one currently".to_string());
         }
         let Expr::Var(var) = var.first().unwrap() else {
-            return Err(format!(
-                "Analyzer currently required all arguments to be variable names."
-            ));
+            return Err("Analyzer currently required all arguments to be variable names.".to_string());
         };
         if seen_arg_names.contains(var) {
-            return Err(format!("Cannot handle duplicate argument names currently."));
+            return Err("Cannot handle duplicate argument names currently.".to_string());
         }
         seen_arg_names.insert(var.clone());
 
@@ -109,7 +105,7 @@ pub fn get_user_fun_type(
             input_spec.get(i).unwrap(),
         );
         if !env.contains_key(var) {
-            return Err(format!("Undefined variable used. Not supported."));
+            return Err("Undefined variable used. Not supported.".to_string());
         }
         let env_rt = env.get(var).unwrap().clone();
         println!(
@@ -137,7 +133,7 @@ pub fn get_user_fun_type(
             }
             // output spec is used for the return type aka possible env
             if spec_st_out.is_none() {
-                return Err(format!("Session spec should have a return type."));
+                return Err("Session spec should have a return type.".to_string());
             }
             // TODO: I need the variable name if the env_rt is a session type.
             //       Maybe it is OK only to support via var name direct? E.g. _6 and then update env that way?
@@ -167,5 +163,5 @@ pub fn get_user_fun_type(
 
     // TODO: Maybe update return type to be singular or keep ready for multi exprs arguments?
     // TODO: Support ST retun types, right now only supporting base type returns.
-    return Ok(vec![(VarType::Base(output_spec.clone()), cur_env)]);
+    Ok(vec![(VarType::Base(output_spec.clone()), cur_env)])
 }

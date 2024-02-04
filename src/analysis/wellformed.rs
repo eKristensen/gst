@@ -44,9 +44,7 @@ fn check_wf_st_t(st: &Vec<SessionType>) -> Result<(), String> {
                 check_wf_st_elm(st1)?;
                 if *st1.last().unwrap() == SessionElement::End {
                     // TODO Ask Marco about this assumption for well formed session types
-                    return Err(format!(
-                        "Last element of first part of ongoing st type cannot be end."
-                    ));
+                    return Err("Last element of first part of ongoing st type cannot be end.".to_string());
                 }
                 match st2 {
                     Some(st2) => check_wf_st_elm(st2)?,

@@ -59,7 +59,7 @@ pub fn init_module_env(m: Module) -> HashMap<FunName, FunEnv> {
 // Add spec to env
 // New fun if not exists
 // Error if spec already exists for fun
-fn add_spec(m: &mut HashMap<FunName, FunEnv>, v: &Lit) -> () {
+fn add_spec(m: &mut HashMap<FunName, FunEnv>, v: &Lit) {
     // Find function name via the deep nested spec representation
 
     // TODO: A nicer way to unwrap?
@@ -85,7 +85,7 @@ fn add_spec(m: &mut HashMap<FunName, FunEnv>, v: &Lit) -> () {
 
     let fun_name = FunName {
         name: (*fun_name).clone(),
-        arity: (*arity).clone() as u64, // TODO: Does "as u64" convert as expected or just override the type definition?
+        arity: (*arity) as u64, // TODO: Does "as u64" convert as expected or just override the type definition?
     };
 
     // TODO: Potentially dangerous assumption about spec structure. Data may be lost here
@@ -130,7 +130,7 @@ fn add_spec(m: &mut HashMap<FunName, FunEnv>, v: &Lit) -> () {
 // Add session to env
 // New fun if not exists
 // Error if session already exists for fun
-fn add_session(m: &mut HashMap<FunName, FunEnv>, v: &Lit) -> () {
+fn add_session(m: &mut HashMap<FunName, FunEnv>, v: &Lit) {
     // Run session parser
     // Session type is wrapped within a list and then as the name of an atom
     // Get function name
@@ -154,11 +154,11 @@ fn add_session(m: &mut HashMap<FunName, FunEnv>, v: &Lit) -> () {
     }
 
     //println!("\n\n{:?}\n\n", st_parse(&*st_string));
-    let session_type_parsed: SessionDef;
-    match st_parse(&*st_string).finish() {
-        Ok((_, res)) => session_type_parsed = res,
+    
+    let session_type_parsed: SessionDef = match st_parse(&st_string).finish() {
+        Ok((_, res)) => res,
         Err(e) => panic!("Nom could not parse session type\n\n{}", e),
-    }
+    };
 
     // Lookup
     // TODO: Repetitive?
@@ -192,7 +192,7 @@ fn add_session(m: &mut HashMap<FunName, FunEnv>, v: &Lit) -> () {
     }
 }
 
-fn add_body(m: &mut HashMap<FunName, FunEnv>, fun_head: &FunName, fun_body: &FunDef) -> () {
+fn add_body(m: &mut HashMap<FunName, FunEnv>, fun_head: &FunName, fun_body: &FunDef) {
     match m.get(fun_head) {
         Some(fun_env) => {
             // FunEnv exists, add spec if none

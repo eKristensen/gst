@@ -241,7 +241,7 @@ fn expr_inner(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
         map(var, crate::cerl_parser::ast::Expr::Var),
         map(fname, crate::cerl_parser::ast::Expr::Fname),
         map(lit, crate::cerl_parser::ast::Expr::Lit),
-        map(fun, |fun| crate::cerl_parser::ast::Expr::Fun(fun)),
+        map(fun, crate::cerl_parser::ast::Expr::Fun),
         expr_nested_list,
         map(
             comma_sep_list("[", "]", exprs),

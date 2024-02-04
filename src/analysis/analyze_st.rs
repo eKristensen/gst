@@ -38,7 +38,7 @@ pub fn try_st_env_update(
                             // Check variable name is available etc etc
                             let Exprs(st_binder_var_name) = args.get(0).unwrap();
                             if st_binder_var_name.len() != 1 {
-                                return Err(format!("Expected one argument in gs+call"));
+                                return Err("Expected one argument in gs+call".to_string());
                             }
                             let Expr::Var(st_binder_var_name) = st_binder_var_name.first().unwrap().clone() else {
                                 return Err("Invalid argument for gst+ call".to_owned());
@@ -47,20 +47,18 @@ pub fn try_st_env_update(
                             match env.get(&st_binder_var_name) {
                                 Some(st) => {
                                     let VarType::ST(st) = st else {
-                                        return Err(format!("Expected session type"));
+                                        return Err("Expected session type".to_string());
                                     };
                                     let SessionType::New(st) = st else {
-                                        return Err(format!(
-                                            "Session has already been started, cannot start new session again!"
-                                        ));
+                                        return Err("Session has already been started, cannot start new session again!".to_string());
                                     };
                                     //let mut env = env.clone();
                                     // TODO: Ask Marco: Should constructor be preserved or removed?
                                     //env.remove(&st_binder_var_name);
-                                    return Ok((VarType::ST(SessionType::Ongoing(st.clone(),None)), env.clone()));
+                                    Ok((VarType::ST(SessionType::Ongoing(st.clone(),None)), env.clone()))
                                 }
                                 None => {
-                                    return Err(format!(
+                                    Err(format!(
                                         "Tried to use non-existing session type {:?}",
                                         st_binder_var_name
                                     ))
@@ -68,7 +66,7 @@ pub fn try_st_env_update(
                             }
                         }
                         else {
-                            return Err(format!("Two argument non-new call not supported."))
+                            Err("Two argument non-new call not supported.".to_string())
                         }
                 },
                 3 => {
@@ -76,10 +74,10 @@ pub fn try_st_env_update(
                     // Use args[1] to lookup session by the session id.
                     let Exprs(session_id) = args.get(1).unwrap();
                     if session_id.len() != 1 {
-                        return Err(format!("Session ID cannot be composed of more than one thing."));
+                        return Err("Session ID cannot be composed of more than one thing.".to_string());
                     }
                     let Expr::Var(session_id) = session_id.first().unwrap().clone() else {
-                        return Err(format!("Session identifier for session type must be var"));
+                        return Err("Session identifier for session type must be var".to_string());
                     };
                     // TODO: OK to basically ignore the ServerPid , i.e. args[0] ??? That is what I do right now.
                     match env.get(&session_id) {
@@ -94,10 +92,8 @@ pub fn try_st_env_update(
                             match sid_type {
                                 SessionType::NotST => todo!("NotST not used"),
                                 SessionType::Ongoing(sid_cnt, local_binder_res) => {
-                                    if sid_cnt.len() < 1 {
-                                        return Err(format!(
-                                            "Session Type is empty, cannot continue, no send?"
-                                        ));
+                                    if sid_cnt.is_empty() {
+                                        return Err("Session Type is empty, cannot continue, no send?".to_string());
                                     };
 
                                     // Send: match the sending argument type from env, args[2]
@@ -107,7 +103,7 @@ pub fn try_st_env_update(
                                         chk_st_exprs(&dummy_m, env, (args.get(2)).unwrap())?;
                                     let (VarType::Base(sending_type), _) = sending_type.first().unwrap()
                                     else {
-                                        return Err(format!("Must send base type."));
+                                        return Err("Must send base type.".to_string());
                                     };
 
                                     match sid_cnt.first().unwrap() {
@@ -123,14 +119,12 @@ pub fn try_st_env_update(
 
                                             // Receive: Get receive return type for return
                                             // Receive type is used for return
-                                            if sid_cnt.len() < 1 {
-                                                return Err(format!(
-                                                    "Session Type is empty, cannot continue, no receive?"
-                                                ));
+                                            if sid_cnt.is_empty() {
+                                                return Err("Session Type is empty, cannot continue, no receive?".to_string());
                                             };
                                             let SessionElement::Receive(returned_type) = sid_cnt.first().unwrap()
                                             else {
-                                                return Err(format!("Must receive in session"));
+                                                return Err("Must receive in session".to_string());
                                             };
 
                                             // Remove first TODO: Maybe possible to get and remove in one step?
@@ -142,16 +136,16 @@ pub fn try_st_env_update(
                                                 VarType::ST(SessionType::Ongoing(sid_cnt.clone(),local_binder_res.clone())),
                                             );
 
-                                            return Ok((VarType::Base(returned_type.clone()), env));
+                                            Ok((VarType::Base(returned_type.clone()), env))
                                         },
-                                        SessionElement::Receive(_) => return Err(format!("Receive not supported when sending")),
+                                        SessionElement::Receive(_) => Err("Receive not supported when sending".to_string()),
                                         SessionElement::MakeChoice(_,_) => todo!("make choice when sending impl"),
                                         SessionElement::OfferChoice(choices) => {
                                             // When the session-type offers a choice, the action must be something that makes a choice. In this case a choice is sending an atom, which must correspond to one of the choices available.
 
                                             let Exprs(choice_label) = args.get(2).unwrap().clone();
-                                            if choice_label.len() != 1 { return Err(format!("Choice label must be just a single expr.")) }
-                                            let Expr::Lit(Lit::Atom(Atom(choice_label))) = choice_label.first().unwrap() else { return Err(format!("Officer choice labe must be an atom"))};
+                                            if choice_label.len() != 1 { return Err("Choice label must be just a single expr.".to_string()) }
+                                            let Expr::Lit(Lit::Atom(Atom(choice_label))) = choice_label.first().unwrap() else { return Err("Officer choice labe must be an atom".to_string())};
                                             let choice_label = Label(choice_label.clone());
 
                                             match choices.get(&choice_label) {
@@ -162,23 +156,23 @@ pub fn try_st_env_update(
                                                         session_id.clone(),
                                                         VarType::ST(SessionType::Ongoing(inner_st.clone(),local_binder_res.clone())),
                                                     );
-                                                    return Ok((VarType::Base(Types::Tuple(vec![])),env)); // TODO: ugly return type, this will properly give problems later
+                                                    Ok((VarType::Base(Types::Tuple(vec![])),env))// TODO: ugly return type, this will properly give problems later
                                                 },
-                                                None => return Err(format!("Requested choice {:?} not found in {:?}", choice_label, choices)),
+                                                None => Err(format!("Requested choice {:?} not found in {:?}", choice_label, choices)),
                                             }
                                         },
-                                        SessionElement::End => return Err(format!("Session type is finished with .end and cannot be used for further communication.")),
+                                        SessionElement::End => Err("Session type is finished with .end and cannot be used for further communication.".to_string()),
                                     }
                                 }
                                 SessionType::New(_) => {
-                                    return Err(format!("session must be initialized before use."))
+                                    Err("session must be initialized before use.".to_string())
                                 }
                             }
                         }
-                        None => Err(format!("Using non-existing session!")),
+                        None => Err("Using non-existing session!".to_string()),
                     }
                 },
-                _ => return Err("gen_server_plus:call is used with a wrong number of arguments. There must be two of three arguments.".to_owned()),
+                _ => Err("gen_server_plus:call is used with a wrong number of arguments. There must be two of three arguments.".to_owned()),
             }
 
             // What to do with both SessionID and ServerPid? SessionID is not given in argument to client function!
@@ -196,27 +190,27 @@ pub fn extract_var_type(session_type: &SessionType, spec_type: &Types) -> VarTyp
     match session_type {
         SessionType::NotST => {
             // If not session type use the type from -spec
-            return VarType::Base(spec_type.clone());
+            VarType::Base(spec_type.clone())
         }
         SessionType::New(_) => {
             // Check that -spec type matches (consistency)
             if *spec_type == Types::Single("new".to_owned()) {
                 // Get session type and insert
-                return VarType::ST(session_type.clone());
+                VarType::ST(session_type.clone())
             } else {
                 // Should move that part to well formed instead of potentially running check twice
                 panic!("-session does not match -spec!! Issue is: {:?} according to -spec, but should be server() to match -session: {:?}", spec_type, session_type);
-            };
+            }
         }
         SessionType::Ongoing(_, _) => {
             // Check that -spec type matches (consistency)
             if *spec_type == Types::Single("ongoing".to_owned()) {
                 // Get session type and insert
-                return VarType::ST(session_type.clone());
+                VarType::ST(session_type.clone())
             } else {
                 // Should move that part to well formed instead of potentially running check twice
                 panic!("-session does not match -spec!! Issue is: {:?} according to -spec, but should be session() to match -session: {:?}", spec_type, session_type);
-            };
+            }
         }
     }
 }

@@ -30,7 +30,7 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
             // TODO: Find a nice way to represent multiple possible cases
             let res_analysis =
                 chk_st_exprs(m, &var_env, &fun_env.body.as_ref().unwrap().body).unwrap();
-            if res_analysis.len() < 1 {
+            if res_analysis.is_empty() {
                 overall_acceptance = false;
                 println!(" not OK, no result")
             }
@@ -39,7 +39,7 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
                 // Check res env is acceptable
                 let (_, spec_return_type) = fun_env.spec.as_ref().unwrap();
                 let acceptable_res_env =
-                    validate_res_env(&return_type, &spec_return_type, &new_binders, res_env);
+                    validate_res_env(&return_type, spec_return_type, &new_binders, res_env);
                 if !acceptable_res_env {
                     overall_acceptance = false;
                 }
@@ -140,7 +140,7 @@ fn chk_st_expr(
         Expr::Var(v) => {
             // TODO: Maybe not assume variable is defined?
             //println!("DEBUG: Lookup var {:?} in {:?}", v, env);
-            Ok(vec![(env.get(&v).unwrap().clone(), env.clone())])
+            Ok(vec![(env.get(v).unwrap().clone(), env.clone())])
         }
         Expr::Fname(_) => todo!("What is the type of fname?"),
         Expr::Lit(l) => Ok(vec![(VarType::Base(chk_lit(l)), env.clone())]),
@@ -177,7 +177,7 @@ fn chk_st_expr(
             if e_res.is_err() {
                 {
                     println!("Eliminated possible env because {:?}", e_res);
-                    ()
+                    
                 }
                 return Ok(vec![]);
             }
@@ -219,13 +219,13 @@ fn chk_st_expr(
                                 Ok(mut e_clause_res) => res.append(&mut e_clause_res),
                                 Err(e) => {
                                     println!("Eliminated possible env because {:?}", e);
-                                    ()
+                                    
                                 }
                             }
                         }
                         Err(e) => {
                             println!("Eliminated possible env because {:?}", e);
-                            ()
+                            
                         }
                     }
                 }
@@ -246,7 +246,7 @@ fn chk_st_expr(
             // Try user-defined function which might include session types
             // UPDATE: Errors must be passed along, if there are no matches then return empty vector
             // Right now error messages are lost due to this stupid chain method I got here.
-            let try_user_fun = get_user_fun_type(m, &env, call, args);
+            let try_user_fun = get_user_fun_type(m, env, call, args);
             if try_user_fun.is_ok() {
                 return try_user_fun;
             }
@@ -346,12 +346,12 @@ pub fn env_update_pattern_from_return_type(
                     // TODO: Maybe it is bad to hard-code ready into the analysis tool.... For later
 
                     if pat.len() != 2 {
-                        return Err(format!("Wrong pattern length for session type return inside tuple"));
+                        return Err("Wrong pattern length for session type return inside tuple".to_string());
                     }
-                    let Pat::Var(res_val_name) = pat.first().unwrap() else { return Err(format!("Wrong format return value session type"))};
+                    let Pat::Var(res_val_name) = pat.first().unwrap() else { return Err("Wrong format return value session type".to_string())};
 
                     // Variable name to bind is now known. Check it is usable
-                    match env.get(&res_val_name) {
+                    match env.get(res_val_name) {
                         Some(_) => todo!(),
                         None => {
                             let mut env = env.clone();
@@ -365,12 +365,12 @@ pub fn env_update_pattern_from_return_type(
                     // TODO: Maybe it is bad to hard-code ready into the analysis tool.... For later
 
                     if pat.len() != 2 {
-                        return Err(format!("Wrong pattern length for session type return inside tuple"));
+                        return Err("Wrong pattern length for session type return inside tuple".to_string());
                     }
-                    let Pat::Var(res_val_name) = pat.first().unwrap() else { return Err(format!("Wrong format return value session type"))};
+                    let Pat::Var(res_val_name) = pat.first().unwrap() else { return Err("Wrong format return value session type".to_string())};
 
                     // Variable name to bind is now known. Check it is usable
-                    match env.get(&res_val_name) {
+                    match env.get(res_val_name) {
                         Some(_) => todo!(),
                         None => {
                             let mut env = env.clone();

@@ -24,12 +24,12 @@ use super::{
 
 #[inline]
 fn is_lowercase(chr: u8) -> bool {
-    (chr >= 0x61 && chr <= 0x7A) || (chr >= 0xC0 && chr <= 0xD6) || (chr >= 0xD8 && chr <= 0xDE)
+    (0x61..=0x7A).contains(&chr) || (0xC0..=0xD6).contains(&chr) || (0xD8..=0xDE).contains(&chr)
 }
 
 #[inline]
 pub fn is_uppercase(chr: u8) -> bool {
-    (chr >= 0x41 && chr <= 0x5A) || (chr >= 0xDF && chr <= 0xF6) || (chr >= 0xF8)
+    (0x41..=0x5A).contains(&chr) || (0xDF..=0xF6).contains(&chr) || (chr >= 0xF8)
 }
 
 #[inline]
@@ -56,7 +56,7 @@ pub fn is_namechar(chr: u8) -> bool {
 // Built into nom: is_oct_digit(chr)
 
 pub fn is_ctlchar(chr: u8) -> bool {
-    chr >= 0x40 && chr <= 0x5F
+    (0x40..=0x5F).contains(&chr)
 }
 
 // TODO: Either use or remove completely
@@ -113,8 +113,8 @@ pub fn fname_inner(i: &str) -> IResult<&str, FunName, ErrorTree<&str>> {
             map_res(digit1, str::parse::<u64>),
         )),
         |(name, _, arity)| FunName {
-            name: name,
-            arity: arity,
+            name,
+            arity,
         },
     ))(i)
 }
