@@ -2,14 +2,13 @@ use std::collections::HashMap;
 
 use nom::{
     branch::alt,
-    bytes::complete::tag,
     character::complete::alpha1,
     combinator::{map, value},
     multi::{separated_list0, separated_list1},
     sequence::{delimited, pair, preceded, tuple},
     IResult,
 };
-use nom_supreme::error::ErrorTree;
+use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use crate::cerl_parser::{
     ast::FunName,

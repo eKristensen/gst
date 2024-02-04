@@ -6,7 +6,7 @@ use std::env;
 
 use crate::analysis::{analyze_var::analyze_module, compute_init_env::init_module_env};
 
-use nom::Err;
+use nom::Finish;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -23,14 +23,14 @@ fn main() {
             //     "Ran parser with debug AST output: {:?}\n",
             //     cerl_parser::top::module(&src)
             // );
-            match cerl_parser::top::module(&src) {
+            match cerl_parser::top::module(&src).finish() {
                 // TODO: Add ".finish()" here and in tests or even better in common module.
                 Ok((_, module)) => {
                     let env = init_module_env(module);
                     //println!("Init analysis environment {:?}\n", env);
                     analyze_module(&env);
                 }
-                Err(Err::Error(e)) | Err(Err::Failure(e)) => {
+                Err(e) => {
                     // TODO: More compact error messages possible?
                     println!("Nom could not parse source\n\n{}", e);
                 }

@@ -2,6 +2,8 @@
 
 use std::collections::HashMap;
 
+use nom::Finish;
+
 use crate::{
     cerl_parser::ast::{Atom, FunDef, FunName, Lit, Module},
     st_parser::{
@@ -152,13 +154,10 @@ fn add_session(m: &mut HashMap<FunName, FunEnv>, v: &Lit) -> () {
     }
 
     //println!("\n\n{:?}\n\n", st_parse(&*st_string));
-    let (not_parsed, session_type_parsed) = st_parse(&*st_string).unwrap();
-
-    if not_parsed.len() > 0 {
-        panic!(
-            "Session type could not be properly parsed! This is left over {:?}",
-            not_parsed
-        )
+    let session_type_parsed: SessionDef;
+    match st_parse(&*st_string).finish() {
+        Ok((_, res)) => session_type_parsed = res,
+        Err(e) => panic!("Nom could not parse session type\n\n{}", e),
     }
 
     // Lookup
