@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::{
     cerl_parser::ast::{Atom, Expr, Exprs, FunCall, FunKind, Lit, Var},
-    st_parser::ast::{Label, SessionElement, SessionType, Types},
+    st_parser::ast::{Label, SessionElement, SessionElementList, SessionType, Types},
 };
 
 use super::analyze_var::{chk_st_exprs, VarType};
@@ -91,7 +91,7 @@ pub fn try_st_env_update(
 
                             match sid_type {
                                 SessionType::NotST => todo!("NotST not used"),
-                                SessionType::Ongoing(sid_cnt, local_binder_res) => {
+                                SessionType::Ongoing(SessionElementList(sid_cnt), local_binder_res) => {
                                     if sid_cnt.is_empty() {
                                         return Err("Session Type is empty, cannot continue, no send?".to_string());
                                     };
@@ -133,7 +133,7 @@ pub fn try_st_env_update(
 
                                             env.insert(
                                                 session_id.clone(),
-                                                VarType::ST(SessionType::Ongoing(sid_cnt.clone(),local_binder_res.clone())),
+                                                VarType::ST(SessionType::Ongoing(SessionElementList(sid_cnt.clone()),local_binder_res.clone())),
                                             );
 
                                             Ok((VarType::Base(returned_type.clone()), env))

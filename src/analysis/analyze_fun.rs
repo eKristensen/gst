@@ -14,7 +14,7 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     analysis::analyze_var::env_update_pattern_from_return_type,
     cerl_parser::ast::{Atom, Expr, Exprs, FunCall, FunKind, FunName, Pat, Var},
-    st_parser::ast::{SessionType, Types},
+    st_parser::ast::{SessionElementList, SessionType, Types},
 };
 
 use super::{analyze_st::extract_var_type, analyze_var::VarType, compute_init_env::FunEnv};
@@ -119,20 +119,28 @@ pub fn get_user_fun_type(
         // if spec_session_rt is ST(Ongoing( ... , ... )) then try to consume part of rt and check leftover matches
         if let VarType::ST(SessionType::Ongoing(spec_st_in, spec_st_out)) = spec_session {
             // Try to consume session type
-            let VarType::ST(SessionType::Ongoing(mut env_rt_in, _env_rt_out)) = env_rt else {
+            let VarType::ST(SessionType::Ongoing(env_rt_in, _env_rt_out)) = env_rt else {
                 return Err(format!(
-                    "Mismatch ongoing types. Expected {:?} to be ongoing to match {:?} in spec.",
+                    "Mismatch ongoing types. Expected {} to be ongoing to match {} in spec.",
                     env_rt, spec_st_in
                 ));
             };
+            let SessionElementList(spec_st_in) = spec_st_in;
+            let SessionElementList(mut env_rt_in) = env_rt_in;
             for spec_st_in_elm in spec_st_in {
                 if let Some(cur_env_compare) = env_rt_in.first() {
                     if *cur_env_compare != spec_st_in_elm {
-                        return Err(format!("In function call when trying to match {:?} in spec we found {:?} in env.", spec_st_in_elm, cur_env_compare));
+                        return Err(format!(
+                            "In function call when trying to match {} in spec we found {} in env.",
+                            spec_st_in_elm, cur_env_compare
+                        ));
                     }
                     env_rt_in.drain(..1);
                 } else {
-                    return Err(format!("In function call when trying to match {:?} in spec we found Nothing in env.", spec_st_in_elm));
+                    return Err(format!(
+                        "In function call when trying to match {} in spec we found Nothing in env.",
+                        spec_st_in_elm
+                    ));
                 }
             }
             // output spec is used for the return type aka possible env

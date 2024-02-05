@@ -16,8 +16,8 @@ use crate::cerl_parser::ast::{FunName, Var};
 pub struct SessionDef {
     pub name: FunName,
     pub st: Vec<SessionType>,
-    pub return_type: Vec<SessionElement>,
-    pub binders: HashMap<Var, Vec<SessionElement>>,
+    pub return_type: SessionElementList,
+    pub binders: HashMap<Var, SessionElementList>,
 }
 
 // Label to differentiate branches in session types. They are assumed to be non-overlapping
@@ -30,8 +30,8 @@ pub struct Label(pub String);
 #[derive(Debug, Clone, PartialEq)]
 pub enum SessionType {
     NotST, // Needed as a placeholder for the initial session spec to be able to count the variable arguments
-    New(Vec<SessionElement>), // Constructor for new session
-    Ongoing(Vec<SessionElement>, Option<Vec<SessionElement>>), // "ongoing" session: (ST,ST')
+    New(SessionElementList), // Constructor for new session
+    Ongoing(SessionElementList, Option<SessionElementList>), // "ongoing" session: (ST,ST')
            // Development notes ( TODO move somewhere else)
            // Idea: Ongoing checking consistent: When ongoing is constructed copy the expected return type from binders
            // This idea would also change how to accept an env after type checking.
@@ -55,10 +55,14 @@ pub enum Types {
 pub enum SessionElement {
     Send(Types),
     Receive(Types),
-    MakeChoice(Label, Vec<SessionElement>),
-    OfferChoice(HashMap<Label, Vec<SessionElement>>),
+    MakeChoice(Label, SessionElementList),
+    OfferChoice(HashMap<Label, SessionElementList>),
     End, // End is never consumed
 }
+
+// TODO: Evaluate better options or better use for a type alias. Maybe a different way to do it would work better?
+#[derive(Debug, Clone, PartialEq)]
+pub struct SessionElementList(pub Vec<SessionElement>);
 
 impl fmt::Display for Types {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -85,41 +89,32 @@ impl fmt::Display for SessionType {
         match self {
             SessionType::NotST => write!(f, "_"),
             SessionType::New(res) => {
-                let mut out: String = "".to_string();
-                res.iter().fold(true, |first, elem| {
-                    if !first {
-                        out.push_str(". ");
-                    }
-                    out.push_str(format!("{}", elem).as_str());
-                    false
-                });
-                write!(f, "new({})", out)
+                write!(f, "new({})", res)
             }
             SessionType::Ongoing(res1, res2) => {
                 // TODO Generalize instead of copy-paste
-                let mut out1: String = "".to_string();
-                res1.iter().fold(true, |first, elem| {
-                    if !first {
-                        out1.push_str(". ");
-                    }
-                    out1.push_str(format!("{}", elem).as_str());
-                    false
-                });
-                // TODO Generalize instead of copy-paste
-                let mut out2: String = "".to_string();
-                if res2.is_some() {
-                    let res2 = res2.as_ref().unwrap();
-                    res2.iter().fold(true, |first, elem| {
-                        if !first {
-                            out2.push_str(". ");
-                        }
-                        out2.push_str(format!("{}", *elem).as_str());
-                        false
-                    });
-                }
-                write!(f, "ongoing({}, {})", out1, out2)
+                let res2 = match res2 {
+                    Some(res2) => res2.clone(), // TODO Stupid clone
+                    None => SessionElementList(vec![]),
+                };
+                write!(f, "ongoing({}, {})", res1, res2)
             }
         }
+    }
+}
+
+impl fmt::Display for SessionElementList {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut out: String = "".to_string();
+        self.0.iter().fold(true, |first, elem| {
+            if !first {
+                out.push_str(", ");
+            }
+            out.push_str(format!("{}", elem).as_str());
+            false
+        });
+        // TODO: Does this syntax match what I'm parsing?
+        write!(f, "{}", out)
     }
 }
 
@@ -130,16 +125,7 @@ impl fmt::Display for SessionElement {
             SessionElement::Send(res) => write!(f, "!{}", res),
             SessionElement::Receive(res) => write!(f, "?{}", res),
             SessionElement::MakeChoice(label, st) => {
-                let mut out: String = "".to_string();
-                st.iter().fold(true, |first, elem| {
-                    if !first {
-                        out.push_str(", ");
-                    }
-                    out.push_str(format!("{}", elem).as_str());
-                    false
-                });
-                // TODO: Does this syntax match what I'm parsing?
-                write!(f, "&{{{}, {}}}", label, out)
+                write!(f, "&{{{}, {}}}", label, st)
             }
             SessionElement::OfferChoice(res) => write!(f, "{:?}", res), // TODO: Pretty print OfferChoice
             SessionElement::End => write!(f, "end."),

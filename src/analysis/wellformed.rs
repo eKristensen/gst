@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use crate::{
     cerl_parser::ast::{FunName, Module},
-    st_parser::ast::{SessionElement, SessionType},
+    st_parser::ast::{SessionElement, SessionElementList, SessionType},
 };
 
 use super::compute_init_env::FunEnv;
@@ -42,6 +42,7 @@ fn check_wf_st_t(st: &Vec<SessionType>) -> Result<(), String> {
             SessionType::New(inner) => check_wf_st_elm(inner)?,
             SessionType::Ongoing(st1, st2) => {
                 check_wf_st_elm(st1)?;
+                let SessionElementList(st1) = st1;
                 if *st1.last().unwrap() == SessionElement::End {
                     // TODO Ask Marco about this assumption for well formed session types
                     return Err(
@@ -59,8 +60,9 @@ fn check_wf_st_t(st: &Vec<SessionType>) -> Result<(), String> {
     Ok(())
 }
 
-fn check_wf_st_elm(st: &Vec<SessionElement>) -> Result<(), String> {
+fn check_wf_st_elm(st: &SessionElementList) -> Result<(), String> {
     let mut end_seen = false;
+    let SessionElementList(st) = st;
     for elm in st {
         if end_seen {
             return Err(format!("Saw end before {:?}", elm));

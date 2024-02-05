@@ -16,7 +16,7 @@ use crate::cerl_parser::{
     terminals::{atom, var},
 };
 
-use super::ast::{Label, SessionDef, SessionElement, SessionType, Types};
+use super::ast::{Label, SessionDef, SessionElement, SessionElementList, SessionType, Types};
 
 use crate::st_parser::parser::SessionType::{New, NotST, Ongoing};
 
@@ -37,7 +37,7 @@ pub fn st_parse(i: &str) -> IResult<&str, SessionDef, ErrorTree<&str>> {
             ),
             ws(ws(tag("->"))),
             alt((
-                value(vec![], ws(tag("_"))),
+                value(SessionElementList(vec![]), ws(tag("_"))),
                 delimited(ws(tag("(")), st_inner, ws(tag(")"))),
             )),
             ws(ws(tag(","))),
@@ -96,7 +96,7 @@ fn ongoing_st(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
     )(i)
 }
 
-fn st_inner(i: &str) -> IResult<&str, Vec<SessionElement>, ErrorTree<&str>> {
+fn st_inner(i: &str) -> IResult<&str, SessionElementList, ErrorTree<&str>> {
     map(
         pair(
             separated_list1(
@@ -111,7 +111,7 @@ fn st_inner(i: &str) -> IResult<&str, Vec<SessionElement>, ErrorTree<&str>> {
             ), // TODO: Add branch and choice
             tag("."),
         ),
-        |(o, _)| o,
+        |(o, _)| SessionElementList(o),
     )(i)
 }
 
@@ -160,7 +160,7 @@ fn st_offer_choice(i: &str) -> IResult<&str, SessionElement, ErrorTree<&str>> {
     )(i)
 }
 
-fn inner_choice(i: &str) -> IResult<&str, (Label, Vec<SessionElement>), ErrorTree<&str>> {
+fn inner_choice(i: &str) -> IResult<&str, (Label, SessionElementList), ErrorTree<&str>> {
     map(
         pair(alpha1, delimited(ws(tag("(")), st_inner, ws(tag(")")))),
         |(o1, o2)| (Label(o1.to_string()), o2),
@@ -188,9 +188,11 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        New(vec!(SessionElement::Send(Types::Single("int".to_owned())),))
+                        New(SessionElementList(vec!(SessionElement::Send(
+                            Types::Single("int".to_owned())
+                        ),)))
                     ),
-                    return_type: vec![],
+                    return_type: SessionElementList(vec![]),
                     binders: HashMap::new(),
                 }
             )
@@ -208,15 +210,15 @@ mod tests {
                         name: Atom("test".to_owned()),
                         arity: 2,
                     },
-                    st: vec!(
+                    st: vec![
                         NotST,
-                        New(vec!(
+                        New(SessionElementList(vec!(
                             SessionElement::Send(Types::Single("int".to_owned())),
                             SessionElement::Receive(Types::Single("string".to_owned())),
                             SessionElement::End,
-                        ))
-                    ),
-                    return_type: vec![],
+                        )))
+                    ],
+                    return_type: SessionElementList(vec![]),
                     binders: HashMap::new(),
                 }
             )
@@ -236,13 +238,13 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        New(vec!(
+                        New(SessionElementList(vec!(
                             SessionElement::Send(Types::Single("int".to_owned())),
                             SessionElement::Receive(Types::Single("string".to_owned())),
                             SessionElement::End,
-                        ))
+                        )))
                     ),
-                    return_type: vec![SessionElement::End],
+                    return_type: SessionElementList(vec![SessionElement::End]),
                     binders: HashMap::new(),
                 }
             )
@@ -263,19 +265,19 @@ mod tests {
                     },
                     st: vec!(
                         NotST,
-                        New(vec!(
+                        New(SessionElementList(vec!(
                             SessionElement::Send(Types::Single("int".to_owned())),
                             SessionElement::Receive(Types::Single("string".to_owned())),
                             SessionElement::End,
-                        ))
+                        )))
                     ),
-                    return_type: vec![SessionElement::End],
+                    return_type: SessionElementList(vec![SessionElement::End]),
                     binders: HashMap::from([(
                         Var("SessionId".to_owned()),
-                        vec![
+                        SessionElementList(vec![
                             SessionElement::Receive(Types::Single("number".to_owned())),
                             SessionElement::End,
-                        ]
+                        ])
                     )]),
                 }
             )
@@ -296,11 +298,13 @@ mod tests {
                     st: vec!(
                         NotST,
                         Ongoing(
-                            vec!(SessionElement::Send(Types::Single("int".to_owned())),),
-                            Some(vec![SessionElement::End])
+                            SessionElementList(vec!(SessionElement::Send(Types::Single(
+                                "int".to_owned()
+                            )),)),
+                            Some(SessionElementList(vec![SessionElement::End]))
                         )
                     ),
-                    return_type: vec![],
+                    return_type: SessionElementList(vec![]),
                     binders: HashMap::new(),
                 }
             )
@@ -321,14 +325,14 @@ mod tests {
                     st: vec!(
                         NotST,
                         Ongoing(
-                            vec!(
+                            SessionElementList(vec!(
                                 SessionElement::Send(Types::Single("int".to_owned())),
                                 SessionElement::Receive(Types::Single("string".to_owned())),
-                            ),
-                            Some(vec![SessionElement::End])
+                            )),
+                            Some(SessionElementList(vec![SessionElement::End]))
                         )
                     ),
-                    return_type: vec![],
+                    return_type: SessionElementList(vec![]),
                     binders: HashMap::new(),
                 }
             )
@@ -349,14 +353,14 @@ mod tests {
                     st: vec!(
                         NotST,
                         Ongoing(
-                            vec!(
+                            SessionElementList(vec!(
                                 SessionElement::Send(Types::Single("int".to_owned())),
                                 SessionElement::Receive(Types::Single("string".to_owned())),
-                            ),
-                            Some(vec![SessionElement::End])
+                            )),
+                            Some(SessionElementList(vec![SessionElement::End]))
                         )
                     ),
-                    return_type: vec![SessionElement::End],
+                    return_type: SessionElementList(vec![SessionElement::End]),
                     binders: HashMap::new(),
                 }
             )
@@ -380,20 +384,20 @@ mod tests {
                     st: vec!(
                         NotST,
                         Ongoing(
-                            vec!(
+                            SessionElementList(vec!(
                                 SessionElement::Send(Types::Single("int".to_owned())),
                                 SessionElement::Receive(Types::Single("string".to_owned())),
-                            ),
-                            Some(vec![SessionElement::End])
+                            )),
+                            Some(SessionElementList(vec![SessionElement::End]))
                         )
                     ),
-                    return_type: vec![SessionElement::End],
+                    return_type: SessionElementList(vec![SessionElement::End]),
                     binders: HashMap::from([(
                         Var("SessionId".to_owned()),
-                        vec![
+                        SessionElementList(vec![
                             SessionElement::Receive(Types::Single("number".to_owned())),
                             SessionElement::End,
-                        ]
+                        ])
                     )]),
                 }
             )
@@ -408,7 +412,7 @@ mod tests {
                 "",
                 SessionElement::OfferChoice(HashMap::from([(
                     Label("test".to_owned()),
-                    vec![SessionElement::Send(Types::Single("int".to_owned()))]
+                    SessionElementList(vec![SessionElement::Send(Types::Single("int".to_owned()))])
                 )]))
             )
         );
@@ -425,11 +429,15 @@ mod tests {
                         name: Atom("test".to_owned()),
                         arity: 1,
                     },
-                    st: vec!(New(vec!(SessionElement::OfferChoice(HashMap::from([(
-                        Label("test".to_owned()),
-                        vec![SessionElement::Send(Types::Single("int".to_owned()))]
-                    )]))))),
-                    return_type: vec![],
+                    st: vec!(New(SessionElementList(vec!(SessionElement::OfferChoice(
+                        HashMap::from([(
+                            Label("test".to_owned()),
+                            SessionElementList(vec![SessionElement::Send(Types::Single(
+                                "int".to_owned()
+                            ))])
+                        )])
+                    ))))),
+                    return_type: SessionElementList(vec![]),
                     binders: HashMap::new(),
                 }
             )
@@ -447,16 +455,18 @@ mod tests {
                         name: Atom("test".to_owned()),
                         arity: 1,
                     },
-                    st: vec!(New(vec!(SessionElement::OfferChoice(HashMap::from([(
-                        Label("test".to_owned()),
-                        vec![
-                            SessionElement::Send(Types::Single("int".to_owned())),
-                            SessionElement::Send(Types::Single("int".to_owned())),
-                            SessionElement::Receive(Types::Single("string".to_owned())),
-                            SessionElement::End,
-                        ]
-                    )]))))),
-                    return_type: vec![],
+                    st: vec!(New(SessionElementList(vec!(SessionElement::OfferChoice(
+                        HashMap::from([(
+                            Label("test".to_owned()),
+                            SessionElementList(vec![
+                                SessionElement::Send(Types::Single("int".to_owned())),
+                                SessionElement::Send(Types::Single("int".to_owned())),
+                                SessionElement::Receive(Types::Single("string".to_owned())),
+                                SessionElement::End,
+                            ])
+                        )])
+                    ))))),
+                    return_type: SessionElementList(vec![]),
                     binders: HashMap::new(),
                 }
             )
@@ -475,19 +485,24 @@ mod tests {
                         name: Atom("test".to_owned()),
                         arity: 1,
                     },
-                    st: vec!(New(vec!(SessionElement::OfferChoice(HashMap::from([
-                        (
-                            Label("test".to_owned()),
-                            vec![
-                                SessionElement::Send(Types::Single("int".to_owned())),
-                                SessionElement::Send(Types::Single("int".to_owned())),
-                                SessionElement::Receive(Types::Single("string".to_owned())),
-                                SessionElement::End,
-                            ]
-                        ),
-                        (Label("alt".to_owned()), vec![SessionElement::End,]),
-                    ]))))),
-                    return_type: vec![],
+                    st: vec!(New(SessionElementList(vec!(SessionElement::OfferChoice(
+                        HashMap::from([
+                            (
+                                Label("test".to_owned()),
+                                SessionElementList(vec![
+                                    SessionElement::Send(Types::Single("int".to_owned())),
+                                    SessionElement::Send(Types::Single("int".to_owned())),
+                                    SessionElement::Receive(Types::Single("string".to_owned())),
+                                    SessionElement::End,
+                                ])
+                            ),
+                            (
+                                Label("alt".to_owned()),
+                                SessionElementList(vec![SessionElement::End,])
+                            ),
+                        ])
+                    ))))),
+                    return_type: SessionElementList(vec![]),
                     binders: HashMap::new(),
                 }
             )
@@ -502,7 +517,7 @@ mod tests {
                 "",
                 SessionElement::MakeChoice(
                     Label("test".to_owned()),
-                    vec![SessionElement::Send(Types::Single("int".to_owned()))]
+                    SessionElementList(vec![SessionElement::Send(Types::Single("int".to_owned()))])
                 )
             )
         );
@@ -519,11 +534,13 @@ mod tests {
                         name: Atom("test".to_owned()),
                         arity: 1,
                     },
-                    st: vec!(New(vec!(SessionElement::MakeChoice(
+                    st: vec!(New(SessionElementList(vec!(SessionElement::MakeChoice(
                         Label("test".to_owned()),
-                        vec![SessionElement::Send(Types::Single("int".to_owned()))]
-                    )))),
-                    return_type: vec![],
+                        SessionElementList(vec![SessionElement::Send(Types::Single(
+                            "int".to_owned()
+                        ))])
+                    ))))),
+                    return_type: SessionElementList(vec![]),
                     binders: HashMap::new(),
                 }
             )

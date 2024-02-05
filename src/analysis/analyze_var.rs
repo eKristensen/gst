@@ -5,7 +5,7 @@ use std::{collections::HashMap, fmt};
 use crate::{
     analysis::{analyze_fun::get_bif_fun_type, analyze_st::try_st_env_update},
     cerl_parser::ast::{Atom, Clause, Expr, Exprs, FunName, Lit, Pat, Var},
-    st_parser::ast::{SessionDef, SessionElement, SessionType, Types},
+    st_parser::ast::{SessionDef, SessionElementList, SessionType, Types},
 };
 
 use super::{
@@ -84,8 +84,8 @@ fn init_var_env(
     spec: &(Vec<Types>, Types),
     session: &SessionDef,
     args: &[Var],
-    binders: &HashMap<Var, Vec<SessionElement>>,
-) -> (HashMap<Var, VarType>, HashMap<Var, Vec<SessionElement>>) // Returns: env, binders
+    binders: &HashMap<Var, SessionElementList>,
+) -> (HashMap<Var, VarType>, HashMap<Var, SessionElementList>) // Returns: env, binders
 {
     // Initial types for variables
     let mut env: HashMap<Var, VarType> = HashMap::new();
@@ -422,7 +422,7 @@ pub fn env_update_pattern_from_return_type(
 fn validate_res_env(
     st_spec_return_type: &VarType,
     base_spec_return_type: &Types,
-    session: &HashMap<Var, Vec<SessionElement>>,
+    session: &HashMap<Var, SessionElementList>,
     env: HashMap<Var, VarType>,
 ) -> bool {
     // Validate return type match
@@ -434,7 +434,7 @@ fn validate_res_env(
             }
         }
         VarType::ST(env_return_type) => {
-            let env_return_type = match env_return_type {
+            let SessionElementList(env_return_type) = match env_return_type {
                 NotST => todo!("Not ST"),
                 SessionType::New(st) => st,
                 SessionType::Ongoing(st, _) => st,
@@ -456,22 +456,24 @@ fn validate_res_env(
             VarType::ST(st) => {
                 match st {
                     NotST => todo!(),
-                    SessionType::Ongoing(mut st_cnt, local_res_binder) => {
+                    SessionType::Ongoing(SessionElementList(mut st_cnt), local_res_binder) => {
                         // TODO: Maybe expect "end." ?
                         // I'll choose to merge the two branches of ongoing for end check
                         // It means a returned type of ongoing(!string. -> end.) would match binder _1=[!string. end.]
                         // TODO: Ask Marco about the above
                         // Flattening of ongoing
                         if local_res_binder.is_some() {
-                            let mut local_res_binder = local_res_binder.clone().unwrap();
+                            let SessionElementList(mut local_res_binder) =
+                                local_res_binder.clone().unwrap();
                             st_cnt.append(&mut local_res_binder);
                         }
                         match session.get(&key) {
-                            Some(val) => {
-                                if *val != st_cnt {
+                            Some(SessionElementList(val)) => {
+                                let val = val.clone(); // TODO Stupid clone
+                                if val != st_cnt {
                                     println!(
-                                        "\nEnvironment validation failed because Var {:?} is {:?} but should be {:?} according to binder.",
-                                        key, st_cnt, *val
+                                        "\nEnvironment validation failed because Var {} is {} but should be {} according to binder.",
+                                        key, SessionElementList(st_cnt), SessionElementList(val)
                                     );
                                     return false;
                                 }
@@ -481,15 +483,15 @@ fn validate_res_env(
                                 // }
                             }
                             None => match local_res_binder {
-                                Some(local_res_binder) => {
+                                Some(SessionElementList(local_res_binder)) => {
                                     if local_res_binder != st_cnt {
-                                        println!("\nEnvironment validation failed because Local binder session type check for {:?} does not match: Expected {:?} but found {:?}. Validation failed.", key, st_cnt, local_res_binder);
+                                        println!("\nEnvironment validation failed because Local binder session type check for {} does not match: Expected {} but found {}. Validation failed.", key, SessionElementList(st_cnt), SessionElementList(local_res_binder));
                                         return false;
                                     }
                                 }
                                 None => {
                                     println!(
-                                        "\nEnvironment validation failed because Var {:?} does not have a binder, cannot accept env.",
+                                        "\nEnvironment validation failed because Var {} does not have a binder, cannot accept env.",
                                         key
                                     );
                                     return false;
