@@ -6,7 +6,7 @@
 
 // Based on https://github.com/gertab/ElixirST#session-types-in-elixir
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use crate::cerl_parser::ast::{FunName, Var};
 
@@ -58,4 +58,97 @@ pub enum SessionElement {
     MakeChoice(Label, Vec<SessionElement>),
     OfferChoice(HashMap<Label, Vec<SessionElement>>),
     End, // End is never consumed
+}
+
+impl fmt::Display for Types {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Types::Single(res) => write!(f, "{}", res),
+            Types::Tuple(res) => {
+                // TODO Generalize instead of copy-paste
+                let mut out: String = "".to_string();
+                res.iter().fold(true, |first, elem| {
+                    if !first {
+                        out.push_str(", ");
+                    }
+                    out.push_str(format!("{}", elem).as_str());
+                    false
+                });
+                write!(f, "{{{}}}", out)
+            }
+        }
+    }
+}
+
+impl fmt::Display for SessionType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SessionType::NotST => write!(f, "_"),
+            SessionType::New(res) => {
+                let mut out: String = "".to_string();
+                res.iter().fold(true, |first, elem| {
+                    if !first {
+                        out.push_str(". ");
+                    }
+                    out.push_str(format!("{}", elem).as_str());
+                    false
+                });
+                write!(f, "new({})", out)
+            }
+            SessionType::Ongoing(res1, res2) => {
+                // TODO Generalize instead of copy-paste
+                let mut out1: String = "".to_string();
+                res1.iter().fold(true, |first, elem| {
+                    if !first {
+                        out1.push_str(". ");
+                    }
+                    out1.push_str(format!("{}", elem).as_str());
+                    false
+                });
+                // TODO Generalize instead of copy-paste
+                let mut out2: String = "".to_string();
+                if res2.is_some() {
+                    let res2 = res2.as_ref().unwrap();
+                    res2.iter().fold(true, |first, elem| {
+                        if !first {
+                            out2.push_str(". ");
+                        }
+                        out2.push_str(format!("{}", *elem).as_str());
+                        false
+                    });
+                }
+                write!(f, "ongoing({}, {})", out1, out2)
+            }
+        }
+    }
+}
+
+// TODO: Self-feeding test: Can I parse something print and parse and get the same result? That should be the case.
+impl fmt::Display for SessionElement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SessionElement::Send(res) => write!(f, "!{}", res),
+            SessionElement::Receive(res) => write!(f, "?{}", res),
+            SessionElement::MakeChoice(label, st) => {
+                let mut out: String = "".to_string();
+                st.iter().fold(true, |first, elem| {
+                    if !first {
+                        out.push_str(", ");
+                    }
+                    out.push_str(format!("{}", elem).as_str());
+                    false
+                });
+                // TODO: Does this syntax match what I'm parsing?
+                write!(f, "&{{{}, {}}}", label, out)
+            }
+            SessionElement::OfferChoice(res) => write!(f, "{:?}", res), // TODO: Pretty print OfferChoice
+            SessionElement::End => write!(f, "end."),
+        }
+    }
+}
+
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }

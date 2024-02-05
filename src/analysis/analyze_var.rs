@@ -1,6 +1,6 @@
 // Check that session type matches the body
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use crate::{
     analysis::{analyze_fun::get_bif_fun_type, analyze_st::try_st_env_update},
@@ -18,7 +18,7 @@ use crate::st_parser::ast::SessionType::NotST;
 pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
     let mut overall_acceptance = true; // Assume all is good until proven otherwise
     for (fun_head, fun_env) in m {
-        print!("Analyzing {:?} ... ", fun_head);
+        print!("Analyzing {} ... ", fun_head);
         if fun_env.spec.is_some() && fun_env.session.is_some() && fun_env.body.is_some() {
             let (var_env, new_binders) = init_var_env(
                 fun_env.spec.as_ref().unwrap(),
@@ -26,7 +26,10 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
                 &fun_env.body.as_ref().unwrap().args,
                 &fun_env.session.as_ref().unwrap().binders,
             );
-            print!("init analyze env {:?}", var_env);
+            print!("\ninit analyze env:");
+            for (key, val) in &var_env {
+                print!("\n{} = {}", key, val);
+            }
             // TODO: Find a nice way to represent multiple possible cases
             let res_analysis =
                 chk_st_exprs(m, &var_env, &fun_env.body.as_ref().unwrap().body).unwrap();
@@ -34,8 +37,12 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
                 overall_acceptance = false;
                 println!(" not OK, no result")
             }
+            println!("\n\nAnalyzed all possible environments, checking each of them (if any)");
             for (return_type, res_env) in res_analysis {
-                print!(" res env is {:?}", res_env);
+                print!("\nPossible env:");
+                for (key, val) in &res_env {
+                    print!("\n{} = {}", key, val);
+                }
                 // Check res env is acceptable
                 let (_, spec_return_type) = fun_env.spec.as_ref().unwrap();
                 let acceptable_res_env =
@@ -43,13 +50,17 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
                 if !acceptable_res_env {
                     overall_acceptance = false;
                 }
-                println!(" checking env is acceptable: {:?}\n", acceptable_res_env);
+                println!(
+                    "\n\nAnalysis complete, checking env is acceptable: {:?}\n",
+                    acceptable_res_env
+                );
                 // TODO: To check return type
             }
         } else {
             // TODO: Should functions that cannot be analyzed result in an error? They do not right now.
             println!("could not analyze function. Functions must have a body, spec and session to be analyzed.")
         }
+        println!("--------------------------------------------------------");
     }
     overall_acceptance
 }
@@ -59,6 +70,15 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
 pub enum VarType {
     Base(Types),
     ST(SessionType),
+}
+
+impl fmt::Display for VarType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            VarType::Base(res) => write!(f, "{}", res),
+            VarType::ST(res) => write!(f, "{}", res),
+        }
+    }
 }
 
 // Bind variables to types before "evaluation"/Checking session type for concrete function.
@@ -91,7 +111,7 @@ fn init_var_env(
         };
     }
 
-    println!("Binders created are: {:?}", binders);
+    //println!("DEBUG: Binders created are: {:?}", binders);
     (env, binders)
 }
 
@@ -247,12 +267,32 @@ fn chk_st_expr(
             if try_user_fun.is_ok() {
                 return try_user_fun;
             }
-            println!("\n\nFailed user fun check {:?}", try_user_fun);
+            //println!("DEBUG Failed user fun check {:?}", try_user_fun);
 
             // Try to check if function is part of a session-type
             // Function: try_st_env_update
-            let (try_st_type, try_st_env) = try_st_env_update(env, call, args)?;
-            Ok(vec![(try_st_type, try_st_env)])
+            let try_st_env_update = try_st_env_update(env, call, args);
+            if try_st_env_update.is_ok() {
+                let (try_st_type, try_st_env) = try_st_env_update.unwrap();
+                return Ok(vec![(try_st_type, try_st_env)]);
+            }
+
+            // TODO: Better way to collect errors
+            let mut combined_err = "".to_string();
+            if let Err(bif_err) = try_bif {
+                combined_err.push_str(" Error from try bif: ");
+                combined_err.push_str(&bif_err);
+            }
+            if let Err(usr_err) = try_user_fun {
+                combined_err.push_str(" Error from try user fun: ");
+                combined_err.push_str(&usr_err);
+            }
+            if let Err(env_err) = try_st_env_update {
+                combined_err.push_str(" Error from try st env update: ");
+                combined_err.push_str(&env_err);
+            }
+
+            return Err(combined_err);
         }
         Expr::Receive(_, _, _) => todo!("receive"),
         Expr::Try(_, _, _, _, _) => todo!("try"),

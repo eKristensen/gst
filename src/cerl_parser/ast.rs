@@ -1,5 +1,7 @@
 // TODO: Refactor to be more like the core erlang paper suggests the core erlang ast should look. Parsing is more important for now though.
 
+use std::fmt;
+
 // "New" types
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Atom(pub String);
@@ -114,4 +116,22 @@ pub enum Pat {
     Cons(Vec<Pat>),
     Tuple(Vec<Pat>),
     Alias(Var, Box<Pat>),
+}
+
+impl fmt::Display for FunName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}/{}", self.name, self.arity)
+    }
+}
+
+impl fmt::Display for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "'{}'", self.0)
+    }
+}
+
+impl fmt::Display for Var {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }

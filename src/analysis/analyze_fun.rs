@@ -85,7 +85,7 @@ pub fn get_user_fun_type(
         // gotta call back to the general type checker for exprs
         // This might also give more than one possible execution.
         // For each of the possible environments that do not lead to an error check the var type is acceptable
-        println!("DEBUG Number checking is {:?}", i);
+        // println!("DEBUG Number checking is {:?}", i);
         // Note: TODO Only support variable-type arguments to functions to avoid "how to update env" issues.
         //            Solution would be to use chk_st_exprs and check all possible outcomes there.
         let Exprs(var) = elm;
@@ -112,10 +112,10 @@ pub fn get_user_fun_type(
             return Err("Undefined variable used. Not supported.".to_string());
         }
         let env_rt = env.get(var).unwrap().clone();
-        println!(
-            "got return type via exprs analysis: {:?} and the spec says the type is: {:?}",
-            env_rt, spec_session
-        );
+        // println!(
+        //     "DEBUG got return type via exprs analysis: {:?} and the spec says the type is: {:?}",
+        //     env_rt, spec_session
+        // );
         // if spec_session_rt is ST(Ongoing( ... , ... )) then try to consume part of rt and check leftover matches
         if let VarType::ST(SessionType::Ongoing(spec_st_in, spec_st_out)) = spec_session {
             // Try to consume session type
