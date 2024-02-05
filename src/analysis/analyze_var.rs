@@ -62,6 +62,7 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
         }
         println!("--------------------------------------------------------");
     }
+    println!("Overall Acceptance: {}", overall_acceptance);
     overall_acceptance
 }
 
