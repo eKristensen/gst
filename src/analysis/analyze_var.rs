@@ -50,10 +50,7 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
                 if !acceptable_res_env {
                     overall_acceptance = false;
                 }
-                println!(
-                    "\n\nAnalysis complete, checking env is acceptable: {:?}\n",
-                    acceptable_res_env
-                );
+                println!("\nChecking env is acceptable: {:?}\n", acceptable_res_env);
                 // TODO: To check return type
             }
         } else {
