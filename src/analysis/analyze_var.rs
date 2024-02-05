@@ -33,11 +33,11 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
             // TODO: Find a nice way to represent multiple possible cases
             let res_analysis =
                 chk_st_exprs(m, &var_env, &fun_env.body.as_ref().unwrap().body).unwrap();
+            println!("\n\nAnalyzed all possible environments, checking each of them (if any)");
             if res_analysis.is_empty() {
                 overall_acceptance = false;
-                println!(" not OK, no result")
+                println!("\nNOT OK, no possible executions that match spec according to analysis.")
             }
-            println!("\n\nAnalyzed all possible environments, checking each of them (if any)");
             for (return_type, res_env) in res_analysis {
                 print!("\nPossible env:");
                 for (key, val) in &res_env {
@@ -196,7 +196,7 @@ fn chk_st_expr(
             let e_res = chk_st_exprs(m, env, e);
             if e_res.is_err() {
                 {
-                    println!("Eliminated possible env because {:?}", e_res);
+                    println!("\nEliminated possible env because {:?}", e_res);
                 }
                 return Ok(vec![]);
             }
@@ -237,12 +237,12 @@ fn chk_st_expr(
                             match e_clause_res {
                                 Ok(mut e_clause_res) => res.append(&mut e_clause_res),
                                 Err(e) => {
-                                    println!("Eliminated possible env because {:?}", e);
+                                    println!("\n\nEliminated possible env because {:?}", e);
                                 }
                             }
                         }
                         Err(e) => {
-                            println!("Eliminated possible env because {:?}", e);
+                            println!("\n\nEliminated possible env because {:?}", e);
                         }
                     }
                 }
@@ -431,7 +431,7 @@ fn validate_res_env(
     match st_spec_return_type {
         VarType::Base(bt) => {
             if *bt != *base_spec_return_type {
-                println!("Mismatch between expected return type and -spec");
+                println!("\nEnvironment validation failed because: Mismatch between expected return type and -spec");
                 return false;
             }
         }
@@ -444,7 +444,7 @@ fn validate_res_env(
             // TODO: Better way to compare vectors
             for (elm1, elm2) in env_return_type.iter().zip(env_return_type.iter()) {
                 if elm1 != elm2 {
-                    println!("Return type mismatch.");
+                    println!("\nEnvironment validation failed because Return type mismatch.");
                     return false;
                 }
             }
@@ -472,7 +472,7 @@ fn validate_res_env(
                             Some(val) => {
                                 if *val != st_cnt {
                                     println!(
-                                        "Var {:?} is {:?} but should be {:?} according to binder.",
+                                        "\nEnvironment validation failed because Var {:?} is {:?} but should be {:?} according to binder.",
                                         key, st_cnt, *val
                                     );
                                     return false;
@@ -485,13 +485,13 @@ fn validate_res_env(
                             None => match local_res_binder {
                                 Some(local_res_binder) => {
                                     if local_res_binder != st_cnt {
-                                        println!("Local binder session type check for {:?} does not match: Expected {:?} but found {:?}. Validation failed.", key, st_cnt, local_res_binder);
+                                        println!("\nEnvironment validation failed because Local binder session type check for {:?} does not match: Expected {:?} but found {:?}. Validation failed.", key, st_cnt, local_res_binder);
                                         return false;
                                     }
                                 }
                                 None => {
                                     println!(
-                                        "Var {:?} does not have a binder, cannot accept env.",
+                                        "\nEnvironment validation failed because Var {:?} does not have a binder, cannot accept env.",
                                         key
                                     );
                                     return false;
