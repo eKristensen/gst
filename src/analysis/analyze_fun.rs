@@ -12,12 +12,12 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    analysis::analyze_var::env_update_pattern_from_return_type,
+    analysis::analyze_expr::env_update_pattern_from_return_type,
     cerl_parser::ast::{Atom, Expr, Exprs, FunCall, FunKind, FunName, Pat, Var},
     st_parser::ast::{SessionElementList, SessionType, Types},
 };
 
-use super::{analyze_st::extract_var_type, analyze_var::VarType, compute_init_env::FunEnv};
+use super::{analyze_expr::VarType, analyze_st::extract_var_type, compute_init_env::FunEnv};
 
 // TODO: Function to be used for lookup
 // Algorithm: First look in environment, no match=Check statically for hard-coded types of

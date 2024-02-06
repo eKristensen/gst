@@ -5,7 +5,7 @@ mod st_parser;
 use std::env;
 use std::process::Command;
 
-use crate::analysis::{analyze_var::analyze_module, compute_init_env::init_module_env};
+use crate::analysis::{analyze_expr::analyze_module, compute_init_env::init_module_env};
 
 use nom::Finish;
 

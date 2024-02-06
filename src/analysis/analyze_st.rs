@@ -7,7 +7,7 @@ use crate::{
     st_parser::ast::{Label, SessionElement, SessionElementList, SessionType, Types},
 };
 
-use super::analyze_var::{chk_st_exprs, VarType};
+use super::analyze_expr::{chk_st_exprs, VarType};
 
 // Check if call relates to a session type.
 pub fn try_st_env_update(
