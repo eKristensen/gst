@@ -15,6 +15,8 @@
 % Duplicating new(!number. ?string. !string. ?number.  end.) here is not nice.
 -session("'bar'(new(!number. ?string. !string. ?number.  end.),ongoing(!string. ?number. -> end.),_) -> _, []").
 
+% TODO (maybe) Consider to rename ongoing to lin og linear
+
 -spec foo(new()) -> number().
 foo(ServerPid) ->
     SessionID = gen_server_plus:call(ServerPid,new), 
