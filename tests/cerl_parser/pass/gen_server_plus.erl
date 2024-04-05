@@ -1,7 +1,9 @@
 -module(gen_server_plus).
 -behavior(gen_server).
 
-% By Emil Kristensen, ITU 2023
+% By Emil Kristensen, ITU 2024
+
+% Version 1.1
 
 % IMPORTANT: This code intentionally introduces memory leaks.
 % Proof of Concept code only! NOT READY FOR PRODUCTION!
@@ -46,7 +48,19 @@
     {noreply, NewSessionState :: term(), NewGlobalState :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term(), Reply :: term(), NewSessionState :: term(), NewGlobalState :: term()} |
     {stop, Reason :: term(), NewSessionState :: term(), NewGlobalState :: term()}.
+-callback handle_new_session_call(Request :: term(), From :: from(),
+                      SessionState :: term(), GlobalState :: term()) ->
+    {reply, Reply :: term(), NewSessionState :: term(), NewGlobalState :: term()} |
+    {reply, Reply :: term(), NewSessionState :: term(), NewGlobalState :: term(), timeout() | hibernate | {continue, term()}} |
+    {noreply, NewSessionState :: term(), NewGlobalState :: term()} |
+    {noreply, NewSessionState :: term(), NewGlobalState :: term(), timeout() | hibernate | {continue, term()}} |
+    {stop, Reason :: term(), Reply :: term(), NewSessionState :: term(), NewGlobalState :: term()} |
+    {stop, Reason :: term(), NewSessionState :: term(), NewGlobalState :: term()}.
 -callback handle_plus_cast(Request :: term(), SessionState :: term(), GlobalState :: term()) ->
+    {noreply, NewSessionState :: term(), NewGlobalState :: term()} |
+    {noreply, NewSessionState :: term(), NewGlobalState :: term(), timeout() | hibernate | {continue, term()}} |
+    {stop, Reason :: term(), NewSessionState :: term(), NewGlobalState :: term()}.
+-callback handle_new_session_cast(Request :: term(), SessionState :: term(), GlobalState :: term()) ->
     {noreply, NewSessionState :: term(), NewGlobalState :: term()} |
     {noreply, NewSessionState :: term(), NewGlobalState :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term(), NewSessionState :: term(), NewGlobalState :: term()}.
@@ -72,9 +86,9 @@ handle_call({'$gen_plus_call',SessionID,Payload},From,State) when is_reference(S
             {Action, Msg, UpdatedSessionState, UpdatedGlobalState} = 
                 (State#plus_state.callback):handle_plus_call(Payload,From,SessionState,State#plus_state.global);
         _NoSession ->
-            % Learn new session. Default state for new session is "no_session"
+            % Learn new session. Default state for new session is "new_session"
             {Action, Msg, UpdatedSessionState, UpdatedGlobalState} = 
-            (State#plus_state.callback):handle_plus_call(Payload,From,no_session,State#plus_state.global) % Does it even make sense to pass msg here?
+            (State#plus_state.callback):handle_new_session_call(Payload,From,State#plus_state.global) % Does it even make sense to pass msg here?
     end,
     % Save updated session
     UpdatedSessions = maps:put(SessionID,UpdatedSessionState,State#plus_state.sessions),
@@ -101,7 +115,7 @@ handle_cast({'$gen_plus_call',SessionID,Payload},State) ->
         _NoSession -> % TODO: Maybe better to just learn new session? Required otherwise not communication is possible.
                       % when is_reference(SessionID) ->
                       % add_new_session function?
-            (State#plus_state.callback):handle_plus_cast(Payload,no_session,State#plus_state.global) % Does it even make sense to pass msg here?
+            (State#plus_state.callback):handle_new_session_cast(Payload,State#plus_state.global) % Does it even make sense to pass msg here?
     end;
 
 % All other cast are accepted and passed to callback module

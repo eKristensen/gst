@@ -10,6 +10,8 @@ Steal idea from https://staff.um.edu.mt/afra1/papers/Agere21.pdf
 
 # TODO
 
+- Keep the Erlang preprossor (epp) in mind. Also remember that we are in Core Erlang, which is too far in the compile process for details in EPP to really matter. Still good to remember that it exists. It could be usefull.
+
 - TODO IMPORTANT: Being able to write (!int. end. ?int) should be a syntax error (will be added as a well-formedness constrain)
 
 Improve code quality:
