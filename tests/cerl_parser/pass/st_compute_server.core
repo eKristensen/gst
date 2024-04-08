@@ -1,4 +1,5 @@
-module 'st_compute_server' ['handle_plus_call'/4,
+module 'st_compute_server' ['handle_new_session_call'/3,
+			    'handle_plus_call'/4,
 			    'handle_plus_cast'/3,
 			    'module_info'/0,
 			    'module_info'/1,
@@ -22,24 +23,36 @@ module 'st_compute_server' ['handle_plus_call'/4,
 	  call 'gen_server_plus':'start_link'
 	      ('st_compute_server', [], [])
       -| [{'function',{'start_link',0}}] )
-'handle_plus_call'/4 =
+'handle_new_session_call'/3 =
     %% Line 25
-    ( fun (_0,_1,_2,_3) ->
-	  ( case <_0,_1,_2,_3> of
-	      <'neg',_X_From,'no_session',GlobalState> when 'true' ->
+    ( fun (_0,_1,_2) ->
+	  ( case <_0,_1,_2> of
+	      <'neg',_X_From,GlobalState> when 'true' ->
 		  do  %% Line 26
 		      call 'io':'format'
 			  ([68|[69|[66|[85|[71|[58|[32|[83|[101|[114|[118|[101|[114|[32|[103|[111|[116|[32|[110|[101|[103|[32|[99|[104|[111|[105|[99|[101|[32|[105|[32|[110|[101|[119|[32|[115|[101|[115|[115|[105|[111|[110|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
 		      %% Line 27
 		      {'reply','ready','neg',GlobalState}
 	      %% Line 33
-	      <'add',_X_From,'no_session',GlobalState> when 'true' ->
+	      <'add',_X_From,GlobalState> when 'true' ->
 		  do  %% Line 34
 		      call 'io':'format'
 			  ([68|[69|[66|[85|[71|[58|[32|[83|[101|[114|[118|[101|[114|[32|[103|[111|[116|[32|[97|[100|[100|[32|[99|[104|[111|[105|[99|[101|[32|[105|[32|[110|[101|[119|[32|[115|[101|[115|[115|[105|[111|[110|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
 		      %% Line 35
 		      {'reply','ready','add',GlobalState}
-	      %% Line 41
+	      ( <_5,_4,_3> when 'true' ->
+		    ( primop 'match_fail'
+			  (( {'function_clause',_5,_4,_3}
+			     -| [{'function',{'handle_new_session_call',3}}] ))
+		      -| [{'function',{'handle_new_session_call',3}}] )
+		-| ['compiler_generated'] )
+	    end
+	    -| [{'function',{'handle_new_session_call',3}}] )
+      -| [{'function',{'handle_new_session_call',3}}] )
+'handle_plus_call'/4 =
+    %% Line 41
+    ( fun (_0,_1,_2,_3) ->
+	  ( case <_0,_1,_2,_3> of
 	      <V1,_X_From,'neg',GlobalState> when 'true' ->
 		  do  %% Line 42
 		      call 'io':'format'

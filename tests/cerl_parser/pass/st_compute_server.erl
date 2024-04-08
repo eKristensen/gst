@@ -5,7 +5,7 @@
 % elp:ignore W0013 (misspelled_attribute)
 -mspec('[?neg !ready. ?int !int,?add !ready ?int !received ?int !int]').
 
-% By Emil Kristensen, ITU 2023
+% By Emil Kristensen, ITU 2023-2024
 
 % Static server from Gradual Session Types Paper
 % A session represents a channel in the code below.
@@ -13,7 +13,7 @@
 % Public functions in this module
 -export([start_link/0]).
 
--export([handle_plus_call/4,handle_plus_cast/3]).
+-export([handle_new_session_call/3,handle_plus_call/4,handle_plus_cast/3]).
 
 start_link() ->
     gen_server_plus:start_link(?MODULE, [], []).
@@ -22,7 +22,7 @@ start_link() ->
 % Preliminary Typing Idea
 % Typing: ?{SessionState,neg}.!atom
 % SessionState=no_session
-handle_plus_call(neg, _From, no_session, GlobalState) ->
+handle_new_session_call(neg, _From, GlobalState) ->
     io:format("DEBUG: Server got neg choice i new session~n"),
     {reply, ready, neg, GlobalState};
 
@@ -30,9 +30,9 @@ handle_plus_call(neg, _From, no_session, GlobalState) ->
 % Preliminary Typing Idea
 % Typing: ?{SessionState,add}.!atom
 % SessionState=no_session
-handle_plus_call(add, _From, no_session, GlobalState) ->
+handle_new_session_call(add, _From, GlobalState) ->
     io:format("DEBUG: Server got add choice i new session~n"),
-    {reply, ready, add, GlobalState};
+    {reply, ready, add, GlobalState}.
 
 % Finish related session neg
 % Preliminary Typing Idea
