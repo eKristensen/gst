@@ -17,7 +17,10 @@ use crate::{
     st_parser::ast::{SessionElementList, SessionType, Types},
 };
 
-use super::{analyze_expr::VarType, analyze_st::extract_var_type, compute_init_env::FunEnv};
+use super::{
+    analyze_st::extract_var_type,
+    env::{FunEnv, VarType},
+};
 
 // TODO: Function to be used for lookup
 // Algorithm: First look in environment, no match=Check statically for hard-coded types of

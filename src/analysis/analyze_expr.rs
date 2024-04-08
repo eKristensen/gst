@@ -1,6 +1,6 @@
 // Check that session type matches the body
 
-use std::{collections::HashMap, fmt};
+use std::collections::HashMap;
 
 use crate::{
     analysis::{analyze_fun::get_bif_fun_type, analyze_st::try_st_env_update},
@@ -9,7 +9,9 @@ use crate::{
 };
 
 use super::{
-    analyze_fun::get_user_fun_type, analyze_st::extract_var_type, compute_init_env::FunEnv,
+    analyze_fun::get_user_fun_type,
+    analyze_st::extract_var_type,
+    env::{FunEnv, VarType},
 };
 
 use crate::st_parser::ast::SessionType::NotST;
@@ -61,22 +63,6 @@ pub fn analyze_module(m: &HashMap<FunName, FunEnv>) -> bool {
     }
     println!("Overall Acceptance: {}", overall_acceptance);
     overall_acceptance
-}
-
-// TODO: I have a feeling that I should be able to refactor this type away
-#[derive(Debug, Clone, PartialEq)]
-pub enum VarType {
-    Base(Types),
-    ST(SessionType),
-}
-
-impl fmt::Display for VarType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            VarType::Base(res) => write!(f, "{}", res),
-            VarType::ST(res) => write!(f, "{}", res),
-        }
-    }
 }
 
 // Bind variables to types before "evaluation"/Checking session type for concrete function.

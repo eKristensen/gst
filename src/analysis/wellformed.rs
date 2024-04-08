@@ -9,7 +9,7 @@ use crate::{
     st_parser::ast::{SessionElement, SessionElementList, SessionType},
 };
 
-use super::compute_init_env::FunEnv;
+use super::env::FunEnv;
 
 // TODO high and low level test of check_wf_st_t
 

@@ -12,14 +12,7 @@ use crate::{
     },
 };
 
-use super::wellformed::check_wf;
-
-#[derive(Debug, Clone)]
-pub struct FunEnv {
-    pub spec: Option<(Vec<Types>, Types)>, // TODO: Too simple to be useful in the long run (no alternative types on top-level)
-    pub session: Option<SessionDef>,
-    pub body: Option<FunDef>,
-}
+use super::{env::FunEnv, wellformed::check_wf};
 
 // Extract relevant parts of the core erlang module for analysis
 pub fn init_module_env(m: Module) -> HashMap<FunName, FunEnv> {
