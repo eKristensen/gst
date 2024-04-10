@@ -7,32 +7,48 @@ use nom::Finish;
 use crate::{
     cerl_parser::ast::{Atom, FunDef, FunName, Lit, Module},
     st_parser::{
-        ast::{SessionDef, Types},
+        ast::{SessionDef, SessionElementList, SessionType, Types},
         parser::st_parse,
     },
 };
 
-use super::{env::FunEnv, wellformed::check_wf};
+use super::{
+    env::{FunContract, FunEnv, Funcs},
+    wellformed::check_wf,
+};
 
+// TODO: Use new FunContract instead to initialize all functions
 // Extract relevant parts of the core erlang module for analysis
-pub fn init_module_env(m: Module) -> HashMap<FunName, FunEnv> {
+// Returns Funcs env and a list of functions that cannot be analyzed (due to lack of -spec and -session).
+pub fn init_funcs_env(m: Module) -> (Funcs,Vec<FunName>) {
     // Info: Name of module and module exports not relevant yet
     let mut env: HashMap<FunName, FunEnv> = HashMap::new();
+
+    let mut spec_args: HashMap<FunName, (Vec<FunContract>, FunContract)>;
+    let mut session_args: HashMap<FunName, (Vec<SessionType>, SessionElementList)>;
 
     // Use attributes to get spec and session
     for attribute in &m.attributes {
         let Atom(a_name) = &attribute.name;
         if a_name.eq("spec") {
-            add_spec(&mut env, &attribute.value)
+            add_spec(&mut spec_args, &attribute.value)
         }
         if a_name.eq("session") {
-            add_session(&mut env, &attribute.value)
+            add_session(&mut session_args, &attribute.value)
         }
-        // TODO: Ignore custom type declarations for now. Maybe reconsider later?
+        // TODO: Add support for custom type declarations?
     }
 
     // Use body to get body of functions
+    // TODO: Adding functions to env is not optional here
     for (fun_head, fun_body) in &m.body {
+        // Get spec and return type
+        let (fun_spec_in, fun_spec_rt) = spec_args.get(fun_head).unwrap();
+
+        // Merge return type
+        
+
+        // Add body
         add_body(&mut env, fun_head, fun_body);
     }
 
@@ -40,19 +56,27 @@ pub fn init_module_env(m: Module) -> HashMap<FunName, FunEnv> {
     // Maybe better to "just" decode them "at once"?
     // How to deal with split spec definitions? Multi-case spec
 
+    // TODO: Temp contract/arguments type collection map to a vector. Ensure the list is wellformed.
+
+    // TODO: Merge -spec and -session
+
+    // TODO: Check "must_analyze":
+    // if fun_env.spec.is_some() && fun_env.session.is_some() && fun_env.body.is_some() {
+    // If not add "comment".
+
     // Finally check data is well formed
     let wf_res = check_wf(m, &env);
     if wf_res.is_err() {
         panic!("Well-formed check failed {:?}", wf_res)
     }
 
-    env
+    (env,vec![])
 }
 
 // Add spec to env
 // New fun if not exists
 // Error if spec already exists for fun
-fn add_spec(m: &mut HashMap<FunName, FunEnv>, v: &Lit) {
+fn add_spec(args: &mut HashMap<FunName, (Vec<FunContract>, FunContract)>, v: &Lit) {
     // Find function name via the deep nested spec representation
 
     // TODO: A nicer way to unwrap?
@@ -73,7 +97,7 @@ fn add_spec(m: &mut HashMap<FunName, FunEnv>, v: &Lit) {
     };
     //println!("Got function name finally {:?} {:?}", fname, arity);
     if *arity < 0 {
-        todo!("Handle negative arity.")
+        todo!("Unexpected negative arity.")
     }
 
     let fun_name = FunName {
@@ -81,49 +105,24 @@ fn add_spec(m: &mut HashMap<FunName, FunEnv>, v: &Lit) {
         arity: (*arity) as u64, // TODO: Does "as u64" convert as expected or just override the type definition?
     };
 
+    if args.contains_key(&fun_name) {
+        panic!("Duplicate -spec for function {}", fun_name)
+    }
+
     // TODO: Potentially dangerous assumption about spec structure. Data may be lost here
     let spec_val = &spec_tuple[1..];
 
-    let (fun_in, fun_out) = extract_spec(spec_val);
+    // Get the spec in vector format
+    let (args_in,args_out) = extract_spec(spec_val);
 
-    // Lookup
-    // TODO: A bit repetitive can repetition be avoided?
-    match m.get(&fun_name) {
-        Some(fun_env) => {
-            // FunEnv exists, add spec if none
-            if fun_env.spec.is_none() {
-                m.insert(
-                    fun_name,
-                    FunEnv {
-                        spec: Some((fun_in, fun_out)),
-                        session: fun_env.session.clone(),
-                        body: fun_env.body.clone(),
-                    },
-                );
-            } else {
-                panic!("Duplicate spec for {:?}", fun_name);
-            }
-        }
-        None => {
-            // Fresh entry, add new FunEnv
-            m.insert(
-                fun_name,
-                FunEnv {
-                    spec: Some((fun_in, fun_out)),
-                    session: None,
-                    body: None,
-                },
-            );
-        }
-    }
-
-    // Add the "raw" spec value to map if possible or give error
+    // Fresh entry, add new FunEnv
+    args.insert(fun_name, (args_in,args_out));
 }
 
 // Add session to env
 // New fun if not exists
 // Error if session already exists for fun
-fn add_session(m: &mut HashMap<FunName, FunEnv>, v: &Lit) {
+fn add_session(args: &mut HashMap<FunName, (Vec<SessionType>, SessionElementList)>, v: &Lit) {
     // Run session parser
     // Session type is wrapped within a list and then as the name of an atom
     // Get function name
@@ -153,70 +152,35 @@ fn add_session(m: &mut HashMap<FunName, FunEnv>, v: &Lit) {
         Err(e) => panic!("Nom could not parse session type\n\n{}", e),
     };
 
-    // Lookup
-    // TODO: Repetitive?
-    match m.get(&session_type_parsed.name) {
-        Some(fun_env) => {
-            // FunEnv exists, add spec if none
-            if fun_env.session.is_none() {
-                m.insert(
-                    session_type_parsed.name.clone(),
-                    FunEnv {
-                        spec: fun_env.spec.clone(),
-                        session: Some(session_type_parsed),
-                        body: fun_env.body.clone(),
-                    },
-                );
-            } else {
-                panic!("Duplicate session for {:?}", session_type_parsed.name);
-            }
-        }
-        None => {
-            // Fresh entry, add new FunEnv
-            m.insert(
-                session_type_parsed.name.clone(),
-                FunEnv {
-                    spec: None,
-                    session: Some(session_type_parsed),
-                    body: None,
-                },
-            );
-        }
+    if args.contains_key(&session_type_parsed.name) {
+        panic!("Duplicate -session for function {}", session_type_parsed.name)
     }
+
+            args.insert(
+                session_type_parsed.name.clone(),
+                (session_type_parsed.st,session_type_parsed.return_type),
+            );
 }
 
-fn add_body(m: &mut HashMap<FunName, FunEnv>, fun_head: &FunName, fun_body: &FunDef) {
-    match m.get(fun_head) {
-        Some(fun_env) => {
-            // FunEnv exists, add spec if none
-            if fun_env.body.is_none() {
-                m.insert(
-                    fun_head.clone(),
-                    FunEnv {
-                        spec: fun_env.spec.clone(),
-                        session: fun_env.session.clone(),
-                        body: Some(fun_body.clone()),
-                    },
-                );
-            } else {
-                panic!("Duplicate body for {:?}", fun_head);
-            }
-        }
-        None => {
-            // Fresh entry, add new FunEnv
-            m.insert(
+fn add_body(env: &mut HashMap<FunName, FunEnv>, fun_head: &FunName, fun_body: &FunDef) {
+
+    if env.contains_key(&fun_head) {
+        panic!("Duplicate body for function {}", fun_head)
+    }
+
+            env.insert(
                 fun_head.clone(),
                 FunEnv {
-                    spec: None,
-                    session: None,
+                    contract: vec![],
+                    return_type: FunContract::Base(Types::Single("".to_owned())), // TODO: Involved default, maybe just input the return type right away instead?
                     body: Some(fun_body.clone()),
+                    must_analyze: false,
+                    comment: "".to_string()
                 },
             );
-        }
-    }
 }
 
-fn extract_spec(spec_in: &[Lit]) -> (Vec<Types>, Types) {
+fn extract_spec(spec_in: &[Lit]) -> (Vec<FunContract>, FunContract) {
     // Convert tagged tuples into something that can be used to compare types
 
     // TODO: Is it possible to explain this function at all?
@@ -281,8 +245,9 @@ fn extract_spec(spec_in: &[Lit]) -> (Vec<Types>, Types) {
         todo!()
     };
     //println!("\n\n\nReady\nIn:{:?}\nOut:{:?}\n\n\n", main_spec_in, main_spec_out);
+    let res_in_types = res_in_types.into_iter().map(FunContract::Base).collect();
 
-    (res_in_types, Types::Single(out_type_string.clone()))
+    (res_in_types, FunContract::Base(Types::Single(out_type_string.clone())))
 }
 
 // Add body to env

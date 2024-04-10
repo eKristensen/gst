@@ -17,7 +17,6 @@ pub struct SessionDef {
     pub name: FunName,
     pub st: Vec<SessionType>,
     pub return_type: SessionElementList,
-    pub binders: HashMap<Var, SessionElementList>,
 }
 
 // Label to differentiate branches in session types. They are assumed to be non-overlapping
@@ -31,8 +30,9 @@ pub struct Label(pub String);
 pub enum SessionType {
     NotST, // Needed as a placeholder for the initial session spec to be able to count the variable arguments
     New(SessionElementList), // Constructor for new session
-    Ongoing(SessionElementList, Option<SessionElementList>), // "ongoing" session: (ST,ST')
+    Ongoing(SessionElementList), // "ongoing" session
            // Development notes ( TODO move somewhere else)
+           // 10. april 2024: binders removed
            // Idea: Ongoing checking consistent: When ongoing is constructed copy the expected return type from binders
            // This idea would also change how to accept an env after type checking.
            // Or maybe it is better the other way around: Ongoing adds to the binders? Hmm. Properly not, with this option

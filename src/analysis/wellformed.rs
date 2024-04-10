@@ -40,7 +40,7 @@ fn check_wf_st_t(st: &Vec<SessionType>) -> Result<(), String> {
         match elm {
             SessionType::NotST => (),
             SessionType::New(inner) => check_wf_st_elm(inner)?,
-            SessionType::Ongoing(st1, st2) => {
+            SessionType::Ongoing(st1) => {
                 check_wf_st_elm(st1)?;
                 let SessionElementList(st1) = st1;
                 if *st1.last().unwrap() == SessionElement::End {
@@ -48,10 +48,6 @@ fn check_wf_st_t(st: &Vec<SessionType>) -> Result<(), String> {
                     return Err(
                         "Last element of first part of ongoing st type cannot be end.".to_string(),
                     );
-                }
-                match st2 {
-                    Some(st2) => check_wf_st_elm(st2)?,
-                    None => todo!("Is empty 2nd part of session type ok?"),
                 }
             } // something like: Check first is ok, if last is .end, then the 2nd must be empty. Check 2nd one is ok.
         }

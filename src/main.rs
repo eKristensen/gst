@@ -60,9 +60,9 @@ fn main() {
             match cerl_parser::top::module(&src).finish() {
                 // TODO: Add ".finish()" here and in tests or even better in common module.
                 Ok((_, module)) => {
-                    let env = init_module_env(module);
+                    let funcs_env = init_funcs_env(module);
                     //println!("Init analysis environment {:?}\n", env);
-                    analyze_module(&env);
+                    analyze_module_functions(&funcs_env);
                 }
                 Err(e) => {
                     // TODO: More compact error messages possible?

@@ -2,41 +2,36 @@
 
 // Copy from other analysis files to here?
 
-use core::fmt;
 use std::collections::HashMap;
 
 use crate::{
     cerl_parser::ast::{FunDef, FunName, Var},
-    st_parser::ast::{SessionDef, SessionElementList, SessionType, Types},
+    st_parser::ast::{SessionElementList, Types},
 };
 
-// TODO: I have a feeling that I should be able to refactor this type away
-#[derive(Debug, Clone, PartialEq)]
-pub enum VarType {
-    Base(Types),
-    ST(SessionType),
-}
+pub type Funcs = HashMap<FunName, FunEnv>; // Psi
 
 #[derive(Debug, Clone)]
 pub struct FunEnv {
-    pub spec: Option<(Vec<Types>, Types)>, // TODO: Too simple to be useful in the long run (no alternative types on top-level)
-    pub session: Option<SessionDef>,
-    pub body: Option<FunDef>,
+    pub contract: Vec<FunContract>, // Merged -spec and -session
+    pub return_type: FunContract,   // Return type for function
+    pub body: Option<FunDef>,       // Body and var names for arguments
+    pub must_analyze: bool,         // True if function lacks analysis
+    pub comment: String,            // Info if must_analyze is false
 }
 
-impl fmt::Display for VarType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            VarType::Base(res) => write!(f, "{}", res),
-            VarType::ST(res) => write!(f, "{}", res),
-        }
-    }
+// Argument types for function contracts and environment initialization
+// Store -spec and -session info
+#[derive(Debug, Clone)]
+pub enum FunContract {
+    Base(Types),
+    New(SessionElementList),
+    Ongoing(SessionElementList),
 }
 
-// Common
+// Typing environments
 pub struct TypeEnv {
     pub constructors: HashMap<Var, SessionElementList>, // Gamma
     pub ongoing: HashMap<Var, SessionElementList>,      // Delta
-    pub base: HashMap<Var, VarType>,                    // Sigma
-    pub funcs: HashMap<FunName, FunEnv>,                // Psi
+    pub base: HashMap<Var, Types>,                      // Sigma
 }

@@ -3,18 +3,18 @@
 use std::collections::HashMap;
 
 use crate::{
-    cerl_parser::ast::{Atom, Expr, Exprs, FunCall, FunKind, Lit, Var},
+    cerl_parser::ast::{Atom, Expr, Exprs, FunCall, FunKind, Lit},
     st_parser::ast::{Label, SessionElement, SessionElementList, SessionType, Types},
 };
 
-use super::{analyze_expr::chk_st_exprs, env::VarType};
+use super::{analyze_expr::chk_st_exprs, env::TypeEnv};
 
 // Check if call relates to a session type.
 pub fn try_st_env_update(
-    env: &HashMap<Var, VarType>,
+    env: &TypeEnv,
     call: &FunCall,
     args: &Vec<Exprs>,
-) -> Result<(VarType, HashMap<Var, VarType>), String> {
+) -> Result<(SessionElementList, TypeEnv), String> {
     let FunCall {
         kind: FunKind::Call(kind),
         name: Atom(name),
@@ -44,18 +44,9 @@ pub fn try_st_env_update(
                                 return Err("Invalid argument for gst+ call".to_owned());
                             };
 
-                            match env.get(&st_binder_var_name) {
+                            match env.ongoing.get(&st_binder_var_name) {
                                 Some(st) => {
-                                    let VarType::ST(st) = st else {
-                                        return Err("Expected session type".to_string());
-                                    };
-                                    let SessionType::New(st) = st else {
-                                        return Err("Session has already been started, cannot start new session again!".to_string());
-                                    };
-                                    //let mut env = env.clone();
-                                    // TODO: Ask Marco: Should constructor be preserved or removed?
-                                    //env.remove(&st_binder_var_name);
-                                    Ok((VarType::ST(SessionType::Ongoing(st.clone(),None)), env.clone()))
+                                    Ok((SessionType::Ongoing(st.clone()), env.base.clone()))
                                 }
                                 None => {
                                     Err(format!(
@@ -80,18 +71,11 @@ pub fn try_st_env_update(
                         return Err("Session identifier for session type must be var".to_string());
                     };
                     // TODO: OK to basically ignore the ServerPid , i.e. args[0] ??? That is what I do right now.
-                    match env.get(&session_id) {
+                    match env.ongoing.get(&session_id) {
                         Some(sid_type) => {
-                            // In this case the content of the session type must be checked
-
-                            // First the type must be a session id
-                            let VarType::ST(sid_type) = sid_type else {
-                                return Err(format!("Expected a session type, found {:?}", sid_type));
-                            };
-
                             match sid_type {
                                 SessionType::NotST => todo!("NotST not used"),
-                                SessionType::Ongoing(SessionElementList(sid_cnt), local_binder_res) => {
+                                SessionType::Ongoing(SessionElementList(sid_cnt)) => {
                                     if sid_cnt.is_empty() {
                                         return Err("Session Type is empty, cannot continue, no send?".to_string());
                                     };
@@ -99,13 +83,9 @@ pub fn try_st_env_update(
                                     // Send: match the sending argument type from env, args[2]
                                     // Lookup type in environment or check literal type match the ST.
                                     let dummy_m = HashMap::new();
+                                    // Sending type find via chk_st_exprs. We shoud assume they are base type
                                     let sending_type =
-                                        chk_st_exprs(&dummy_m, env, (args.get(2)).unwrap())?;
-                                    let (VarType::Base(sending_type), _) = sending_type.first().unwrap()
-                                    else {
-                                        return Err("Must send base type.".to_string());
-                                    };
-
+                                        chk_st_exprs(&dummy_m, &env.base, (args.get(2)).unwrap())?;
                                     match sid_cnt.first().unwrap() {
                                         SessionElement::Send(must_send_type) => {
                                             if *sending_type != *must_send_type {
@@ -131,12 +111,12 @@ pub fn try_st_env_update(
                                             let mut sid_cnt = sid_cnt.clone(); // TODO: At least one more clone than strictly needed
                                             sid_cnt.remove(0);
 
-                                            env.insert(
+                                            env.base.insert(
                                                 session_id.clone(),
-                                                VarType::ST(SessionType::Ongoing(SessionElementList(sid_cnt.clone()),local_binder_res.clone())),
+                                                SessionType::Ongoing(SessionElementList(sid_cnt.clone())),
                                             );
 
-                                            Ok((VarType::Base(returned_type.clone()), env))
+                                            Ok((returned_type.clone(), env.base))
                                         },
                                         SessionElement::Receive(_) => Err("Receive not supported when sending".to_string()),
                                         SessionElement::MakeChoice(_,_) => todo!("make choice when sending impl"),
@@ -152,11 +132,11 @@ pub fn try_st_env_update(
                                                 Some(inner_st) => {
                                                     // Choice found, return now
                                                     let mut env = env.clone();
-                                                    env.insert(
+                                                    env.base.insert(
                                                         session_id.clone(),
                                                         VarType::ST(SessionType::Ongoing(inner_st.clone(),local_binder_res.clone())),
                                                     );
-                                                    Ok((VarType::Base(Types::Tuple(vec![])),env))// TODO: ugly return type, this will properly give problems later
+                                                    Ok((VarType::Base(Types::Tuple(vec![])),env.base))// TODO: ugly return type, this will properly give problems later
                                                 },
                                                 None => Err(format!("Requested choice {:?} not found in {:?}", choice_label, choices)),
                                             }
