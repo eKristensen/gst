@@ -1,11 +1,9 @@
 // Check that session type matches the body
 
-use std::collections::HashMap;
-
 use crate::{
     analysis::{analyze_fun::get_bif_fun_type, analyze_st::try_st_env_update},
-    cerl_parser::{ast::{Atom, Clause, Expr, Exprs, Lit, Pat, Var}, top::fun},
-    st_parser::ast::{SessionType, Types},
+    cerl_parser::ast::{Atom, Clause, Expr, Exprs, Lit, Pat},
+    st_parser::ast::Types,
 };
 
 use super::{
@@ -13,15 +11,13 @@ use super::{
     env::{Funcs, TypeEnv},
 };
 
-use crate::st_parser::ast::SessionType::NotST;
-
 // One one way forward: Dig into the body and see how it goes, one step at a time.
 
 pub fn chk_st_exprs(
     funcs_env: &Funcs,
     type_env: &TypeEnv,
     exprs: &Exprs,
-) -> Result<Vec<(Types, TypeEnv)>, String> {
+) -> Result<(Vec<Types>,TypeEnv), String> {
     let Exprs(exprs) = exprs;
     let mut res: Vec<(Types, TypeEnv)> = vec![];
     for elm in exprs {

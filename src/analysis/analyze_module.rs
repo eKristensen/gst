@@ -1,57 +1,62 @@
 use std::collections::HashMap;
 
-use crate::analysis::analyze_expr::chk_st_exprs;
+use crate::{analysis::analyze_expr::chk_st_exprs, cerl_parser::ast::FunName};
 
 use super::env::{FunEnv, Funcs, TypeEnv};
 
 
 // Proper "export" error message instead binary true/false return.
-pub fn analyze_module_functions(funcs: &Funcs) -> bool {
+pub fn analyze_module_functions(funcs: &Funcs, skipped: &Vec<FunName>) -> bool {
+    // Print info about skipped functions
+    if skipped.len() > 0 {
+        println!("These functions are excluded from analysis due to lack of -session and/or -spec annotations:");
+        for fh in skipped.iter() {
+            println!("{}", fh)
+        }
+        println!("--------------------------------------------------------");
+    }
+
+
     let mut overall_acceptance = true; // Assume all is good until proven otherwise
     for (fun_head, fun_env) in funcs {
         print!("Analyzing {} ... ", fun_head);
-        if fun_env.must_analyze() {
+        let type_env = init_type_env(fun_env);
 
+        print!("\ninit env constructors (Gamma):");
+        for (key, val) in &type_env.constructors {
+            print!("\n{} = {}", key, val);
+        }
+        print!("\ninit env ongoing (Delta):");
+        for (key, val) in &type_env.ongoing {
+            print!("\n{} = {}", key, val);
+        }
+        print!("\ninit env ongoing (Sigma):");
+        for (key, val) in &type_env.base {
+            print!("\n{} = {}", key, val);
+        }
 
-            // TODO: Replace by new "init_type_env" function
-            let (type_env, new_binders) = init_type_env(
-                fun_env.spec.as_ref().unwrap(),
-                fun_env.session.as_ref().unwrap(),
-                &fun_env.body.as_ref().unwrap().args,
-                &fun_env.session.as_ref().unwrap().binders,
-            );
-
-
-            print!("\ninit analyze env:");
-            for (key, val) in &type_env {
+        // TODO: Find a nice way to represent multiple possible cases
+        let res_analysis =
+            chk_st_exprs(funcs, &type_env, &fun_env.body.as_ref().unwrap().body).unwrap();
+        println!("\n\nAnalyzed all possible environments, checking each of them (if any)");
+        if res_analysis.is_empty() {
+            overall_acceptance = false;
+            println!("\nNOT OK, no possible executions that match spec according to analysis.")
+        }
+        for (return_type, res_env) in res_analysis {
+            print!("\nPossible env:");
+            for (key, val) in &res_env {
                 print!("\n{} = {}", key, val);
             }
-            // TODO: Find a nice way to represent multiple possible cases
-            let res_analysis =
-                chk_st_exprs(funcs, &type_env, &fun_env.body.as_ref().unwrap().body).unwrap();
-            println!("\n\nAnalyzed all possible environments, checking each of them (if any)");
-            if res_analysis.is_empty() {
+            // Check res env is acceptable
+            let (_, spec_return_type) = fun_env.spec.as_ref().unwrap();
+            let acceptable_res_env =
+                validate_res_env(&return_type, spec_return_type, &new_binders, res_env);
+            if !acceptable_res_env {
                 overall_acceptance = false;
-                println!("\nNOT OK, no possible executions that match spec according to analysis.")
             }
-            for (return_type, res_env) in res_analysis {
-                print!("\nPossible env:");
-                for (key, val) in &res_env {
-                    print!("\n{} = {}", key, val);
-                }
-                // Check res env is acceptable
-                let (_, spec_return_type) = fun_env.spec.as_ref().unwrap();
-                let acceptable_res_env =
-                    validate_res_env(&return_type, spec_return_type, &new_binders, res_env);
-                if !acceptable_res_env {
-                    overall_acceptance = false;
-                }
-                println!("\nChecking env is acceptable: {:?}\n", acceptable_res_env);
-                // TODO: To check return type
-            }
-        } else {
-            // TODO: Should functions that cannot be analyzed result in an error? They do not right now.
-            println!(" SKIP ANALYSIS. {}.", fun_env.comment)
+            println!("\nChecking env is acceptable: {:?}\n", acceptable_res_env);
+            // TODO: To check return type
         }
         println!("--------------------------------------------------------");
     }
@@ -66,7 +71,6 @@ fn init_type_env(
 {
     // Initial types for variables
     let mut env: HashMap<Var, VarType> = HashMap::new();
-    let mut binders = binders.clone(); // TODO: Inefficient!
 
     let (input, _) = spec;
 

@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use nom::Finish;
 
 use crate::{
-    cerl_parser::{ast::{Atom, FunDef, FunName, Lit, Module}, top::fun},
+    cerl_parser::ast::{Atom, FunName, Lit, Module},
     st_parser::{
-        ast::{SessionDef, SessionElementList, SessionType, Types},
+        ast::{SessionDef, SessionType, Types},
         parser::st_parse,
     },
 };
@@ -24,8 +24,8 @@ pub fn init_funcs_env(m: Module) -> (Funcs,Vec<FunName>) {
     // Info: Name of module and module exports not relevant yet
     let mut env: HashMap<FunName, FunEnv> = HashMap::new();
 
-    let mut spec_args: HashMap<FunName, (Vec<FunContract>, FunContract)>;
-    let mut session_args: HashMap<FunName, (Vec<SessionType>, SessionElementList)>;
+    let mut spec_args: HashMap<FunName, (Vec<FunContract>, Types)>;
+    let mut session_args: HashMap<FunName, Vec<SessionType>>;
 
     let mut skipped_functions: Vec<FunName>;
 
@@ -46,29 +46,70 @@ pub fn init_funcs_env(m: Module) -> (Funcs,Vec<FunName>) {
     for (fun_head, fun_body) in &m.body {
         // Check whether function is qualified for analysis
         if !spec_args.contains_key(fun_head) || !session_args.contains_key(fun_head) {
+            // Mark function as skipped
             skipped_functions.push(fun_head.clone());
+
+            // Allow functions that are explicitly skipped to have unused -session and -spec
+            // In other works: By removing them from the maps they are marked as "processed".
+            spec_args.remove(fun_head);
+            session_args.remove(fun_head);
+
+            // Go to next function.
             continue;
+        }
+
+        if env.contains_key(&fun_head) {
+            panic!("Duplicate body for function {}", fun_head)
         }
         
         // Get -spec and related return type
         let (fun_spec_in, fun_spec_rt) = spec_args.get(fun_head).unwrap();
 
         // Get -session and related return type
-        let (fun_session_in, fun_session_rt) = session_args.get(fun_head).unwrap();
+        let fun_session_in = session_args.get(fun_head).unwrap();
 
-        // TODO
-        // Question: Is it possible to directly return a session type?
-        //           The alternative is to only be able to return base types.
-        //           Session types are not native to erlang. They only exists during analysis
+        // Note:     Session types are not native to erlang. They only exists during analysis
         //           Returned "valued" are references used as session identifiers.
-        //           Maybe it makes even less sense after removing ongoing(s -> s'), making it onoing(s)
 
-        // Merge return type
-        match *fun_session_rt {
+        // Zip/Merge -spec and -session. Remember -session only supplements -spec
+        // -spec is not replaced to preserve compatibility with Dialyzer etc.
+        let mut fun_contract: Vec<FunContract>;
+        for (i,arg_in) in fun_session_in.iter().enumerate() {
+            match arg_in {
+                SessionType::NotST => {
+                    // Argument must be in -spec
+                    fun_contract.push(fun_spec_in.get(i).unwrap().clone());
+                },
+                SessionType::New(st_new) => {
+                    // Argument in -spec must be 'new' atom
+                    if *fun_spec_in.get(i).unwrap() != FunContract::Base(Types::Single("new".to_owned())) {
+                        todo!("Nice error message when new() is not used in -spec but new session type exists in -session")
+                    }
+                    fun_contract.push(FunContract::New(st_new.clone()));
+                },
+                SessionType::Ongoing(st_ongoing) => {
+                    // Argument in -spec must be 'new' atom
+                    if *fun_spec_in.get(i).unwrap() != FunContract::Base(Types::Single("ongoing".to_owned())) {
+                        todo!("Nice error message when new() is not used in -spec but new session type exists in -session")
+                    }
+                    fun_contract.push(FunContract::Ongoing(st_ongoing.clone()));
+                },
+            }
         }
 
-        // Add body
-        add_body(&mut env, fun_head, fun_body);
+        // Add info to environment
+        env.insert(
+            fun_head.clone(),
+            FunEnv {
+                contract: fun_contract,
+                return_type: fun_spec_rt.clone(), // TODO: Involved default, maybe just input the return type right away instead?
+                body: Some(fun_body.clone()),
+            },
+        );
+
+        // Remove used functions. The maps are checked in the end and should be empty.
+        spec_args.remove(fun_head);
+        session_args.remove(fun_head);
     }
 
     // For all functions: Decode "spec" to something that is consumable.
@@ -83,6 +124,11 @@ pub fn init_funcs_env(m: Module) -> (Funcs,Vec<FunName>) {
     // if fun_env.spec.is_some() && fun_env.session.is_some() && fun_env.body.is_some() {
     // If not add "comment".
 
+    // Sanity check: There should be no extra -spec or -session.
+    if spec_args.len() > 0 || session_args.len() > 0 {
+        todo!("Pretty error for unreachable/unusable -session and/or -spec definitions; I.e. they are defined for functions that are not defined.")
+    }
+
     // Finally check data is well formed
     let wf_res = check_wf(m, &env);
     if wf_res.is_err() {
@@ -95,7 +141,7 @@ pub fn init_funcs_env(m: Module) -> (Funcs,Vec<FunName>) {
 // Add spec to env
 // New fun if not exists
 // Error if spec already exists for fun
-fn add_spec(args: &mut HashMap<FunName, (Vec<FunContract>, FunContract)>, v: &Lit) {
+fn add_spec(args: &mut HashMap<FunName, (Vec<FunContract>, Types)>, v: &Lit) {
     // Find function name via the deep nested spec representation
 
     // TODO: A nicer way to unwrap?
@@ -141,7 +187,7 @@ fn add_spec(args: &mut HashMap<FunName, (Vec<FunContract>, FunContract)>, v: &Li
 // Add session to env
 // New fun if not exists
 // Error if session already exists for fun
-fn add_session(args: &mut HashMap<FunName, (Vec<SessionType>, SessionElementList)>, v: &Lit) {
+fn add_session(args: &mut HashMap<FunName, Vec<SessionType>>, v: &Lit) {
     // Run session parser
     // Session type is wrapped within a list and then as the name of an atom
     // Get function name
@@ -177,29 +223,11 @@ fn add_session(args: &mut HashMap<FunName, (Vec<SessionType>, SessionElementList
 
             args.insert(
                 session_type_parsed.name.clone(),
-                (session_type_parsed.st,session_type_parsed.return_type),
+                session_type_parsed.st,
             );
 }
 
-fn add_body(env: &mut HashMap<FunName, FunEnv>, fun_head: &FunName, fun_body: &FunDef) {
-
-    if env.contains_key(&fun_head) {
-        panic!("Duplicate body for function {}", fun_head)
-    }
-
-            env.insert(
-                fun_head.clone(),
-                FunEnv {
-                    contract: vec![],
-                    return_type: FunContract::Base(Types::Single("".to_owned())), // TODO: Involved default, maybe just input the return type right away instead?
-                    body: Some(fun_body.clone()),
-                    must_analyze: false,
-                    comment: "".to_string()
-                },
-            );
-}
-
-fn extract_spec(spec_in: &[Lit]) -> (Vec<FunContract>, FunContract) {
+fn extract_spec(spec_in: &[Lit]) -> (Vec<FunContract>, Types) {
     // Convert tagged tuples into something that can be used to compare types
 
     // TODO: Is it possible to explain this function at all?
@@ -266,7 +294,7 @@ fn extract_spec(spec_in: &[Lit]) -> (Vec<FunContract>, FunContract) {
     //println!("\n\n\nReady\nIn:{:?}\nOut:{:?}\n\n\n", main_spec_in, main_spec_out);
     let res_in_types = res_in_types.into_iter().map(FunContract::Base).collect();
 
-    (res_in_types, FunContract::Base(Types::Single(out_type_string.clone())))
+    (res_in_types, Types::Single(out_type_string.clone()))
 }
 
 // Add body to env

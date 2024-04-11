@@ -8,7 +8,7 @@
 
 use std::{collections::HashMap, fmt};
 
-use crate::cerl_parser::ast::{FunName, Var};
+use crate::cerl_parser::ast::FunName;
 
 // TODO Multi-option function like in -spec cannot be represented right now.
 // The -session is assumed to only have a single case for now.
@@ -16,7 +16,6 @@ use crate::cerl_parser::ast::{FunName, Var};
 pub struct SessionDef {
     pub name: FunName,
     pub st: Vec<SessionType>,
-    pub return_type: SessionElementList,
 }
 
 // Label to differentiate branches in session types. They are assumed to be non-overlapping
@@ -91,13 +90,8 @@ impl fmt::Display for SessionType {
             SessionType::New(res) => {
                 write!(f, "new({})", res)
             }
-            SessionType::Ongoing(res1, res2) => {
-                // TODO Generalize instead of copy-paste
-                let res2 = match res2 {
-                    Some(res2) => res2.clone(), // TODO Stupid clone
-                    None => SessionElementList(vec![]),
-                };
-                write!(f, "ongoing({}, {})", res1, res2)
+            SessionType::Ongoing(res) => {
+                write!(f, "ongoing({},)", res)
             }
         }
     }

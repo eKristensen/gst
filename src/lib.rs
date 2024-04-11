@@ -12,6 +12,6 @@ pub fn parse(src: &str) -> Result<(&str, cerl_parser::ast::Module), nom::Err<Err
 }
 
 pub fn analyze(m: Module) -> bool {
-    let (env,_) = init_funcs_env(m);
-    analyze_module_functions(&env)
+    let (env,skipped) = init_funcs_env(m);
+    analyze_module_functions(&env, &skipped)
 }

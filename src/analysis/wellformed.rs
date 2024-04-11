@@ -2,56 +2,36 @@
 // They could for the most case be included when parsing with nom, but splitting responsibilities makes it easer to read, write and maintain the source code at the expense that well formed checks could be "forgotten".
 // However the data-structure does allows to store data that makes no sense so using this for sanity check makes sense in any case.
 
-use std::collections::HashMap;
-
 use crate::{
-    cerl_parser::ast::{FunName, Module},
-    st_parser::ast::{SessionElement, SessionElementList, SessionType},
+    cerl_parser::ast::Module,
+    st_parser::ast::{SessionElement, SessionElementList},
 };
 
-use super::env::FunEnv;
+use super::env::Funcs;
 
 // TODO high and low level test of check_wf_st_t
 
 // cerl parsed module
 // init_env includes parsed session types
-pub fn check_wf(_: Module, env: &HashMap<FunName, FunEnv>) -> Result<(), String> {
+pub fn check_wf(_: Module, env: &Funcs) -> Result<(), String> {
     for elm in env.values() {
-        match &elm.session {
-            Some(session) => {
-                // Check no ST has elements after "end."
-                check_wf_st_t(&session.st)?;
-
-                // Check all binders refer to variables that are defined in the function body.
-                // Remember to exclude function argument variables... (those names are automatically generated and should not be used)
-                //check_binder_body(&elm.body, &session.binders)?;
+        for arg in &elm.contract {
+            // There is something to check when contract is new or ongoing.
+            // Check no ST has elements after "end."
+            match arg {
+                super::env::FunContract::Base(_) => continue, // Nothing to check with base type
+                super::env::FunContract::New(st) => check_wf_st_elm(st)?,
+                super::env::FunContract::Ongoing(st) => check_wf_st_elm(st)?,
             }
-            None => (),
+
+                // TODO
+            // Check all binders refer to variables that are defined in the function body.
+            // Remember to exclude function argument variables... (those names are automatically generated and should not be used)
+            //check_binder_body(&elm.body, &session.binders)?;
         }
     }
 
     // TODO: keywords check? Maybe it would sense if labels could not be named "new" or "ongoing"
-
-    Ok(())
-}
-
-fn check_wf_st_t(st: &Vec<SessionType>) -> Result<(), String> {
-    for elm in st {
-        match elm {
-            SessionType::NotST => (),
-            SessionType::New(inner) => check_wf_st_elm(inner)?,
-            SessionType::Ongoing(st1) => {
-                check_wf_st_elm(st1)?;
-                let SessionElementList(st1) = st1;
-                if *st1.last().unwrap() == SessionElement::End {
-                    // TODO Ask Marco about this assumption for well formed session types
-                    return Err(
-                        "Last element of first part of ongoing st type cannot be end.".to_string(),
-                    );
-                }
-            } // something like: Check first is ok, if last is .end, then the 2nd must be empty. Check 2nd one is ok.
-        }
-    }
 
     Ok(())
 }

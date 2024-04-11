@@ -9,7 +9,7 @@
 // The function information environment is not updated while checking the session-types.
 // This environment is used for lookup when variables are assigned or session-types checked.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use crate::{
     analysis::analyze_expr::env_update_pattern_from_return_type,
