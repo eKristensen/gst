@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use nom::Finish;
 
 use crate::{
-    cerl_parser::ast::{Atom, FunDef, FunName, Lit, Module},
+    cerl_parser::{ast::{Atom, FunDef, FunName, Lit, Module}, top::fun},
     st_parser::{
         ast::{SessionDef, SessionElementList, SessionType, Types},
         parser::st_parse,
@@ -27,6 +27,8 @@ pub fn init_funcs_env(m: Module) -> (Funcs,Vec<FunName>) {
     let mut spec_args: HashMap<FunName, (Vec<FunContract>, FunContract)>;
     let mut session_args: HashMap<FunName, (Vec<SessionType>, SessionElementList)>;
 
+    let mut skipped_functions: Vec<FunName>;
+
     // Use attributes to get spec and session
     for attribute in &m.attributes {
         let Atom(a_name) = &attribute.name;
@@ -42,11 +44,28 @@ pub fn init_funcs_env(m: Module) -> (Funcs,Vec<FunName>) {
     // Use body to get body of functions
     // TODO: Adding functions to env is not optional here
     for (fun_head, fun_body) in &m.body {
-        // Get spec and return type
+        // Check whether function is qualified for analysis
+        if !spec_args.contains_key(fun_head) || !session_args.contains_key(fun_head) {
+            skipped_functions.push(fun_head.clone());
+            continue;
+        }
+        
+        // Get -spec and related return type
         let (fun_spec_in, fun_spec_rt) = spec_args.get(fun_head).unwrap();
 
+        // Get -session and related return type
+        let (fun_session_in, fun_session_rt) = session_args.get(fun_head).unwrap();
+
+        // TODO
+        // Question: Is it possible to directly return a session type?
+        //           The alternative is to only be able to return base types.
+        //           Session types are not native to erlang. They only exists during analysis
+        //           Returned "valued" are references used as session identifiers.
+        //           Maybe it makes even less sense after removing ongoing(s -> s'), making it onoing(s)
+
         // Merge return type
-        
+        match *fun_session_rt {
+        }
 
         // Add body
         add_body(&mut env, fun_head, fun_body);
