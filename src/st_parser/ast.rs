@@ -15,8 +15,11 @@ use crate::cerl_parser::ast::FunName;
 #[derive(Debug, Clone, PartialEq)]
 pub struct SessionDef {
     pub name: FunName,
-    pub st: Vec<SessionType>,
+    pub st: Vec<ST>,
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ST (pub Vec<SessionType>);
 
 // Label to differentiate branches in session types. They are assumed to be non-overlapping
 // TODO: Non-overlapping assumption reconsider

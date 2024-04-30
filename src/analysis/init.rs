@@ -7,7 +7,7 @@ use nom::Finish;
 use crate::{
     cerl_parser::ast::{Atom, FunName, Lit, Module},
     st_parser::{
-        ast::{SessionDef, SessionType, Types},
+        ast::{ST, SessionDef, SessionType, Types, ST},
         parser::st_parse,
     },
 };
@@ -25,7 +25,7 @@ pub fn init_funcs_env(m: Module) -> (Funcs,Vec<FunName>) {
     let mut env: HashMap<FunName, FunEnv> = HashMap::new();
 
     let mut spec_args: HashMap<FunName, (Vec<FunContract>, Types)>;
-    let mut session_args: HashMap<FunName, Vec<SessionType>>;
+    let mut session_args: HashMap<FunName, Vec<ST>>;
 
     let mut skipped_functions: Vec<FunName>;
 
@@ -187,7 +187,7 @@ fn add_spec(args: &mut HashMap<FunName, (Vec<FunContract>, Types)>, v: &Lit) {
 // Add session to env
 // New fun if not exists
 // Error if session already exists for fun
-fn add_session(args: &mut HashMap<FunName, Vec<SessionType>>, v: &Lit) {
+fn add_session(args: &mut HashMap<FunName, Vec<ST>>, v: &Lit) {
     // Run session parser
     // Session type is wrapped within a list and then as the name of an atom
     // Get function name

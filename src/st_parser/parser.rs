@@ -4,7 +4,7 @@ use nom::{
     branch::alt,
     character::complete::alpha1,
     combinator::{map, value},
-    multi::{separated_list0, separated_list1},
+    multi::separated_list1,
     sequence::{delimited, pair, preceded, tuple},
     IResult,
 };
@@ -16,7 +16,7 @@ use crate::cerl_parser::{
     terminals::{atom, var},
 };
 
-use super::ast::{Label, SessionDef, SessionElement, SessionElementList, SessionType, Types};
+use super::ast::{ST, Label, SessionDef, SessionElement, SessionElementList, SessionType, Types};
 
 use crate::st_parser::parser::SessionType::{New, NotST, Ongoing};
 
@@ -25,50 +25,39 @@ use crate::st_parser::parser::SessionType::{New, NotST, Ongoing};
 // Doing for now to get a working prototype
 pub fn st_parse(i: &str) -> IResult<&str, SessionDef, ErrorTree<&str>> {
     map(
-        tuple((
+        pair(
             atom,
-            delimited(
-                ws(tag("(")),
-                separated_list1(
-                    ws(tag(",")),
-                    alt((new_st, ongoing_st, value(NotST, ws(tag("_"))))),
-                ),
-                ws(tag(")")),
-            ),
-            ws(ws(tag("->"))),
-            alt((
-                value(SessionElementList(vec![]), ws(tag("_"))),
-                delimited(ws(tag("(")), st_inner, ws(tag(")"))),
-            )),
-            ws(ws(tag(","))),
-            delimited(
-                ws(tag("[")),
-                separated_list0(
-                    ws(tag(",")),
-                    pair(var, preceded(ws(ws(tag(":"))), st_inner)),
-                ),
-                ws(tag("]")),
-            ),
-        )),
-        |(fname, sm, _, rt, _, b)| {
-            let mut binders = HashMap::new();
-
-            for (key, elm) in b {
-                if binders.insert(key.clone(), elm.clone()).is_some() {
-                    panic!("Duplicate var in st binders")
-                }
-            }
+            separated_list1(tag(";"), clause)
+        ),
+        |(fname, clauses)| {
+            // TODO: WF Check: Duplicate var in st binders
+            // TODO: WF Check: Consistent number of arguments
 
             SessionDef {
                 name: FunName {
                     name: fname,
-                    arity: sm.len().try_into().unwrap(),
+                    arity: clauses.first().unwrap().0.len().try_into().unwrap(),
                 },
-                st: sm,
-                return_type: rt,
-                binders,
+                st: clauses,
             }
         },
+    )(i)
+}
+
+fn clause(i: &str) -> IResult<&str, ST, ErrorTree<&str>> {
+    map(
+        delimited(
+            ws(tag("(")),
+            separated_list1(
+                ws(tag(",")),
+                alt((new_st, ongoing_st, value(NotST, ws(tag("_"))))),
+            ),
+            ws(tag(")")),
+        ),
+        |st| {
+            // TODO: It should be possible to write this one more neatly... 
+            ST(st)
+        }
     )(i)
 }
 
@@ -88,11 +77,11 @@ fn ongoing_st(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
             ws(tag("ongoing")),
             delimited(
                 ws(tag("(")),
-                tuple((st_inner, ws(tag("->")), st_inner)),
+                st_inner,
                 ws(tag(")")),
             ),
         )),
-        |(_, (o1, _, o2))| Ongoing(o1, Some(o2)),
+        |(_, o)| Ongoing(o),
     )(i)
 }
 
