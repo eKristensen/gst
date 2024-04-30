@@ -4,7 +4,7 @@ Streaming vs complete parser: Cannot check for "end" (without taking all input a
 
 Core Erlang is compiled only. No interactive way to run code like in normal non-core Erlang.
 
-Steal idea from https://staff.um.edu.mt/afra1/papers/Agere21.pdf
+Be inspired by https://staff.um.edu.mt/afra1/papers/Agere21.pdf
 - Use tag "-session" on client side and describe sessions as a string to parse later. The same idea as I had
 - Since someone else did the same it is properly not all bad.
 
