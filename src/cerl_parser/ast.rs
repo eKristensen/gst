@@ -1,5 +1,3 @@
-// TODO: Refactor to be more like the core erlang paper suggests the core erlang ast should look. Parsing is more important for now though.
-
 use std::fmt;
 
 // "New" types
@@ -34,8 +32,7 @@ pub struct FunName {
 pub enum FunKind {
     PrimOp,
     Apply,
-    // Note: A function name is an atom in most cases, but it might be referred via variable name. Therefore String is used
-    Call(String), // Place module name in here
+    Call(Box<Exprs>),
 }
 
 #[derive(Debug, Clone)]
@@ -44,19 +41,27 @@ pub struct Attribute {
     pub value: Lit,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct FunDef {
     pub args: Vec<Var>,
     pub body: Exprs,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Eq, Clone, PartialEq, Hash)]
+pub struct Float {
+    // Comment: Why not store as float? Because floats do not implement Hash in Rust.
+    pub base: i64,
+    pub decimal: u64,
+    pub exponent: i64
+}
+
+#[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub enum Lit {
     Int(i64),
-    Float(f32),
+    Float(Float),
     Atom(Atom),
     Char(String), // TODO note down: Wut? A char is not a char, It could be e.g. $\101
-    Cons(Vec<Lit>),
+    Cons(Vec<Lit>), // TODO Would it be better to make head and tail like source code is?
     Tuple(Vec<Lit>),
     String(String),
     Nil,
@@ -64,16 +69,16 @@ pub enum Lit {
 
 // Parser will technically interpret X alone as <X>
 // TODO: Change if this becomes a problem
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct Exprs(pub Vec<Expr>);
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum MapPairType {
     Assoc,
     Exact,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MapPair {
     pub pair_type: MapPairType,
     pub key: Expr,
@@ -81,7 +86,7 @@ pub struct MapPair {
 }
 
 // TODO: Maybe it is a bad idea to use Vec<Expr> instead of having Exprs
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Expr {
     Var(Var),
     Fname(FunName), // Note fname is for e.g. 'foo/1 = fun (X) -> 1+X end.
@@ -100,7 +105,7 @@ pub enum Expr {
     Map(Vec<MapPair>, Option<Box<Expr>>), // TODO: More transparent way to allow "update" from map or variable that contains a map
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct Clause {
     pub pats: Vec<Pat>,
     pub when: Exprs,
@@ -109,7 +114,7 @@ pub struct Clause {
 
 // TODO: Can this be changed so case and let use same format for assignments???
 // This structure makes code reuse much harder than it should be!
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub enum Pat {
     Var(Var),
     Lit(Lit),

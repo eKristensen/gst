@@ -32,7 +32,7 @@ pub struct Label(pub String);
 pub enum SessionType {
     NotST, // Needed as a placeholder for the initial session spec to be able to count the variable arguments
     New(SessionElementList), // Constructor for new session
-    Ongoing(SessionElementList), // "ongoing" session
+    Consume(SessionElementList), // "ongoing" session
            // Development notes ( TODO move somewhere else)
            // 10. april 2024: binders removed
            // Idea: Ongoing checking consistent: When ongoing is constructed copy the expected return type from binders
@@ -50,7 +50,7 @@ pub enum SessionType {
 pub enum Types {
     Single(String),
     Tuple(Vec<Types>),
-    // Cons(Vec<Types>), // TODO implement Cons
+    Cons(Vec<Types>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -93,8 +93,8 @@ impl fmt::Display for SessionType {
             SessionType::New(res) => {
                 write!(f, "new({})", res)
             }
-            SessionType::Ongoing(res) => {
-                write!(f, "ongoing({},)", res)
+            SessionType::Consume(res) => {
+                write!(f, "consume({},)", res)
             }
         }
     }

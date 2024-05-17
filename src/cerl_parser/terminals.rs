@@ -12,7 +12,7 @@ use nom::{
 use nom_supreme::error::ErrorTree;
 
 use super::{
-    ast::{Atom, Var},
+    ast::{Atom, Float, Var},
     helpers::{opt_annotation, ws},
     lex::{is_control, is_ctlchar, is_inputchar, is_uppercase, namechar},
 };
@@ -166,23 +166,37 @@ pub fn integer<
     )(i)
 }
 
-// The build in float function in nom is not enough. It can consume integers and present them as floats.
-// We need to check the format before using nom's float function
-pub fn float<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, f32, E> {
-    // TODO: This is even worse than regex....
-    let (i, float_str) = recognize(tuple((
-        opt(alt((char('+'), char('-')))),
-        digit1,
+pub fn opt_sign_digit1<'a, 
+E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
+>(i: &'a str) -> IResult<&str, i64, E> {
+    let (i, sign) = opt(alt((char('+'), char('-'))))(i)?;
+    match sign {
+        None => map_res(digit1, str::parse::<i64>)(i),
+        Some(sign) => match sign {
+            '+' => map_res(digit1, str::parse::<i64>)(i),
+            '-' => {let (i, res) = map_res(digit1, str::parse::<i64>)(i)?; Ok((i,(-1 * res)))},
+        }
+    }
+}
+
+// The build in float function in nom is not enough.
+pub fn float<'a, 
+E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
+>(i: &'a str) -> IResult<&str, Float, E> {
+    let (i, (base, _, decimal, exponent)) = tuple((
+        opt_sign_digit1,
         char('.'),
-        digit1,
+        map_res(digit1,str::parse::<u64>),
         opt(tuple((
             alt((char('E'), char('e'))),
-            opt(alt((char('+'), char('-')))),
-            digit1,
+            opt_sign_digit1,
         ))),
-    )))(i)?;
-    let (_, float_res) = nom::number::complete::float(float_str)?;
-    Ok((i, float_res))
+    ))(i)?;
+    let exponent = match exponent {
+        Some((_,res)) => res,
+        None => 1,
+    };
+    Ok((i, Float{ base: base, decimal: decimal, exponent: exponent }))
 }
 
 fn parse_string_input_chr<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
@@ -369,23 +383,23 @@ mod tests {
     #[test]
     fn test_floating_point_numbers() {
         // Tests based on Core Erlang 1.03 specification Appendix A
-        assert_eq!(float::<()>("0.0"), Ok(("", 0.0)));
-        assert_eq!(float::<()>("2.7182818"), Ok(("", 2.7182818)));
-        assert_eq!(float::<()>("-3.14"), Ok(("", -3.14)));
-        assert_eq!(float::<()>("+1.2E-6"), Ok(("", 1.2e-6)));
-        assert_eq!(float::<()>("-1.23e12"), Ok(("", -1.23e12)));
-        assert_eq!(float::<()>("1.0e+9"), Ok(("", 1.0e9)));
+        assert_eq!(float::<()>("0.0"), Ok(("", Float{ base: 0, decimal: 0, exponent: 1 })));
+        assert_eq!(float::<()>("2.7182818"), Ok(("", Float{ base: 2, decimal: 7182818, exponent: 1 })));
+        assert_eq!(float::<()>("-3.14"), Ok(("", Float{ base: -3, decimal: 14, exponent: 1 })));
+        assert_eq!(float::<()>("+1.2E-6"), Ok(("", Float{ base: 1, decimal: 2, exponent: -6 })));
+        assert_eq!(float::<()>("-1.23e12"), Ok(("", Float{ base: 1, decimal: 23, exponent: 12 })));
+        assert_eq!(float::<()>("1.0e+9"), Ok(("", Float{ base: 1, decimal: 0, exponent: 9 })));
 
         // TODO Move "lit" tests to lex.rs ?
-        assert_eq!(lit("0.0").unwrap(), ("", Lit::Float(0.0)));
-        assert_eq!(lit("2.7182818").unwrap(), ("", Lit::Float(2.7182818)));
-        assert_eq!(lit("-3.14").unwrap(), ("", Lit::Float(-3.14)));
-        assert_eq!(lit("+1.2E-6").unwrap(), ("", Lit::Float(1.2e-6)));
-        assert_eq!(lit("-1.23e12").unwrap(), ("", Lit::Float(-1.23e12)));
-        assert_eq!(lit("1.0e+9").unwrap(), ("", Lit::Float(1.0e9)));
+        assert_eq!(lit("0.0").unwrap(), ("", Lit::Float(Float{ base: 0, decimal: 0, exponent: 1 })));
+        assert_eq!(lit("2.7182818").unwrap(), ("", Lit::Float(Float{ base: 2, decimal: 7182818, exponent: 1 })));
+        assert_eq!(lit("-3.14").unwrap(), ("", Lit::Float(Float{ base: -3, decimal: 14, exponent: 1 })));
+        assert_eq!(lit("+1.2E-6").unwrap(), ("", Lit::Float(Float{ base: 1, decimal: 2, exponent: -6 })));
+        assert_eq!(lit("-1.23e12").unwrap(), ("", Lit::Float(Float{ base: 1, decimal: 23, exponent: 12 })));
+        assert_eq!(lit("1.0e+9").unwrap(), ("", Lit::Float(Float{ base: 1, decimal: 0, exponent: 9 })));
 
         // Mindless sanity check
-        assert_ne!(float::<()>("0.0"), Ok(("", 2.0)));
+        assert_ne!(float::<()>("0.0"), Ok(("", Float{ base: 2, decimal: 0, exponent: 1 })));
 
         // TODO: Negative / Expect Error test
     }
