@@ -15,7 +15,11 @@ module 'st_compute_server' ['handle_new_session_call'/3,
 		%% Line 6
 		'mspec' =
 		    %% Line 6
-		    ['[?neg !ready. ?int !int,?add !ready ?int !received ?int !int]']]
+		    ['[?neg !ready. ?int !int,?add !ready ?int !received ?int !int]'],
+		%% Line 21
+		'spec' =
+		    %% Line 21
+		    [{{'handle_new_session_call',3},[{'type',{21,30},'fun',[{'type',{21,30},'product',[{'atom',{21,31},'neg'}|[{'type',{21,38},'pid',[]}|[{'type',{21,45},'map','any'}]]]}|[{'type',{21,55},'tuple','any'}]]}]}]]
 'start_link'/0 =
     %% Line 18
     ( fun () ->
@@ -24,21 +28,21 @@ module 'st_compute_server' ['handle_new_session_call'/3,
 	      ('st_compute_server', [], [])
       -| [{'function',{'start_link',0}}] )
 'handle_new_session_call'/3 =
-    %% Line 25
+    %% Line 26
     ( fun (_0,_1,_2) ->
 	  ( case <_0,_1,_2> of
 	      <'neg',_X_From,GlobalState> when 'true' ->
-		  do  %% Line 26
+		  do  %% Line 27
 		      call 'io':'format'
 			  ([68|[69|[66|[85|[71|[58|[32|[83|[101|[114|[118|[101|[114|[32|[103|[111|[116|[32|[110|[101|[103|[32|[99|[104|[111|[105|[99|[101|[32|[105|[32|[110|[101|[119|[32|[115|[101|[115|[115|[105|[111|[110|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
-		      %% Line 27
+		      %% Line 28
 		      {'reply','ready','neg',GlobalState}
-	      %% Line 33
+	      %% Line 34
 	      <'add',_X_From,GlobalState> when 'true' ->
-		  do  %% Line 34
+		  do  %% Line 35
 		      call 'io':'format'
 			  ([68|[69|[66|[85|[71|[58|[32|[83|[101|[114|[118|[101|[114|[32|[103|[111|[116|[32|[97|[100|[100|[32|[99|[104|[111|[105|[99|[101|[32|[105|[32|[110|[101|[119|[32|[115|[101|[115|[115|[105|[111|[110|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
-		      %% Line 35
+		      %% Line 36
 		      {'reply','ready','add',GlobalState}
 	      ( <_5,_4,_3> when 'true' ->
 		    ( primop 'match_fail'
@@ -50,41 +54,41 @@ module 'st_compute_server' ['handle_new_session_call'/3,
 	    -| [{'function',{'handle_new_session_call',3}}] )
       -| [{'function',{'handle_new_session_call',3}}] )
 'handle_plus_call'/4 =
-    %% Line 41
+    %% Line 42
     ( fun (_0,_1,_2,_3) ->
 	  ( case <_0,_1,_2,_3> of
 	      <V1,_X_From,'neg',GlobalState> when 'true' ->
-		  do  %% Line 42
+		  do  %% Line 43
 		      call 'io':'format'
 			  ([68|[69|[66|[85|[71|[58|[32|[83|[101|[114|[118|[101|[114|[32|[103|[111|[116|[32|[108|[97|[115|[116|[32|[109|[101|[115|[115|[97|[103|[101|[32|[105|[110|[32|[110|[101|[103|[32|[115|[101|[115|[115|[105|[111|[110|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
 		      let <_4> =
-			  call %% Line 43
-			       'erlang':%% Line 43
+			  call %% Line 44
+			       'erlang':%% Line 44
 					'-'
-			      (%% Line 43
+			      (%% Line 44
 			       V1)
-		      in  %% Line 43
+		      in  %% Line 44
 			  {'reply',{'result',_4},[],GlobalState}
-	      %% Line 49
+	      %% Line 50
 	      <V1,_X_From,'add',GlobalState> when 'true' ->
-		  do  %% Line 50
+		  do  %% Line 51
 		      call 'io':'format'
 			  ([68|[69|[66|[85|[71|[58|[32|[83|[101|[114|[118|[101|[114|[32|[103|[111|[116|[32|[102|[105|[114|[115|[116|[32|[118|[97|[108|[117|[101|[32|[105|[110|[32|[97|[100|[100|[32|[115|[101|[115|[115|[105|[111|[110|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
-		      %% Line 51
+		      %% Line 52
 		      {'reply','received',{'add',V1},GlobalState}
-	      %% Line 57
+	      %% Line 58
 	      <V2,_X_From,{'add',V1},GlobalState> when 'true' ->
-		  do  %% Line 58
+		  do  %% Line 59
 		      call 'io':'format'
 			  ([68|[69|[66|[85|[71|[58|[32|[83|[101|[114|[118|[101|[114|[32|[103|[111|[116|[32|[108|[97|[115|[116|[32|[109|[101|[115|[115|[97|[103|[101|[32|[105|[110|[32|[97|[100|[100|[32|[115|[101|[115|[115|[105|[111|[110|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
 		      let <_5> =
-			  call %% Line 59
-			       'erlang':%% Line 59
+			  call %% Line 60
+			       'erlang':%% Line 60
 					'+'
-			      (%% Line 59
-			       V1, %% Line 59
+			      (%% Line 60
+			       V1, %% Line 60
 				   V2)
-		      in  %% Line 59
+		      in  %% Line 60
 			  {'reply',{'result',_5},[],GlobalState}
 	      ( <_9,_8,_7,_6> when 'true' ->
 		    ( primop 'match_fail'
@@ -96,12 +100,12 @@ module 'st_compute_server' ['handle_new_session_call'/3,
 	    -| [{'function',{'handle_plus_call',4}}] )
       -| [{'function',{'handle_plus_call',4}}] )
 'handle_plus_cast'/3 =
-    %% Line 61
+    %% Line 62
     ( fun (_0,_1,_2) ->
-	  do  %% Line 62
+	  do  %% Line 63
 	      call 'io':'format'
 		  ([78|[111|[32|[99|[97|[115|[116|[32|[115|[117|[112|[112|[111|[114|[116|[126|[110]]]]]]]]]]]]]]]]])
-	      %% Line 63
+	      %% Line 64
 	      {'noreply',_1,_2}
       -| [{'function',{'handle_plus_cast',3}}] )
 'module_info'/0 =

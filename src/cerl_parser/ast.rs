@@ -1,3 +1,5 @@
+// Core Erlang AST as is.
+
 use std::fmt;
 
 // "New" types
@@ -17,22 +19,16 @@ pub struct Module {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct FunCall {
-    pub kind: FunKind,
-    pub name: Atom,
+pub enum FunCall {
+    PrimOp(Atom),       // Call basic erlang functions
+    Apply(FunName),     // Inter-module call // Note: Apparently fname is used here
+    Call(Exprs, Exprs), // Cross-module call; (Module, Call name)
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FunName {
     pub name: Atom,
     pub arity: u64,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum FunKind {
-    PrimOp,
-    Apply,
-    Call(Box<Exprs>),
 }
 
 #[derive(Debug, Clone)]
@@ -49,10 +45,11 @@ pub struct FunDef {
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct Float {
-    // Comment: Why not store as float? Because floats do not implement Hash in Rust.
+    // Note: Why not store as float? Because floats do not implement Hash in Rust.
+    //       This format is non-destructive
     pub base: i64,
     pub decimal: u64,
-    pub exponent: i64
+    pub exponent: i64,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
@@ -60,17 +57,18 @@ pub enum Lit {
     Int(i64),
     Float(Float),
     Atom(Atom),
-    Char(String), // TODO note down: Wut? A char is not a char, It could be e.g. $\101
-    Cons(Vec<Lit>), // TODO Would it be better to make head and tail like source code is?
+    Char(char),
+    Cons(Vec<Lit>), // Note: Converted from head tail to vector in parser
     Tuple(Vec<Lit>),
     String(String),
-    Nil,
+    // Nil is intentionally left out. Cons is converted to vector, thus no need for nil.
 }
 
-// Parser will technically interpret X alone as <X>
-// TODO: Change if this becomes a problem
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
-pub struct Exprs(pub Vec<Expr>);
+pub enum Exprs {
+    One(Box<Expr>),
+    Many(Vec<Expr>),
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum MapPairType {
@@ -85,11 +83,10 @@ pub struct MapPair {
     pub value: Expr,
 }
 
-// TODO: Maybe it is a bad idea to use Vec<Expr> instead of having Exprs
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Expr {
     Var(Var),
-    Fname(FunName), // Note fname is for e.g. 'foo/1 = fun (X) -> 1+X end.
+    Fname(FunName), // Note fname is for e.g. 'foo'/1 = fun (X) -> 1+X end.
     Lit(Lit),
     Fun(FunDef),
     Cons(Vec<Exprs>),
@@ -100,7 +97,7 @@ pub enum Expr {
     Call(FunCall, Vec<Exprs>), // Merge call, apply and primop to avoid duplication
     Receive(Vec<Clause>, Exprs, Exprs),
     Try(Exprs, Vec<Var>, Exprs, Vec<Var>, Exprs),
-    Do(Exprs, Exprs), // TODO: Maybe merge into one Expr list ?
+    Do(Exprs, Exprs),
     Catch(Exprs),
     Map(Vec<MapPair>, Option<Box<Expr>>), // TODO: More transparent way to allow "update" from map or variable that contains a map
 }

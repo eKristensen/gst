@@ -18,6 +18,7 @@
 start_link() ->
     gen_server_plus:start_link(?MODULE, [], []).
 
+-spec handle_new_session_call('neg', pid(), map()) -> tuple().
 % New session neg
 % Preliminary Typing Idea
 % Typing: ?{SessionState,neg}.!atom

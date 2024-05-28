@@ -1,11 +1,10 @@
-mod analysis;
 mod cerl_parser;
+mod contract_cerl;
+mod spec_extractor;
 mod st_parser;
 
 use std::env;
 use std::process::Command;
-
-use crate::analysis::{analyze_expr::analyze_module, compute_init_env::init_module_env};
 
 use nom::Finish;
 
@@ -60,9 +59,10 @@ fn main() {
             match cerl_parser::top::module(&src).finish() {
                 // TODO: Add ".finish()" here and in tests or even better in common module.
                 Ok((_, module)) => {
-                    let funcs_env = init_funcs_env(module);
-                    //println!("Init analysis environment {:?}\n", env);
-                    analyze_module_functions(&funcs_env);
+                    // let funcs_env = init_funcs_env(module);
+                    // //println!("Init analysis environment {:?}\n", env);
+                    // analyze_module_functions(&funcs_env);
+                    println!("type checker to be added again")
                 }
                 Err(e) => {
                     // TODO: More compact error messages possible?

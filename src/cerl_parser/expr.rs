@@ -8,7 +8,7 @@ use nom::{
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
-    ast::{Clause, Expr, Exprs, FunCall, FunKind, FunName, MapPair, MapPairType, Var},
+    ast::{Clause, Expr, Exprs, FunCall, FunName, MapPair, MapPairType, Var},
     helpers::{comma_sep_list, opt_annotation, ws},
     lex::{fname, lit},
     pat::pats,
@@ -55,7 +55,7 @@ fn apply(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("apply"))(i)?;
     let (i, fname) = ws(fname)(i)?; // Note: Apparently fname is used here
     let (i, exprs_args) = comma_sep_list("(", ")", ws(exprs))(i)?;
-    let FunName { name, arity } = fname;
+    let FunName { name, arity } = fname.clone();
     if arity != exprs_args.len().try_into().unwrap() {
         panic!(
             "Sanity check for {:?} failed. Expected {} args but found {}",
@@ -66,13 +66,7 @@ fn apply(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     };
     Ok((
         i,
-        crate::cerl_parser::ast::Expr::Call(
-            FunCall {
-                kind: FunKind::Apply,
-                name,
-            },
-            exprs_args,
-        ),
+        crate::cerl_parser::ast::Expr::Call(FunCall::Apply(fname), exprs_args),
     ))
 }
 
@@ -80,17 +74,11 @@ fn call(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("call"))(i)?;
     let (i, module) = ws(exprs)(i)?;
     let (i, _) = ws(tag(":"))(i)?;
-    let (i, name) = ws(atom)(i)?;
+    let (i, call_name) = ws(exprs)(i)?;
     let (i, args) = comma_sep_list("(", ")", exprs)(i)?;
     Ok((
         i,
-        crate::cerl_parser::ast::Expr::Call(
-            FunCall {
-                kind: FunKind::Call(Box::new(module)),
-                name,
-            },
-            args,
-        ),
+        crate::cerl_parser::ast::Expr::Call(FunCall::Call(module, call_name), args),
     ))
 }
 
@@ -100,13 +88,7 @@ fn primop(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, args) = comma_sep_list("(", ")", exprs)(i)?;
     Ok((
         i,
-        crate::cerl_parser::ast::Expr::Call(
-            FunCall {
-                kind: FunKind::PrimOp,
-                name,
-            },
-            args,
-        ),
+        crate::cerl_parser::ast::Expr::Call(FunCall::PrimOp(name), args),
     ))
 }
 
@@ -272,10 +254,10 @@ pub fn exprs(i: &str) -> IResult<&str, Exprs, ErrorTree<&str>> {
 // TODO: Redundant opt_annotation here?
 fn exprs_inner(i: &str) -> IResult<&str, Exprs, ErrorTree<&str>> {
     ws(alt((
-        map(expr, |o| crate::cerl_parser::ast::Exprs(vec![o])),
+        map(expr, |o| crate::cerl_parser::ast::Exprs::One(Box::new(o))),
         map(
             comma_sep_list("<", ">", opt_annotation(expr)),
-            crate::cerl_parser::ast::Exprs,
+            crate::cerl_parser::ast::Exprs::Many,
         ),
     )))(i)
 }

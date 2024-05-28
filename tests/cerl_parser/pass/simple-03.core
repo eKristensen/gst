@@ -1,0 +1,76 @@
+module 'simple-03' ['foo'/3,
+		    'module_info'/0,
+		    'module_info'/1]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[116|[101|[115|[116|[115|[47|[99|[101|[114|[108|[95|[112|[97|[114|[115|[101|[114|[47|[112|[97|[115|[115|[47|[115|[105|[109|[112|[108|[101|[45|[48|[51|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],1}],
+		%% Line 4
+		'spec' =
+		    %% Line 4
+		    [{{'foo',3},[{'type',{4,10},'fun',[{'type',{4,10},'product',[{'type',{4,11},'boolean',[]}|[{'type',{4,22},'number',[]}|[{'type',{4,32},'float',[]}]]]}|[{'type',{4,45},'boolean',[]}]]}|[{'type',{5,10},'fun',[{'type',{5,10},'product',[{'type',{5,11},'pid',[]}|[{'type',{5,18},'list',[]}|[{'type',{5,26},'reference',[]}]]]}|[{'type',{5,42},'reference',[]}]]}]]}]]
+'foo'/3 =
+    %% Line 6
+    ( fun (_0,_1,_2) ->
+	  ( case <_0,_1,_2> of
+	      <A,B,C>
+		  when let <_3> =
+			call 'erlang':'is_boolean'
+			    (A)
+		    in  let <_4> =
+			    call 'erlang':'>'
+				(C, 1)
+			in  call 'erlang':'and'
+				(_3, _4) ->
+		  call 'erlang':'=='
+		      (B, A)
+	      %% Line 7
+	      <A,B,C> when 'true' ->
+		  do  call 'erlang':'!'
+			  (A, B)
+		      do  ( letrec
+				'recv$^0'/0 =
+				    fun () ->
+					let <_10,_8> =
+					    primop 'recv_peek_message'
+						()
+					in  case _10 of
+					      <'true'> when 'true' ->
+						  primop 'remove_message'
+						      ()
+					      ( <'false'> when 'true' ->
+						    let <_9> =
+							primop 'recv_wait_timeout'
+							    ('infinity')
+						    in  case _9 of
+							  <'true'> when 'true' ->
+							      'ok'
+							  ( <'false'> when 'true' ->
+								( apply 'recv$^0'/0
+								      ()
+								  -| ['dialyzer_ignore'] )
+							    -| ['dialyzer_ignore'] )
+							end
+						-| ['dialyzer_ignore'] )
+					    end
+			    in  ( apply 'recv$^0'/0
+				      ()
+				  -| ['dialyzer_ignore'] )
+			    -| ['letrec_goto','no_inline'] )
+			  %% Line 11
+			  C
+	    end
+	    -| [{'function',{'foo',3}}] )
+      -| [{'function',{'foo',3}}] )
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('simple-03')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('simple-03', ( _0
+			      -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end

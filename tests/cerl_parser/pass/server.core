@@ -1,0 +1,22 @@
+module 'server' ['module_info'/0,
+		 'module_info'/1]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[116|[101|[115|[116|[115|[47|[97|[110|[97|[108|[121|[115|[105|[115|[47|[112|[97|[115|[115|[47|[115|[101|[114|[118|[101|[114|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],1}],
+		%% Line 4
+		'mspec' =
+		    %% Line 4
+		    ['?neg !ready ?int !int.']]
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('server')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('server', ( _0
+			   -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end

@@ -1,107 +1,54 @@
-use std::ops::RangeFrom;
-
 use nom::{
     branch::alt,
-    character::complete::{char, digit1, one_of},
-    combinator::{map, map_res, opt, recognize, success, value},
-    error::{ErrorKind, ParseError},
+    character::complete::{anychar, char, digit1, oct_digit1},
+    combinator::{map, map_res, opt, success, value, verify},
+    error::ParseError,
     multi::{fold_many0, fold_many1},
-    sequence::{delimited, tuple},
-    AsChar, Err, IResult, InputIter, InputLength, InputTakeAtPosition, Parser, Slice,
+    sequence::{delimited, pair, preceded, tuple},
+    AsChar, IResult, InputTakeAtPosition, Parser,
 };
 use nom_supreme::error::ErrorTree;
 
 use super::{
     ast::{Atom, Float, Var},
     helpers::{opt_annotation, ws},
-    lex::{is_control, is_ctlchar, is_inputchar, is_uppercase, namechar},
+    lex::{is_control, is_ctlchar, is_inputchar, is_lowercase, is_namechar, is_uppercase},
 };
 
-// TODO: Check terminology: Is everything in here "terminals"?
-
-fn octal(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
-    let mut str: String = "".to_owned();
-    let (i, out) = one_of("01234567")(i)?; // TODO: Use is_oct_digit or oct_digit1 instead?
-                                           // TODO Rewrite. This is impossible to read!
-    str.push(out);
-    let (i, out) = opt(one_of("01234567"))(i)?;
-    match out {
-        Some(out) => {
-            str.push(out);
-            let (i, out) = opt(one_of("01234567"))(i)?;
-            match out {
-                Some(out) => {
-                    str.push(out);
-                    Ok((i, str))
-                }
-                None => Ok((i, str)),
-            }
-        }
-        None => Ok((i, str)),
-    }
-}
+// TODO: Check: Is everything in here "terminals"?
 
 fn escapechar(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
     alt((
-        char('b'), // escapechar
-        char('d'),
-        char('e'),
-        char('f'),
-        char('n'),
-        char('r'),
-        char('s'),
-        char('t'),
-        char('v'),
-        char('\''),
-        char('\\'),
+        value(0x0008 as char, char('b')), // escapechar
+        value(0x007F as char, char('d')),
+        value(0x001B as char, char('e')),
+        value(0x000C as char, char('f')),
+        value(0x000A as char, char('n')),
+        value(0x000D as char, char('r')),
+        value(0x0020 as char, char('s')),
+        value(0x0009 as char, char('t')),
+        value(0x000B as char, char('v')),
+        value(0x0022 as char, char('"')),
+        value(0x0027 as char, char('\'')),
+        value(0x005C as char, char('\\')),
     ))(i)
 }
 
-fn hat_ctlchar(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
-    map(tuple((char('^'), parse_ctlchar)), |(o1, o2)| {
-        format!("{}{}", o1, o2)
-    })(i)
+fn octal(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
+    map(oct_digit1, |o| u8::from_str_radix(o, 8).unwrap() as char)(i)
 }
 
-// Based on: https://github.com/rust-bakery/nom/blob/main/examples/string.rs
-/// Parse an escaped character: \n, \t, \r, \u{00AC}, etc.
-pub fn parse_escaped(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
-    map(
-        tuple((
-            char('\\'),
-            alt((
-                octal,                              // octal
-                hat_ctlchar,                        // ^ctlchar
-                map(escapechar, |o| o.to_string()), // escapechar
-            )),
-        )),
-        |(o1, o2)| format!("{}{}", o1, o2),
+fn escape(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
+    preceded(
+        char('\\'),
+        alt((octal, preceded(char('^'), ctrlchar), escapechar)),
     )(i)
 }
 
-fn parse_atom_input_chr<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
-where
-    T: InputTakeAtPosition,
-    <T as InputTakeAtPosition>::Item: AsChar,
-{
-    input.split_at_position1_complete(
-        |item| {
-            let item_chr = item.as_char() as u8; // TODO extend trait instead of this
-            !(is_inputchar(item_chr)) // With trait it could be item.is_inputchar()
-        ||  is_control(item_chr)
-        ||  item_chr == 0x5C // Hex codes are not easy to read...
-        ||  item_chr == 0x27
-        },
-        nom::error::ErrorKind::Fix, // TODO: Actual error message
-    )
-}
-
-// TODO Can it this be integrated into atom somehow?
-fn parse_atom_fragments(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
-    alt((
-        map(parse_atom_input_chr, |o: &str| o.to_string()),
-        map(parse_escaped, |o| o),
-    ))(i)
+fn ctrlchar(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
+    map(verify(anychar, |o| is_ctlchar(*o as u8)), |o| {
+        (o as u8 - 64) as char
+    })(i)
 }
 
 // Note: Apparently atoms can be annotated as well
@@ -118,13 +65,13 @@ fn atom_inner(i: &str) -> IResult<&str, Atom, ErrorTree<&str>> {
     // and for each output value, calls a folding function on each output value.
     let build_string = fold_many0(
         // Our parser function– parses a single string fragment
-        parse_atom_fragments,
+        atom_char,
         // Our init value, an empty string
-        String::new,
+        Vec::new,
         // Our folding function. For each fragment, append the fragment to the
         // string.
         |mut string, fragment| {
-            string.push_str(&fragment);
+            string.push(fragment);
             string
         },
     );
@@ -134,7 +81,7 @@ fn atom_inner(i: &str) -> IResult<&str, Atom, ErrorTree<&str>> {
     // `delimited` with a looping parser (like fold), be sure that the
     // loop won't accidentally match your closing delimiter!
     map(delimited(char('\''), build_string, char('\'')), |o| {
-        Atom(o.to_string())
+        Atom(o.iter().collect())
     })
     .parse(i)
 }
@@ -166,37 +113,48 @@ pub fn integer<
     )(i)
 }
 
-pub fn opt_sign_digit1<'a, 
-E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(i: &'a str) -> IResult<&str, i64, E> {
+pub fn opt_sign_digit1<
+    'a,
+    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
+>(
+    i: &'a str,
+) -> IResult<&str, i64, E> {
     let (i, sign) = opt(alt((char('+'), char('-'))))(i)?;
     match sign {
         None => map_res(digit1, str::parse::<i64>)(i),
         Some(sign) => match sign {
             '+' => map_res(digit1, str::parse::<i64>)(i),
             '-' => {let (i, res) = map_res(digit1, str::parse::<i64>)(i)?; Ok((i,(-1 * res)))},
+            _ => panic!("Sign not + or - should never be reachable after checking the value is either of those two.")
         }
     }
 }
 
 // The build in float function in nom is not enough.
-pub fn float<'a, 
-E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
->(i: &'a str) -> IResult<&str, Float, E> {
+pub fn float<
+    'a,
+    E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
+>(
+    i: &'a str,
+) -> IResult<&str, Float, E> {
     let (i, (base, _, decimal, exponent)) = tuple((
         opt_sign_digit1,
         char('.'),
-        map_res(digit1,str::parse::<u64>),
-        opt(tuple((
-            alt((char('E'), char('e'))),
-            opt_sign_digit1,
-        ))),
+        map_res(digit1, str::parse::<u64>),
+        opt(tuple((alt((char('E'), char('e'))), opt_sign_digit1))),
     ))(i)?;
     let exponent = match exponent {
-        Some((_,res)) => res,
+        Some((_, res)) => res,
         None => 1,
     };
-    Ok((i, Float{ base: base, decimal: decimal, exponent: exponent }))
+    Ok((
+        i,
+        Float {
+            base: base,
+            decimal: decimal,
+            exponent: exponent,
+        },
+    ))
 }
 
 fn parse_string_input_chr<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
@@ -230,27 +188,19 @@ where
     )
 }
 
-// TODO Can it this be integrated into string somehow?
-fn parse_string_fragments(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
-    alt((
-        map(parse_string_input_chr, |o: &str| o.to_string()),
-        map(parse_escaped, |o| o),
-    ))(i)
-}
-
 // TODO: Deduplicate, a lot like fn atom
 fn string_quoted(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     // fold is the equivalent of iterator::fold. It runs a parser in a loop,
     // and for each output value, calls a folding function on each output value.
     let build_string = fold_many0(
         // Our parser function– parses a single string fragment
-        parse_string_fragments,
+        string_char,
         // Our init value, an empty string
-        String::new,
+        Vec::new,
         // Our folding function. For each fragment, append the fragment to the
         // string.
         |mut string, fragment| {
-            string.push_str(&fragment);
+            string.push(fragment);
             string
         },
     );
@@ -260,7 +210,7 @@ fn string_quoted(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     // `delimited` with a looping parser (like fold), be sure that the
     // loop won't accidentally match your closing delimiter!
     map(delimited(char('"'), build_string, char('"')), |o| {
-        o.to_string()
+        o.iter().collect()
     })
     .parse(i)
 }
@@ -272,56 +222,51 @@ pub fn string(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     })(i)
 }
 
-pub fn char_(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
-    let (i, _) = char('$')(i)?;
-    alt((map(char_name, |o| o.to_string()), parse_escaped))(i)
+pub fn char_char(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
+    preceded(
+        char('$'),
+        alt((
+            verify(inputchar, |o| {
+                !is_control(*o as u8) && *o != ' ' && *o != '\\'
+            }),
+            escape,
+        )),
+    )(i)
 }
 
-fn char_name<T, E: ParseError<T>>(input: T) -> IResult<T, char, E>
-where
-    T: InputIter + InputLength + Slice<RangeFrom<usize>>,
-    <T as InputIter>::Item: AsChar,
-{
-    let mut it = input.iter_indices();
-    let (input, candidate) = match it.next() {
-        None => Err(Err::Error(E::from_error_kind(input, ErrorKind::Eof))),
-        Some((_, c)) => match it.next() {
-            None => Ok((input.slice(input.input_len()..), c.as_char())),
-            Some((idx, _)) => Ok((input.slice(idx..), c.as_char())),
-        },
-    }?;
-    let item_chr = candidate.as_char() as u8; // TODO extend trait instead of this
-    if !(is_inputchar(item_chr)) // With trait it could be item.is_inputchar()
-    ||  is_control(item_chr)
-    ||  item_chr == 0x20 // Hex codes are not easy to read...
-    ||  item_chr == 0x5C
-    {
-        return Err(Err::Error(E::from_error_kind(input, ErrorKind::Fix)));
-    }
-    Ok((input, candidate))
+fn atom_char(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
+    alt((
+        verify(inputchar, |o| {
+            !is_control(*o as u8) && *o != '\\' && *o != '\''
+        }),
+        escape,
+    ))(i)
+}
+
+fn string_char(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
+    alt((
+        verify(inputchar, |o| {
+            !is_control(*o as u8) && *o != '\\' && *o != '"'
+        }),
+        escape,
+    ))(i)
+}
+
+fn inputchar(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
+    verify(anychar, |o| is_inputchar(*o as u8))(i)
 }
 
 // TODO: There must exist a easier way to do this
-fn uppercase_char<T, E: ParseError<T>>(input: T) -> IResult<T, char, E>
-where
-    T: InputIter + InputLength + Slice<RangeFrom<usize>>,
-    <T as InputIter>::Item: AsChar,
-{
-    let mut it = input.iter_indices();
-    let (input, candidate) = match it.next() {
-        None => Err(Err::Error(E::from_error_kind(input, ErrorKind::Eof))),
-        Some((_, c)) => match it.next() {
-            None => Ok((input.slice(input.input_len()..), c.as_char())),
-            Some((idx, _)) => Ok((input.slice(idx..), c.as_char())),
-        },
-    }?;
-    let item_chr = candidate.as_char() as u8; // TODO extend trait instead of this
-    if !(is_uppercase(item_chr))
-    // With trait it could be item.is_inputchar()
-    {
-        return Err(Err::Error(E::from_error_kind(input, ErrorKind::Fix)));
-    }
-    Ok((input, candidate))
+fn namechar(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
+    verify(anychar, |o| is_namechar(*o as u8))(i)
+}
+
+fn uppercase(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
+    verify(anychar, |o| is_uppercase(*o as u8))(i)
+}
+
+fn lowercase(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
+    verify(anychar, |o| is_lowercase(*o as u8))(i)
 }
 
 // TODO: Test var annotation works as intended
@@ -329,27 +274,24 @@ pub fn var(i: &str) -> IResult<&str, Var, ErrorTree<&str>> {
     opt_annotation(var_inner)(i)
 }
 
-fn var_inner<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&str, Var, E> {
-    let (i, var_name_head) = alt((
-        map(uppercase_char, |o: char| o.to_string()),
-        map(char('_'), |o| o.to_string()), // TODO: Odd but elc accepts "_" as a valid variable name despite it explicitly being invalid in the core erlang specification
-    ))(i)?;
-    let (i, var_name_tail) = fold_many0(
-        // Our parser function– parses a single string fragment
-        namechar,
-        // Our init value, an empty string
-        String::new,
-        // Our folding function. For each fragment, append the fragment to the
-        // string.
-        |mut string, fragment| {
-            string.push(fragment);
-            string
+fn var_inner(i: &str) -> IResult<&str, Var, ErrorTree<&str>> {
+    map(
+        pair(
+            alt((
+                uppercase,
+                char('_'), // Note: Odd but elc accepts "_" as a valid variable name despite it explicitly being invalid in the core erlang specification
+            )),
+            fold_many0(namechar, Vec::new, |mut string, fragment| {
+                string.push(fragment);
+                string
+            }),
+        ),
+        |(o1, o2)| {
+            let mut var_name = vec![o1];
+            var_name.extend(o2);
+            Var(var_name.iter().collect())
         },
-    )(i)?;
-    // TODO: A bit much string manipulation, maybe inefficient...
-    let mut final_var_name = var_name_head;
-    final_var_name.push_str(&var_name_tail);
-    Ok((i, Var(final_var_name)))
+    )(i)
 }
 
 #[cfg(test)]
@@ -383,23 +325,153 @@ mod tests {
     #[test]
     fn test_floating_point_numbers() {
         // Tests based on Core Erlang 1.03 specification Appendix A
-        assert_eq!(float::<()>("0.0"), Ok(("", Float{ base: 0, decimal: 0, exponent: 1 })));
-        assert_eq!(float::<()>("2.7182818"), Ok(("", Float{ base: 2, decimal: 7182818, exponent: 1 })));
-        assert_eq!(float::<()>("-3.14"), Ok(("", Float{ base: -3, decimal: 14, exponent: 1 })));
-        assert_eq!(float::<()>("+1.2E-6"), Ok(("", Float{ base: 1, decimal: 2, exponent: -6 })));
-        assert_eq!(float::<()>("-1.23e12"), Ok(("", Float{ base: 1, decimal: 23, exponent: 12 })));
-        assert_eq!(float::<()>("1.0e+9"), Ok(("", Float{ base: 1, decimal: 0, exponent: 9 })));
+        assert_eq!(
+            float::<()>("0.0"),
+            Ok((
+                "",
+                Float {
+                    base: 0,
+                    decimal: 0,
+                    exponent: 1
+                }
+            ))
+        );
+        assert_eq!(
+            float::<()>("2.7182818"),
+            Ok((
+                "",
+                Float {
+                    base: 2,
+                    decimal: 7182818,
+                    exponent: 1
+                }
+            ))
+        );
+        assert_eq!(
+            float::<()>("-3.14"),
+            Ok((
+                "",
+                Float {
+                    base: -3,
+                    decimal: 14,
+                    exponent: 1
+                }
+            ))
+        );
+        assert_eq!(
+            float::<()>("+1.2E-6"),
+            Ok((
+                "",
+                Float {
+                    base: 1,
+                    decimal: 2,
+                    exponent: -6
+                }
+            ))
+        );
+        assert_eq!(
+            float::<()>("-1.23e12"),
+            Ok((
+                "",
+                Float {
+                    base: -1,
+                    decimal: 23,
+                    exponent: 12
+                }
+            ))
+        );
+        assert_eq!(
+            float::<()>("1.0e+9"),
+            Ok((
+                "",
+                Float {
+                    base: 1,
+                    decimal: 0,
+                    exponent: 9
+                }
+            ))
+        );
 
         // TODO Move "lit" tests to lex.rs ?
-        assert_eq!(lit("0.0").unwrap(), ("", Lit::Float(Float{ base: 0, decimal: 0, exponent: 1 })));
-        assert_eq!(lit("2.7182818").unwrap(), ("", Lit::Float(Float{ base: 2, decimal: 7182818, exponent: 1 })));
-        assert_eq!(lit("-3.14").unwrap(), ("", Lit::Float(Float{ base: -3, decimal: 14, exponent: 1 })));
-        assert_eq!(lit("+1.2E-6").unwrap(), ("", Lit::Float(Float{ base: 1, decimal: 2, exponent: -6 })));
-        assert_eq!(lit("-1.23e12").unwrap(), ("", Lit::Float(Float{ base: 1, decimal: 23, exponent: 12 })));
-        assert_eq!(lit("1.0e+9").unwrap(), ("", Lit::Float(Float{ base: 1, decimal: 0, exponent: 9 })));
+        assert_eq!(
+            lit("0.0").unwrap(),
+            (
+                "",
+                Lit::Float(Float {
+                    base: 0,
+                    decimal: 0,
+                    exponent: 1
+                })
+            )
+        );
+        assert_eq!(
+            lit("2.7182818").unwrap(),
+            (
+                "",
+                Lit::Float(Float {
+                    base: 2,
+                    decimal: 7182818,
+                    exponent: 1
+                })
+            )
+        );
+        assert_eq!(
+            lit("-3.14").unwrap(),
+            (
+                "",
+                Lit::Float(Float {
+                    base: -3,
+                    decimal: 14,
+                    exponent: 1
+                })
+            )
+        );
+        assert_eq!(
+            lit("+1.2E-6").unwrap(),
+            (
+                "",
+                Lit::Float(Float {
+                    base: 1,
+                    decimal: 2,
+                    exponent: -6
+                })
+            )
+        );
+        assert_eq!(
+            lit("-1.23e12").unwrap(),
+            (
+                "",
+                Lit::Float(Float {
+                    base: -1,
+                    decimal: 23,
+                    exponent: 12
+                })
+            )
+        );
+        assert_eq!(
+            lit("1.0e+9").unwrap(),
+            (
+                "",
+                Lit::Float(Float {
+                    base: 1,
+                    decimal: 0,
+                    exponent: 9
+                })
+            )
+        );
 
         // Mindless sanity check
-        assert_ne!(float::<()>("0.0"), Ok(("", Float{ base: 2, decimal: 0, exponent: 1 })));
+        assert_ne!(
+            float::<()>("0.0"),
+            Ok((
+                "",
+                Float {
+                    base: 2,
+                    decimal: 0,
+                    exponent: 1
+                }
+            ))
+        );
 
         // TODO: Negative / Expect Error test
     }
@@ -413,13 +485,12 @@ mod tests {
         assert_eq!(atom("''").unwrap(), ("", Atom("".to_owned())));
 
         // TODO: Is the test correct with \\ == \ in the string?
-        assert_eq!(octal("012").unwrap(), ("", "012".to_owned()));
-        assert_eq!(parse_escaped("\\011").unwrap(), ("", "\\011".to_owned()));
-        assert_eq!(atom("'\\010'").unwrap(), ("", Atom("\\010".to_owned())));
+        assert_eq!(octal("012").unwrap(), ("", 10 as char));
+        assert_eq!(atom("'\\010'").unwrap(), ("", Atom("\u{8}".to_owned())));
         // Literal output expected "%#\010@\n!"
         assert_eq!(
             atom("'%#\\010@\\n!'").unwrap(),
-            ("", Atom("%#\\010@\\n!".to_owned()))
+            ("", Atom("%#\u{8}@\n!".to_owned()))
         );
 
         assert_eq!(
@@ -444,7 +515,7 @@ mod tests {
         assert_eq!(lit("''").unwrap(), ("", Lit::Atom(Atom("".to_owned()))));
         assert_eq!(
             lit("'%#\\010@\\n!'").unwrap(),
-            ("", Lit::Atom(Atom("%#\\010@\\n!".to_owned())))
+            ("", Lit::Atom(Atom("%#\u{8}@\n!".to_owned())))
         );
         assert_eq!(
             lit("'_hello_world'").unwrap(),
@@ -462,27 +533,27 @@ mod tests {
     #[test]
     fn test_char_literal() {
         // Tests based on Core Erlang 1.03 specification Appendix A
-        assert_eq!(char_("$A").unwrap(), ("", "A".to_owned()));
-        assert_eq!(char_("$$").unwrap(), ("", "$".to_owned()));
-        assert_eq!(char_("$\\n").unwrap(), ("", "\\n".to_owned()));
-        assert_eq!(char_("$\\s").unwrap(), ("", "\\s".to_owned()));
-        assert_eq!(char_("$\\\\").unwrap(), ("", "\\\\".to_owned()));
-        assert_eq!(char_("$\\12").unwrap(), ("", "\\12".to_owned()));
-        assert_eq!(char_("$\\101").unwrap(), ("", "\\101".to_owned()));
-        assert_eq!(char_("$\\^A").unwrap(), ("", "\\^A".to_owned()));
+        assert_eq!(char_char("$A").unwrap(), ("", 'A'));
+        assert_eq!(char_char("$$").unwrap(), ("", '$'));
+        assert_eq!(char_char("$\\n").unwrap(), ("", '\n'));
+        assert_eq!(char_char("$\\s").unwrap(), ("", ' '));
+        assert_eq!(char_char("$\\\\").unwrap(), ("", '\\'));
+        assert_eq!(char_char("$\\12").unwrap(), ("", '\u{A}'));
+        assert_eq!(char_char("$\\101").unwrap(), ("", 'A'));
+        assert_eq!(char_char("$\\^A").unwrap(), ("", '\u{0001}'));
 
         // TODO Move "lit" tests to lex.rs ?
-        assert_eq!(lit("$A").unwrap(), ("", Lit::Char("A".to_owned())));
-        assert_eq!(lit("$$").unwrap(), ("", Lit::Char("$".to_owned())));
-        assert_eq!(lit("$\\n").unwrap(), ("", Lit::Char("\\n".to_owned())));
-        assert_eq!(lit("$\\s").unwrap(), ("", Lit::Char("\\s".to_owned())));
-        assert_eq!(lit("$\\\\").unwrap(), ("", Lit::Char("\\\\".to_owned())));
-        assert_eq!(lit("$\\12").unwrap(), ("", Lit::Char("\\12".to_owned())));
-        assert_eq!(lit("$\\101").unwrap(), ("", Lit::Char("\\101".to_owned())));
-        assert_eq!(lit("$\\^A").unwrap(), ("", Lit::Char("\\^A".to_owned())));
+        assert_eq!(lit("$A").unwrap(), ("", Lit::Char('A')));
+        assert_eq!(lit("$$").unwrap(), ("", Lit::Char('$')));
+        assert_eq!(lit("$\\n").unwrap(), ("", Lit::Char('\n')));
+        assert_eq!(lit("$\\s").unwrap(), ("", Lit::Char(' ')));
+        assert_eq!(lit("$\\\\").unwrap(), ("", Lit::Char('\\')));
+        assert_eq!(lit("$\\12").unwrap(), ("", Lit::Char('\u{A}')));
+        assert_eq!(lit("$\\101").unwrap(), ("", Lit::Char('A')));
+        assert_eq!(lit("$\\^A").unwrap(), ("", Lit::Char('\u{0001}')));
 
         // Mindless sanity check
-        assert_ne!(char_("$A").unwrap(), ("", "B".to_owned()));
+        assert_ne!(char_char("$A").unwrap(), ("", 'B'));
 
         // TODO: Negative / Expect Error test
     }
@@ -496,11 +567,11 @@ mod tests {
         );
         assert_eq!(
             string("\"Two\\nlines\"").unwrap(),
-            ("", "Two\\nlines".to_owned())
+            ("", "Two\nlines".to_owned())
         );
         assert_eq!(
             string("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\"").unwrap(),
-            ("", "Ring\\^GMy\\7Bell\\007!".to_owned())
+            ("", "Ring\u{7}My\u{7}Bell\u{7}!".to_owned())
         );
 
         // TODO Move "lit" tests to lex.rs ?
@@ -510,11 +581,11 @@ mod tests {
         );
         assert_eq!(
             lit("\"Two\\nlines\"").unwrap(),
-            ("", Lit::String("Two\\nlines".to_owned()))
+            ("", Lit::String("Two\nlines".to_owned()))
         );
         assert_eq!(
             lit("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\"").unwrap(),
-            ("", Lit::String("Ring\\^GMy\\7Bell\\007!".to_owned()))
+            ("", Lit::String("Ring\u{7}My\u{7}Bell\u{7}!".to_owned()))
         );
 
         // Mindless sanity check
