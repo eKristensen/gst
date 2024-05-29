@@ -3,7 +3,6 @@ mod contract_cerl;
 mod spec_extractor;
 mod st_parser;
 
-
 use nom_supreme::error::ErrorTree;
 
 pub fn parse(src: &str) -> Result<(&str, cerl_parser::ast::Module), nom::Err<ErrorTree<&str>>> {

@@ -29,7 +29,7 @@ use crate::spec_extractor::ast::BaseSpecElm::Base;
 use crate::st_parser::ast::SessionSpecElm::ConsumeSpec;
 use crate::st_parser::ast::SessionSpecElm::NewSpec;
 
-fn compose_contract(ast: cerl_parser::ast::Module) -> ast::CModule {
+pub fn compose_contract(ast: cerl_parser::ast::Module) -> ast::CModule {
     // Step 1: Resolve dependencies: Must get specs
     let base_spec = base_spec_extractor(&ast);
     let session_spec = session_spec_extractor(&ast);

@@ -6,6 +6,7 @@ mod st_parser;
 use std::env;
 use std::process::Command;
 
+use crate::contract_cerl::compose_contract::compose_contract;
 use nom::Finish;
 
 use std::ffi::OsStr;
@@ -62,7 +63,10 @@ fn main() {
                     // let funcs_env = init_funcs_env(module);
                     // //println!("Init analysis environment {:?}\n", env);
                     // analyze_module_functions(&funcs_env);
-                    println!("type checker to be added again")
+                    println!(
+                        "Contract core erlang debug text: {:?}",
+                        compose_contract(module)
+                    )
                 }
                 Err(e) => {
                     // TODO: More compact error messages possible?

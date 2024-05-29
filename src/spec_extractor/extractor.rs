@@ -128,7 +128,7 @@ fn get_absform_clauses(spec: &Lit) -> Result<&Vec<Lit>, String> {
 fn get_absform_clause(spec: &Lit) -> Result<(Lit, Lit), String> {
     // Each clause starts with a certain type fun tag we need to check exists, and otherwise ignore
     // We check, but ignore the location info that is encoded in the the absform.
-    let spec = check_tag_return_residual(spec, Atom("type".to_owned()))?;
+    let spec = check_tag_return_residual(spec, &Atom("type".to_owned()))?;
 
     // First element after tag and location must be an atom that says 'fun'
     if Lit::Atom(Atom("fun".to_owned())) != spec[0] {
@@ -149,7 +149,7 @@ fn get_absform_clause(spec: &Lit) -> Result<(Lit, Lit), String> {
 
 fn get_absform_direct_type(spec: &Lit) -> Result<BaseSpecElm, String> {
     // A direct type, i.e. a type that is not a product type. General parsing similar to absform clause
-    let spec = check_tag_return_residual(spec, Atom("type".to_owned()))?;
+    let spec = check_tag_return_residual(spec, &Atom("type".to_owned()))?;
 
     // First element after tag and location is the type as an atom
     let Lit::Atom(atom_type_string) = spec[0].clone() else {
@@ -164,13 +164,34 @@ fn get_absform_direct_type(spec: &Lit) -> Result<BaseSpecElm, String> {
         return Err(format!("get_absform_direct_type: -spec parse failure #03"));
     }
 
-    let base_type = atom_to_type(&atom_type_string)?;
+    let base_type = atom_to_base_type(&atom_type_string)?;
+    Ok(base_type)
+}
+
+fn get_absform_user_type(spec: &Lit) -> Result<BaseSpecElm, String> {
+    // A direct user type, i.e. a type that is not a product type. General parsing similar to absform clause
+    let spec = check_tag_return_residual(spec, &Atom("user_type".to_owned()))?;
+
+    // First element after tag and location is the type as an atom
+    let Lit::Atom(atom_type_string) = spec[0].clone() else {
+        return Err(format!("get_absform_user_type: -spec parse failure #01"));
+    };
+
+    // No arguments to types are allowed (yet). Therefor next element must be empty list
+    let Lit::Cons(args) = spec[1].clone() else {
+        return Err(format!("get_absform_user_type: -spec parse failure #02"));
+    };
+    if args.len() != 0 {
+        return Err(format!("get_absform_user_type: -spec parse failure #03"));
+    }
+
+    let base_type = atom_to_session_type(&atom_type_string)?;
     Ok(base_type)
 }
 
 fn get_absform_product_type(spec: &Lit) -> Result<Vec<BaseSpecElm>, String> {
     // Product type is a special kind of type that can nest other types.
-    let spec = check_tag_return_residual(spec, Atom("type".to_owned()))?;
+    let spec = check_tag_return_residual(spec, &Atom("type".to_owned()))?;
 
     // First element after tag and location is 'product'
     if Lit::Atom(Atom("product".to_owned())) != spec[0] {
@@ -185,11 +206,23 @@ fn get_absform_product_type(spec: &Lit) -> Result<Vec<BaseSpecElm>, String> {
     // Each of these types is atoms that should be converted to base_types:
     let mut base_types_out: Vec<BaseSpecElm> = Vec::new();
     for elm in types_list {
-        let Lit::Atom(atom_type_string) = elm else {
-            return Err(format!("get_absform_product_type: -spec parse failure #03"));
-        };
-        let base_type = atom_to_type(&atom_type_string)?;
-        base_types_out.push(base_type)
+        let base_type = get_absform_direct_type(&elm);
+        if base_type.is_ok() {
+            base_types_out.push(base_type.unwrap());
+            continue;
+        }
+
+        let user_type = get_absform_user_type(&elm);
+        if user_type.is_ok() {
+            base_types_out.push(user_type.unwrap());
+            continue;
+        }
+
+        return Err(format!(
+            "get_absform_product_type: -spec parse failure #03, debug info: {:?}, {:?}",
+            base_type.err(),
+            user_type.err()
+        ));
     }
 
     Ok(base_types_out)
@@ -199,14 +232,14 @@ fn get_absform_type(spec: &Lit) -> Result<Vec<BaseSpecElm>, String> {
     // Helper to try direct and product easily
     let specs = get_absform_product_type(spec);
 
-    if (specs.is_ok()) {
+    if specs.is_ok() {
         return Ok(specs.unwrap());
     }
 
     // Try single type instead
     let single_type = get_absform_direct_type(spec);
 
-    if (single_type.is_ok()) {
+    if single_type.is_ok() {
         return Ok(vec![single_type.unwrap()]);
     }
 
@@ -217,7 +250,7 @@ fn get_absform_type(spec: &Lit) -> Result<Vec<BaseSpecElm>, String> {
     ))
 }
 
-fn atom_to_type(spec: &Atom) -> Result<BaseSpecElm, String> {
+fn atom_to_base_type(spec: &Atom) -> Result<BaseSpecElm, String> {
     // TODO: All unknown types are accepted as atom constants!
     let Atom(atom) = spec;
     match atom.as_str() {
@@ -229,11 +262,21 @@ fn atom_to_type(spec: &Atom) -> Result<BaseSpecElm, String> {
         "float" => Ok(BaseSpecElm::Base(BaseType::Float)),
         "boolean" => Ok(BaseSpecElm::Base(BaseType::Boolean)),
         // TODO: Support cons/tuple types
-        _ => Ok(BaseSpecElm::Base(BaseType::Atom(spec.clone()))), // fallback
+        _ => Err(format!("Unsupported type used")), // fallback
     }
 }
 
-fn check_tag_return_residual(spec: &Lit, tag: Atom) -> Result<&[Lit], String> {
+fn atom_to_session_type(spec: &Atom) -> Result<BaseSpecElm, String> {
+    // TODO: All unknown types are accepted as atom constants!
+    let Atom(atom) = spec;
+    match atom.as_str() {
+        "new" => Ok(BaseSpecElm::New),
+        "consume" => Ok(BaseSpecElm::Consume),
+        _ => Err(format!("No custom types supported yet.")), // fallback
+    }
+}
+
+fn check_tag_return_residual<'a>(spec: &'a Lit, tag: &Atom) -> Result<&'a [Lit], String> {
     // Checks a tag and returns the content of the tag if a match is found.
     // We assume length is always four for now.
     let Lit::Tuple(spec) = spec else {
@@ -250,9 +293,10 @@ fn check_tag_return_residual(spec: &Lit, tag: Atom) -> Result<&[Lit], String> {
 
     // Sanity checks
     // First element must be an atom that says 'type'
-    if Lit::Atom(tag) != spec[0] {
+    // TODO: Can be performance optimized: Unwrap spec[0] and compare pointer values instead of clone.
+    if Lit::Atom(tag.clone()) != spec[0] {
         return Err(format!(
-            "check_tag_return_residual: -spec parse failure #03"
+            "check_tag_return_residual: -spec parse failure #03. DEBUG info: spec is: {:?}, expected tag is: {:?}", spec, tag
         ));
     }
 
