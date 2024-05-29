@@ -6,8 +6,7 @@ mod st_parser;
 use std::env;
 use std::process::Command;
 
-use crate::contract_cerl::compose_contract::compose_contract;
-use nom::Finish;
+use gst::parse;
 
 use std::ffi::OsStr;
 use std::path::Path;
@@ -53,26 +52,7 @@ fn main() {
 
     match std::fs::read_to_string(filename) {
         Ok(src) => {
-            // println!(
-            //     "Ran parser with debug AST output: {:?}\n",
-            //     cerl_parser::top::module(&src)
-            // );
-            match cerl_parser::top::module(&src).finish() {
-                // TODO: Add ".finish()" here and in tests or even better in common module.
-                Ok((_, module)) => {
-                    // let funcs_env = init_funcs_env(module);
-                    // //println!("Init analysis environment {:?}\n", env);
-                    // analyze_module_functions(&funcs_env);
-                    println!(
-                        "Contract core erlang debug text: {:?}",
-                        compose_contract(module)
-                    )
-                }
-                Err(e) => {
-                    // TODO: More compact error messages possible?
-                    println!("Nom could not parse source\n\n{}", e);
-                }
-            }
+            println!("Contract core erlang debug text: {:?}", parse(&src))
         } // TODO: Pretty print
         Err(err) => panic!("Could not read file {} because {}", filename, err),
     }
