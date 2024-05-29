@@ -18,7 +18,7 @@ pub fn base_spec_extractor(ast: &cerl_parser::ast::Module) -> BaseSpecDef {
     // Use attributes to get spec
     for attribute in &ast.attributes {
         let Atom(a_name) = &attribute.name;
-        if attribute.name == Atom("spec".to_owned()) {
+        if *a_name == "spec".to_owned() {
             let new_base_spec = add_base_spec(&attribute.value);
             if new_base_spec.is_ok() {
                 let (fun_name, base_specs) = new_base_spec.unwrap();

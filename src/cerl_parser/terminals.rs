@@ -5,14 +5,14 @@ use nom::{
     error::ParseError,
     multi::{fold_many0, fold_many1},
     sequence::{delimited, pair, preceded, tuple},
-    AsChar, IResult, InputTakeAtPosition, Parser,
+    IResult, Parser,
 };
 use nom_supreme::error::ErrorTree;
 
 use super::{
     ast::{Atom, Float, Var},
     helpers::{opt_annotation, ws},
-    lex::{is_control, is_ctlchar, is_inputchar, is_lowercase, is_namechar, is_uppercase},
+    lex::{is_control, is_ctlchar, is_inputchar, is_namechar, is_uppercase},
 };
 
 // TODO: Check: Is everything in here "terminals"?
@@ -157,37 +157,6 @@ pub fn float<
     ))
 }
 
-fn parse_string_input_chr<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
-where
-    T: InputTakeAtPosition,
-    <T as InputTakeAtPosition>::Item: AsChar,
-{
-    input.split_at_position1_complete(
-        |item| {
-            let item_chr = item.as_char() as u8; // TODO extend trait instead of this
-            !(is_inputchar(item_chr)) // With trait it could be item.is_inputchar()
-        ||  is_control(item_chr)
-        ||  item_chr == 0x5C // Hex codes are not easy to read...
-        ||  item_chr == 0x22
-        },
-        nom::error::ErrorKind::Fix, // TODO: Actual error message
-    )
-}
-
-fn parse_ctlchar<T, E: ParseError<T>>(input: T) -> IResult<T, T, E>
-where
-    T: InputTakeAtPosition,
-    <T as InputTakeAtPosition>::Item: AsChar,
-{
-    input.split_at_position1_complete(
-        |item| {
-            let item_chr = item.as_char() as u8; // TODO extend trait instead of this
-            !(is_ctlchar(item_chr)) // With trait it could be item.is_ctlchar()
-        },
-        nom::error::ErrorKind::Fix, // TODO: Actual error message
-    )
-}
-
 // TODO: Deduplicate, a lot like fn atom
 fn string_quoted(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     // fold is the equivalent of iterator::fold. It runs a parser in a loop,
@@ -263,10 +232,6 @@ fn namechar(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
 
 fn uppercase(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
     verify(anychar, |o| is_uppercase(*o as u8))(i)
-}
-
-fn lowercase(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
-    verify(anychar, |o| is_lowercase(*o as u8))(i)
 }
 
 // TODO: Test var annotation works as intended

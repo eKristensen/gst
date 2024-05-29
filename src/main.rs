@@ -1,8 +1,3 @@
-mod cerl_parser;
-mod contract_cerl;
-mod spec_extractor;
-mod st_parser;
-
 use std::env;
 use std::process::Command;
 
