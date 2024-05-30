@@ -64,8 +64,9 @@ pub struct CClause {
     pub res: CExpr,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum CType {
     CBaseType(BaseType),
-    CSessionType(SessionTypesList),
+    CNewType(SessionTypesList),
+    CConsumeType(SessionTypesList),
 }

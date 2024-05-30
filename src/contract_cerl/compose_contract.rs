@@ -24,7 +24,8 @@ use super::{
 };
 use crate::contract_cerl::ast::CFunCall;
 use crate::contract_cerl::compose_contract::CType::CBaseType;
-use crate::contract_cerl::compose_contract::CType::CSessionType;
+use crate::contract_cerl::compose_contract::CType::CConsumeType;
+use crate::contract_cerl::compose_contract::CType::CNewType;
 use crate::spec_extractor::ast::BaseSpecElm::Base;
 use crate::st_parser::ast::SessionSpecElm::ConsumeSpec;
 use crate::st_parser::ast::SessionSpecElm::NewSpec;
@@ -73,10 +74,10 @@ fn merge_base_session_spec(
         // zip/merge specs
         match spec_elms {
             (BaseSpecElm::New, NewSpec(session_elm)) => {
-                clause_spec.push(CSessionType(session_elm.clone()))
+                clause_spec.push(CNewType(session_elm.clone()))
             }
             (BaseSpecElm::Consume, ConsumeSpec(session_elm)) => {
-                clause_spec.push(CSessionType(session_elm.clone()))
+                clause_spec.push(CConsumeType(session_elm.clone()))
             }
             (Base(base_elm), SessionSpecElm::BasePlaceholder) => {
                 clause_spec.push(CBaseType(base_elm.clone()))
