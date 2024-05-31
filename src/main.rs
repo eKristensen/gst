@@ -1,7 +1,7 @@
 use std::env;
 use std::process::Command;
 
-use gst::parse;
+use gst::{parse, type_check};
 
 use std::ffi::OsStr;
 use std::path::Path;
@@ -47,7 +47,11 @@ fn main() {
 
     match std::fs::read_to_string(filename) {
         Ok(src) => {
-            println!("Contract core erlang debug text: {:?}", parse(&src))
+            let contract = parse(&src);
+            println!("Contract core erlang debug text: {:?}", contract);
+            if contract.is_ok() {
+                println!("Type checker: {:?}", type_check(contract.unwrap()))
+            }
         } // TODO: Pretty print
         Err(err) => panic!("Could not read file {} because {}", filename, err),
     }

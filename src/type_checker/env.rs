@@ -7,6 +7,7 @@ use crate::{
     contract_cerl::types::{BaseType, SessionTypesList},
 };
 
+#[derive(Clone)]
 // Typing environments
 pub enum TypeEnv {
     Gamma(SessionTypesList), // Constructor
