@@ -28,7 +28,7 @@ pub fn base_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<BaseSpecDef
                         &fun_name
                     ));
                 } else {
-                    base_spec_def.0.insert(fun_name, base_specs);
+                    base_spec_def.0.insert(fun_name.clone(), base_specs);
                 }
             } else {
                 println!(
