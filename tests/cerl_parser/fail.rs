@@ -1,6 +1,6 @@
 #[cfg(test)]
 // Integration tests / Black box tests
-use gst;
+
 
 extern crate test_generator;
 use test_generator::test_resources; // TODO: Small lib, maybe use something else?
