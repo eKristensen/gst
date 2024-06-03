@@ -26,21 +26,34 @@ pub fn module(module: CModule) -> (bool, Vec<String>) {
 
             // Type check body, updates envs in place
             // module is sent along to give access to function signatures
-            let return_type = expr(&module, &envs, &clause.body);
+            let return_type = expr(&module, &mut envs, &clause.body);
+            if return_type.is_err() {
+                println!(
+                    "Type checking failed for {} due to {}",
+                    fun_name,
+                    return_type.err().unwrap()
+                );
+                overall_acceptance = false;
+                continue;
+            }
 
             // Check return-type somehow?
             // TODO: Possible performance optimization:
             // Instead of clone, unpack return_type and compare directly
-            if return_type != CBaseType(clause.return_type.clone()) {
+            if return_type.unwrap() != CBaseType(clause.return_type.clone()) {
                 // Add msg that return type is bad
                 overall_acceptance = false;
             }
 
             // Check result, i.e. everything that should be consumed, has been consumed
-            finished(&envs);
+            if finished(&envs).is_err() {
+                println!("not finished");
+                overall_acceptance = false
+            };
 
             // If something went wrong set overall_acceptance to false
         }
     }
+    println!("overall acceptance {}", overall_acceptance);
     todo!("module finish impl")
 }

@@ -7,7 +7,7 @@ use crate::{
     contract_cerl::types::{BaseType, SessionTypesList},
 };
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 // Typing environments
 pub enum TypeEnv {
     Gamma(SessionTypesList), // Constructor
@@ -16,5 +16,6 @@ pub enum TypeEnv {
                              // Psi is statically included in contract core erlang
 }
 
+#[derive(Debug)]
 // "Runtime" environment for type checker.
 pub struct TypeEnvs(pub HashMap<Var, TypeEnv>);

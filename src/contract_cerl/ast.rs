@@ -3,10 +3,9 @@
 // Changes from cerl AST
 // - Exprs no longer differentiate between <X> and X.
 // - Exprs are converted to a tuple, as they act the same for analysis TODO: Might be a bad idea, we'll see later
+// - Vec<Var> is converted to a pattern tuple, as with Exprs. TODO: Might be a bad idea, we'll see later.
 // - Function calls must be atoms directly and not require evaluation to determine what function that are called
 // - Add base and session spec type annotation to functions as part of their contract/signature
-// - Refactoring: Do converted to single clause case.
-// - Refactoring: Let in to single clause case.
 // - Remove "exports", we assume the erlang compiler will check function export
 // - Remove "attributes". When specs are extracted they are not needed anymore.
 // - Flatten functions (including handles) to pattern match on a top level
@@ -49,12 +48,14 @@ pub enum CFunCall {
 #[derive(Debug, Clone)]
 //  Simplified expression for function body
 pub enum CExpr {
-    Var(Var),                       // E_base
-    Lit(Lit),                       // E_base
-    Cons(Vec<CExpr>),               // E_base
-    Tuple(Vec<CExpr>),              // E_base
-    Case(Box<CExpr>, Vec<CClause>), // E_let, E_case*
-    Call(CFunCall, Vec<CExpr>),     // E_{new,send, select, app}
+    Var(Var),                         // E_base
+    Lit(Lit),                         // E_base
+    Cons(Vec<CExpr>),                 // E_base
+    Tuple(Vec<CExpr>),                // E_base
+    Let(Pat, Box<CExpr>, Box<CExpr>), // E_let*, TODO: Pat instead of var in let, OK?
+    Case(Box<CExpr>, Vec<CClause>),   // E_case
+    Call(CFunCall, Vec<CExpr>),       // E_{new,send, select, app}
+    Do(Box<CExpr>, Box<CExpr>),
 }
 
 #[derive(Debug, Clone)]

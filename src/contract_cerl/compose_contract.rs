@@ -180,7 +180,7 @@ fn compose_function_with_contract(
     for (partial_ctype_elm, this_body) in partial_cfun.iter().zip(clauses.iter()) {
         // It should be a very simple, "just add" stuff here
         contract_clauses.push(
-            // TODO: Deduplicate args, but moving to funname does not seem like a good solution.
+            // TODO: Deduplicate args, but moving to function name does not seem like a good solution.
             CFun {
                 spec: partial_ctype_elm.spec.clone(),
                 args: def.args.clone(),
@@ -216,11 +216,23 @@ fn expr_to_cexpr(expr: cerl_parser::ast::Expr) -> Result<CExpr, String> {
             let e1 = exprs_to_cexpr(e1)?;
             let e2 = exprs_to_cexpr(e2)?;
             // TODO: Note: Multi-value let convert to tuple again.
-            let clause = CClause {
-                pats: vec![Pat::Tuple(v.iter().map(|x| Pat::Var(x.clone())).collect())],
-                res: e2,
-            };
-            Ok(CExpr::Case(Box::new(e1), vec![clause]))
+            if v.len() == 1 {
+                Ok(CExpr::Let(
+                    Pat::Var(v.first().unwrap().clone()),
+                    Box::new(e1),
+                    Box::new(e2),
+                ))
+            } else {
+                Ok(CExpr::Let(
+                    Pat::Tuple(
+                        v.iter()
+                            .map(|arg0: &cerl_parser::ast::Var| Pat::Var(arg0.clone()))
+                            .collect(),
+                    ),
+                    Box::new(e1),
+                    Box::new(e2),
+                ))
+            }
         }
         cerl_parser::ast::Expr::Case(e1, e2) => {
             let base_expr = exprs_to_cexpr(e1)?;
@@ -262,14 +274,7 @@ fn expr_to_cexpr(expr: cerl_parser::ast::Expr) -> Result<CExpr, String> {
         cerl_parser::ast::Expr::Do(e1, e2) => {
             let e1 = exprs_to_cexpr(e1)?;
             let e2 = exprs_to_cexpr(e2)?;
-            // TODO: Does empty pattern work for do or will it just never get matched?
-            Ok(CExpr::Case(
-                Box::new(e1),
-                vec![CClause {
-                    pats: vec![],
-                    res: e2,
-                }],
-            ))
+            Ok(CExpr::Do(Box::new(e1), Box::new(e2)))
         }
         _ => Err(format!(
             "Expression not supported in Contract Core Erlang used."
@@ -281,12 +286,17 @@ fn exprs_to_cexpr(exprs: cerl_parser::ast::Exprs) -> Result<CExpr, String> {
     match exprs {
         cerl_parser::ast::Exprs::One(expr) => expr_to_cexpr(*expr),
         cerl_parser::ast::Exprs::Many(exprs) => {
-            let mut tuple: Vec<CExpr> = Vec::new();
-            for expr in exprs {
-                let cexpr = expr_to_cexpr(expr)?;
-                tuple.push(cexpr)
+            // Convert to direct value if exprs is only one long
+            if exprs.len() == 1 {
+                expr_to_cexpr(exprs.first().unwrap().clone())
+            } else {
+                let mut tuple: Vec<CExpr> = Vec::new();
+                for expr in exprs {
+                    let cexpr = expr_to_cexpr(expr)?;
+                    tuple.push(cexpr)
+                }
+                Ok(CExpr::Tuple(tuple))
             }
-            Ok(CExpr::Tuple(tuple))
         }
     }
 }
