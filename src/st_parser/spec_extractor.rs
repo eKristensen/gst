@@ -28,7 +28,7 @@ pub fn session_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<SessionS
                         &fun_name
                     ));
                 } else {
-                    session_spec_def.0.insert(fun_name, session_specs);
+                    session_spec_def.0.insert(fun_name.clone(), session_specs);
                 }
             } else {
                 println!(
