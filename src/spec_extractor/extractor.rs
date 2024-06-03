@@ -25,7 +25,7 @@ pub fn base_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<BaseSpecDef
                 if base_spec_def.0.contains_key(&fun_name) {
                     return Err(format!(
                         "FATAL: Duplicate -session for function {}. Exiting now...",
-                        fun_name
+                        &fun_name
                     ));
                 } else {
                     base_spec_def.0.insert(fun_name, base_specs);
