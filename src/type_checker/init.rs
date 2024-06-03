@@ -17,15 +17,15 @@ pub fn init_env(envs: &mut TypeEnvs, args: &[Var], spec: &[CType]) -> Result<(),
     }
     for (var, elm_ctype) in args.iter().zip(spec.iter()) {
         let insert_res = match elm_ctype {
-            CType::CBaseType(base_type) => envs
+            CType::Base(base_type) => envs
                 .0
                 .insert(var.clone(), Sigma(base_type.clone()))
                 .is_none(),
-            CType::CNewType(session_type) => envs
+            CType::New(session_type) => envs
                 .0
                 .insert(var.clone(), Gamma(session_type.clone()))
                 .is_none(),
-            CType::CConsumeType(_, session_type) => envs
+            CType::Consume(_, session_type) => envs
                 .0
                 .insert(var.clone(), Delta(session_type.clone()))
                 .is_none(),

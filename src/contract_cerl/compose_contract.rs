@@ -22,9 +22,6 @@ use super::{
     types::BaseType,
 };
 use crate::contract_cerl::ast::CFunCall;
-use crate::contract_cerl::compose_contract::CType::CBaseType;
-use crate::contract_cerl::compose_contract::CType::CConsumeType;
-use crate::contract_cerl::compose_contract::CType::CNewType;
 use crate::spec_extractor::ast::BaseSpecElm::Base;
 use crate::st_parser::ast::SessionSpecElm::ConsumeSpec;
 use crate::st_parser::ast::SessionSpecElm::NewSpec;
@@ -73,13 +70,13 @@ fn merge_base_session_spec(
         // zip/merge specs
         match spec_elms {
             (BaseSpecElm::New, NewSpec(session_elm)) => {
-                clause_spec.push(CNewType(session_elm.clone()))
+                clause_spec.push(CType::New(session_elm.clone()))
             }
             (BaseSpecElm::Consume, ConsumeSpec(session_elm)) => {
-                clause_spec.push(CConsumeType(None, session_elm.clone()))
+                clause_spec.push(CType::Consume(None, session_elm.clone()))
             }
             (Base(base_elm), SessionSpecElm::BasePlaceholder) => {
-                clause_spec.push(CBaseType(base_elm.clone()))
+                clause_spec.push(CType::Base(base_elm.clone()))
             }
             _ => return Err("Warning: Bad spec.".to_string()),
         }
@@ -247,8 +244,8 @@ fn expr_to_cexpr(expr: cerl_parser::ast::Expr) -> Result<CExpr, String> {
         }
         cerl_parser::ast::Expr::Call(fun_call, args) => {
             let fun_call = match fun_call {
-                FunCall::PrimOp(a) => CFunCall::CPrimOp(a),
-                FunCall::Apply(f) => CFunCall::CApply(f.name),
+                FunCall::PrimOp(a) => CFunCall::PrimOp(a),
+                FunCall::Apply(f) => CFunCall::Apply(f.name),
                 FunCall::Call(module_name, call_name) => {
                     let module_name = exprs_to_cexpr(module_name)?;
                     let CExpr::Lit(Lit::Atom(module_name)) = module_name else {
@@ -258,7 +255,7 @@ fn expr_to_cexpr(expr: cerl_parser::ast::Expr) -> Result<CExpr, String> {
                     let CExpr::Lit(Lit::Atom(call_name)) = call_name else {
                         return Err("Function call name must be an atom".to_string());
                     };
-                    CFunCall::CCall(module_name, call_name)
+                    CFunCall::Call(module_name, call_name)
                 }
             };
 

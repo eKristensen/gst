@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
-use crate::contract_cerl::ast::CModule;
+use crate::contract_cerl::ast::{CModule, CType};
 
 use super::{env::TypeEnvs, expr::expr, init::init_env, session::finished};
-use crate::contract_cerl::ast::CType::CBaseType;
 
 // Entry point for type checking.
 // One module in, no environment required
@@ -49,7 +48,7 @@ pub fn module(module: CModule) -> (bool, Vec<String>) {
             // Check return-type somehow?
             // TODO: Possible performance optimization:
             // Instead of clone, unpack return_type and compare directly
-            if return_type.unwrap() != CBaseType(clause.return_type.clone()) {
+            if return_type.unwrap() != CType::Base(clause.return_type.clone()) {
                 // Add msg that return type is bad
                 overall_acceptance = false;
             }

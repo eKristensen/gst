@@ -40,9 +40,9 @@ pub struct CFun {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CFunCall {
-    CPrimOp(Atom),     // Call basic erlang functions
-    CApply(Atom),      // Inter-module call // Note: Apparently fname is used here
-    CCall(Atom, Atom), // Cross-module call; (Module, Call name)
+    PrimOp(Atom),     // Call basic erlang functions
+    Apply(Atom),      // Inter-module call // Note: Apparently fname is used here
+    Call(Atom, Atom), // Cross-module call; (Module, Call name)
 }
 
 #[derive(Debug, Clone)]
@@ -67,7 +67,7 @@ pub struct CClause {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CType {
-    CBaseType(BaseType),
-    CNewType(SessionTypesList),
-    CConsumeType(Option<Var>, SessionTypesList), // Option<Var> is used by the type_checker to identify sessions.
+    Base(BaseType),
+    New(SessionTypesList),
+    Consume(Option<Var>, SessionTypesList), // Option<Var> is used by the type_checker to identify sessions.
 }

@@ -38,9 +38,8 @@ fn e_call(
     // 1b) Send make choice (e_select)
     // 2)  A native call    (e_app, the fallback)
 
-    let gsp_sync_send =
-        CFunCall::CCall(Atom("gen_server_plus".to_owned()), Atom("call".to_owned()));
-    let gsp_new = CFunCall::CCall(Atom("gen_server_plus".to_owned()), Atom("new".to_owned()));
+    let gsp_sync_send = CFunCall::Call(Atom("gen_server_plus".to_owned()), Atom("call".to_owned()));
+    let gsp_new = CFunCall::Call(Atom("gen_server_plus".to_owned()), Atom("new".to_owned()));
 
     if *call == gsp_sync_send {
         // To find the right sub-call we need to check the args. There must be three args
@@ -57,7 +56,7 @@ fn e_call(
         let sending_expr = &args[2];
         // TODO Call by value isolation!!!!! Important!!!
         println!("TODO Call by value isolation!!!!! Important!!!");
-        let CType::CBaseType(sending_val) =
+        let CType::Base(sending_val) =
             (match expr(module, &mut TypeEnvs(envs.0.clone()), sending_expr) {
                 Ok(ok_val) => ok_val,
                 Err(err_val) => {
@@ -77,7 +76,7 @@ fn e_call(
                     .to_string(),
             );
         };
-        let CType::CConsumeType(_, session_type) =
+        let CType::Consume(_, session_type) =
             (match expr(module, &mut TypeEnvs(envs.0.clone()), session_id) {
                 Ok(ok_val) => ok_val,
                 Err(err_val) => {
@@ -116,7 +115,7 @@ fn e_call(
                 };
                 envs.0
                     .insert(session_var.clone(), TypeEnv::Delta(session_type));
-                return Ok(CType::CBaseType(received));
+                return Ok(CType::Base(received));
             }
             SessionType::Receive(_) => {
                 return Err("Session type says receive, we are about to send".to_string())
@@ -137,7 +136,7 @@ fn e_call(
                         envs.0
                             .insert(session_var.clone(), TypeEnv::Delta(continuation.clone()));
                         // print!("Updated Envs {:?} {:?}", session_var.clone(), envs);
-                        return Ok(CType::CConsumeType(
+                        return Ok(CType::Consume(
                             Some(session_var.clone()),
                             continuation.clone(),
                         ));
@@ -173,7 +172,7 @@ fn e_call(
 
         // TODO Call by value isolation!!!!! Important!!!
         // println!("TODO Call by value isolation!!!!! Important!!!");
-        let CType::CNewType(session_type) =
+        let CType::New(session_type) =
             (match expr(module, &mut TypeEnvs(envs.0.clone()), server_pid) {
                 Ok(ok_val) => ok_val,
                 Err(err_val) => return Err(format!("E_call gsp_new failed due to {}", err_val)),
@@ -183,7 +182,7 @@ fn e_call(
         };
         // println!("type of pid {:?}", session_type);
 
-        return Ok(CType::CConsumeType(None, session_type));
+        return Ok(CType::Consume(None, session_type));
 
         // Call by value, We need to argument type. Execution environment? Should I consider it isolated? I suppose?
         // The safest and more reasonable way to deal with the call-by-value is to assume it is like a let x (var-name) = expr type
@@ -196,9 +195,9 @@ fn e_call(
     }
 
     // TODO: More clever way to handle BIF
-    let bif_io_format = CFunCall::CCall(Atom("io".to_owned()), Atom("format".to_owned()));
+    let bif_io_format = CFunCall::Call(Atom("io".to_owned()), Atom("format".to_owned()));
     if *call == bif_io_format {
-        return Ok(CType::CBaseType(BaseType::Atom(Atom("ok".to_string()))));
+        return Ok(CType::Base(BaseType::Atom(Atom("ok".to_string()))));
     }
 
     // println!("{:?} {:?}", call, args);
@@ -212,17 +211,17 @@ fn e_base(envs: &TypeEnvs, v: &Var) -> Result<CType, String> {
     }
     match res.unwrap() {
         // TODO: How to allow both base value checked properly, and not to "return" a base type?
-        TypeEnv::Gamma(n) => Ok(CType::CNewType(n.clone())),
-        TypeEnv::Delta(c) => Ok(CType::CConsumeType(None, c.clone())),
-        TypeEnv::Sigma(res) => Ok(CType::CBaseType(res.clone())),
+        TypeEnv::Gamma(n) => Ok(CType::New(n.clone())),
+        TypeEnv::Delta(c) => Ok(CType::Consume(None, c.clone())),
+        TypeEnv::Sigma(res) => Ok(CType::Base(res.clone())),
     }
 }
 
 fn e_lit(l: &Lit) -> CType {
     match l {
-        Lit::Int(_) => CType::CBaseType(BaseType::Integer),
-        Lit::Float(_) => CType::CBaseType(BaseType::Float),
-        Lit::Atom(a) => CType::CBaseType(BaseType::Atom(a.clone())),
+        Lit::Int(_) => CType::Base(BaseType::Integer),
+        Lit::Float(_) => CType::Base(BaseType::Float),
+        Lit::Atom(a) => CType::Base(BaseType::Atom(a.clone())),
         Lit::Char(_) => todo!(),
         Lit::Cons(_) => todo!(),
         Lit::Tuple(_) => todo!(),
@@ -253,7 +252,7 @@ fn e_case(
 
     // base expr must return a consume session type, otherwise the choices cannot be checked against a session type
     // In other words: Any base or new type is a type error
-    let CType::CConsumeType(var, to_consume) = base_res.unwrap() else {
+    let CType::Consume(var, to_consume) = base_res.unwrap() else {
         return Err("Type error case base expr must be consume".to_string());
     };
 
@@ -443,10 +442,10 @@ fn pattern_matching(
 // TODO: Reuse this function. Implemented after this patter has been used a few times.. (check source code!)
 fn ctype_to_typeenv(t: &CType) -> TypeEnv {
     match t {
-        CType::CBaseType(b) => TypeEnv::Sigma(b.clone()),
-        CType::CNewType(n) => TypeEnv::Gamma(n.clone()),
+        CType::Base(b) => TypeEnv::Sigma(b.clone()),
+        CType::New(n) => TypeEnv::Gamma(n.clone()),
         // TODO: Note that consume var is lost here! Should Delta be updated to contain var?
-        CType::CConsumeType(_, c) => TypeEnv::Delta(c.clone()),
+        CType::Consume(_, c) => TypeEnv::Delta(c.clone()),
     }
 }
 
