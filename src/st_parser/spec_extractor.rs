@@ -25,7 +25,7 @@ pub fn session_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<SessionS
                 if session_spec_def.0.contains_key(&fun_name) {
                     return Err(format!(
                         "FATAL: Duplicate -session for function {}. Exiting now...",
-                        fun_name
+                        &fun_name
                     ));
                 } else {
                     session_spec_def.0.insert(fun_name, session_specs);
