@@ -47,7 +47,7 @@ fn add_session_spec(spec: &Lit) -> Result<(FunName, SessionSpecs), String> {
 
     // Unwrap the char list.
     let Lit::Cons(val_const) = spec else {
-        return Err(format!("Expected cons for session spec"));
+        return Err("Expected cons for session spec".to_string());
     };
 
     // ASCII Decimal to string conversion...

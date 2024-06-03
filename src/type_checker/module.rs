@@ -9,7 +9,7 @@ use crate::contract_cerl::ast::CType::CBaseType;
 // One module in, no environment required
 // Return acceptance or failure and a list of messages
 pub fn module(module: CModule) -> (bool, Vec<String>) {
-    if module.functions.len() == 0 {
+    if module.functions.is_empty() {
         return (false, vec![format!("Nothing to analyze, not acceptable")]);
     }
     // Overall acceptance. Assume all is OK until proven otherwise

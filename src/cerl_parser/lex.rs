@@ -37,7 +37,7 @@ pub fn is_control(chr: u8) -> bool {
 
 #[inline]
 pub fn is_namechar(chr: u8) -> bool {
-    is_uppercase(chr) || is_lowercase(chr) || is_digit(chr) || chr == '@' as u8 || chr == '_' as u8
+    is_uppercase(chr) || is_lowercase(chr) || is_digit(chr) || chr == b'@' || chr == b'_'
 }
 
 // Built into nom: is_oct_digit(chr)

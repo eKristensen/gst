@@ -13,7 +13,7 @@ pub fn init_env(envs: &mut TypeEnvs, args: &Vec<Var>, spec: &Vec<CType>) -> Resu
         // Panic is acceptable as this should have been checked
         // before contract core erlang was constructed
         // Panic is better than silent acceptance
-        return Err(format!("args and spec do not have the same length"));
+        return Err("args and spec do not have the same length".to_string());
     }
     for (var, elm_ctype) in args.iter().zip(spec.iter()) {
         let insert_res = match elm_ctype {
@@ -31,7 +31,7 @@ pub fn init_env(envs: &mut TypeEnvs, args: &Vec<Var>, spec: &Vec<CType>) -> Resu
                 .is_none(),
         };
         if !insert_res {
-            return Err(format!("Duplicate var in args, should not be possible!!!"));
+            return Err("Duplicate var in args, should not be possible!!!".to_string());
         }
     }
     Ok(())

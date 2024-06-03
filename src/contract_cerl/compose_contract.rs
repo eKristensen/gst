@@ -81,7 +81,7 @@ fn merge_base_session_spec(
             (Base(base_elm), SessionSpecElm::BasePlaceholder) => {
                 clause_spec.push(CBaseType(base_elm.clone()))
             }
-            _ => return Err(format!("Warning: Bad spec.")),
+            _ => return Err("Warning: Bad spec.".to_string()),
         }
     }
     Ok(clause_spec)
@@ -98,23 +98,23 @@ fn compose_function_with_contract(
 
     // fname is the fun-name.
     // WF check makes a lot of sense here....
-    if !base_spec.0.contains_key(&fname) {
+    if !base_spec.0.contains_key(fname) {
         // TODO: A better way to handle warnings?
         return Err(format!(
             "Warning: Function {} is excluded from contract erlang as it got no base spec",
             fname
         ));
     }
-    let this_base_spec = base_spec.0.get(&fname).unwrap();
+    let this_base_spec = base_spec.0.get(fname).unwrap();
 
-    if !session_spec.0.contains_key(&fname) {
+    if !session_spec.0.contains_key(fname) {
         // TODO: A better way to handle warnings?
         return Err(format!(
             "Warning: Function {} is excluded from contract erlang as it got no session spec",
             fname
         ));
     }
-    let this_session_spec = session_spec.0.get(&fname).unwrap();
+    let this_session_spec = session_spec.0.get(fname).unwrap();
 
     if this_base_spec.0.len() != this_session_spec.0.len() {
         // TODO: A better way to handle warnings?
@@ -145,9 +145,7 @@ fn compose_function_with_contract(
     // We assume top-level Exprs follow the format of a top-level function specification at this point
     // Top level function can both be a case or a direct expression. Direct means there is only one clause.
     let cerl_parser::ast::Exprs::One(fun_body) = def.body else {
-        return Err(format!(
-            "Top-level fun def body are not expected to be a value list"
-        ));
+        return Err("Top-level fun def body are not expected to be a value list".to_string());
     };
 
     // Get the list of clauses
@@ -254,11 +252,11 @@ fn expr_to_cexpr(expr: cerl_parser::ast::Expr) -> Result<CExpr, String> {
                 FunCall::Call(module_name, call_name) => {
                     let module_name = exprs_to_cexpr(module_name)?;
                     let CExpr::Lit(Lit::Atom(module_name)) = module_name else {
-                        return Err(format!("Function call name must be an atom"));
+                        return Err("Function call name must be an atom".to_string());
                     };
                     let call_name = exprs_to_cexpr(call_name)?;
                     let CExpr::Lit(Lit::Atom(call_name)) = call_name else {
-                        return Err(format!("Function call name must be an atom"));
+                        return Err("Function call name must be an atom".to_string());
                     };
                     CFunCall::CCall(module_name, call_name)
                 }
@@ -277,9 +275,7 @@ fn expr_to_cexpr(expr: cerl_parser::ast::Expr) -> Result<CExpr, String> {
             let e2 = exprs_to_cexpr(e2)?;
             Ok(CExpr::Do(Box::new(e1), Box::new(e2)))
         }
-        _ => Err(format!(
-            "Expression not supported in Contract Core Erlang used."
-        )),
+        _ => Err("Expression not supported in Contract Core Erlang used.".to_string()),
     }
 }
 

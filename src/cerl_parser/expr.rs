@@ -20,11 +20,11 @@ use super::{
 fn expr_nested_list(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, _) = ws(tag("["))(i)?;
     let (i, head) = ws(exprs)(i)?;
-    let head = vec![head];
+    let head = [head];
 
     let (i, _) = ws(tag("|"))(i)?;
     let (i, tail) = ws(exprs)(i)?;
-    let tail = vec![tail];
+    let tail = [tail];
     let (i, _) = ws(tag("]"))(i)?;
 
     let cons = [&head[..], &tail[..]].concat();

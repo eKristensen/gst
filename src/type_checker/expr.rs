@@ -18,7 +18,7 @@ pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, S
         CExpr::Cons(_) => todo!(),
         CExpr::Tuple(_) => todo!(),
         CExpr::Let(v, e1, e2) => e_let(module, envs, v, e1, e2),
-        CExpr::Case(base_expr, clauses) => e_case(module, envs, &base_expr, clauses),
+        CExpr::Case(base_expr, clauses) => e_case(module, envs, base_expr, clauses),
         CExpr::Call(call, args) => e_call(module, envs, call, args),
         CExpr::Do(e1, e2) => e_do(module, envs, e1, e2),
     }
@@ -65,16 +65,17 @@ fn e_call(
                 }
             })
         else {
-            return Err(format!("e_call gsp_sync_send can only send base values"));
+            return Err("e_call gsp_sync_send can only send base values".to_string());
         };
         //println!("{:?}", envs);
 
         // Get current session
         let session_id = &args[1];
         let CExpr::Var(session_var) = session_id else {
-            return Err(format!(
+            return Err(
                 "e_call gsp_sync_send Session variable name must be used, not expression"
-            ));
+                    .to_string(),
+            );
         };
         let CType::CConsumeType(_, session_type) =
             (match expr(module, &mut TypeEnvs(envs.0.clone()), session_id) {
@@ -87,47 +88,41 @@ fn e_call(
                 }
             })
         else {
-            return Err(format!(
-                "e_call gsp_sync_send second argument must be session type"
-            ));
+            return Err("e_call gsp_sync_send second argument must be session type".to_string());
         };
         let mut session_type = session_type;
 
         // TODO: session_var must match, if not defined, set it!
 
         // Session must have at least one element otherwise it is not possible to continue:
-        if session_type.0.len() < 1 {
-            return Err(format!(
-                "e_call gsp_sync_send Cannot send on empty/consumed session"
-            ));
+        if session_type.0.is_empty() {
+            return Err("e_call gsp_sync_send Cannot send on empty/consumed session".to_string());
         }
 
         // It can be either an atom matching a label, or a simple value sent. Let us check:
         match session_type.0.first().unwrap() {
             SessionType::Send(to_send_val) => {
                 if session_type.0.len() < 2 {
-                    return Err(format!("Session type too short for sync send-receive"));
+                    return Err("Session type too short for sync send-receive".to_string());
                 }
                 // Send base value
                 if sending_val != *to_send_val {
-                    return Err(format!(
-                        "Mismatch between expected to send and actual type."
-                    ));
+                    return Err("Mismatch between expected to send and actual type.".to_string());
                 }
                 session_type.0.remove(0);
                 // Return type is received value
                 let SessionType::Receive(received) = session_type.0.remove(0) else {
-                    return Err(format!("Expects ping-pong send-receive"));
+                    return Err("Expects ping-pong send-receive".to_string());
                 };
                 envs.0
                     .insert(session_var.clone(), TypeEnv::Delta(session_type));
                 return Ok(CType::CBaseType(received));
             }
             SessionType::Receive(_) => {
-                return Err(format!("Session type says receive, we are about to send"))
+                return Err("Session type says receive, we are about to send".to_string())
             }
             SessionType::MakeChoice(_, _) => {
-                return Err(format!("Session type MakeChoice, expected OfferChoice"))
+                return Err("Session type MakeChoice, expected OfferChoice".to_string())
             }
             SessionType::OfferChoice(offers) => {
                 // Make choice
@@ -147,11 +142,11 @@ fn e_call(
                             continuation.clone(),
                         ));
                     }
-                    None => return Err(format!("Trying to make choice not offered by session")),
+                    None => return Err("Trying to make choice not offered by session".to_string()),
                 }
             }
             SessionType::End => {
-                return Err(format!("Session type is End, but we are about to use it"))
+                return Err("Session type is End, but we are about to use it".to_string())
             }
         }
 
@@ -184,7 +179,7 @@ fn e_call(
                 Err(err_val) => return Err(format!("E_call gsp_new failed due to {}", err_val)),
             })
         else {
-            return Err(format!("Must construct new session here"));
+            return Err("Must construct new session here".to_string());
         };
         // println!("type of pid {:?}", session_type);
 
@@ -248,7 +243,7 @@ fn e_case(
     // Base expr type check
     // TODO: A bit manual env clone, maybe fix?
     let mut case_base_expr_envs = TypeEnvs(envs.0.clone());
-    let base_res = expr(&module, &mut case_base_expr_envs, base_expr);
+    let base_res = expr(module, &mut case_base_expr_envs, base_expr);
     if base_res.is_err() {
         return Err(format!(
             "E_case failed in base case because {}",
@@ -259,22 +254,22 @@ fn e_case(
     // base expr must return a consume session type, otherwise the choices cannot be checked against a session type
     // In other words: Any base or new type is a type error
     let CType::CConsumeType(var, to_consume) = base_res.unwrap() else {
-        return Err(format!("Type error case base expr must be consume"));
+        return Err("Type error case base expr must be consume".to_string());
     };
 
     // Var must be defined
     let Some(var) = var else {
-        return Err(format!("Cannot work without binding session"));
+        return Err("Cannot work without binding session".to_string());
     };
 
     // Return types
     // TODO: Find a way to compare it without needing to save all return values
     let mut common_return_type: Vec<CType> = Vec::new();
 
-    if clauses.len() == 0 {
+    if clauses.is_empty() {
         // TODO: Actually remember. I decided that no clauses == Do
         //       Tbh this seemed like a simplification, but properly isn't, include Do in Contract Core Erlang?
-        return Err(format!("Zero clauses in case makes no sense."));
+        return Err("Zero clauses in case makes no sense.".to_string());
     }
 
     // TODO: If clauses.len() == 1 allow a bit more, do not require match on session.
@@ -386,7 +381,7 @@ fn must_st_consume_expr(
     match expr(module, current_envs, e) {
         Ok(return_type) => {
             // Check finished for all new sessions, diff between environments
-            let diff_ok = diff_consumed(before_envs, &current_envs);
+            let diff_ok = diff_consumed(before_envs, current_envs);
             if diff_ok.is_err() {
                 return  Err(format!("must st consume expr {:?} failed because {}\n DEBUG:\nBefore Envs: {:?}\nAfter Envs: {:?}", e, diff_ok.err().unwrap(), before_envs, current_envs));
             }
@@ -394,7 +389,7 @@ fn must_st_consume_expr(
             // Return return_type
             Ok(return_type)
         }
-        Err(err_val) => return Err(format!("must_st_consume_expr failed because {}", err_val)),
+        Err(err_val) => Err(format!("must_st_consume_expr failed because {}", err_val)),
     }
 }
 
@@ -424,15 +419,16 @@ fn pattern_matching(
         Pat::Lit(l) => {
             // Must match on lit
             let CExpr::Lit(e_lit) = e else {
-                return Err(format!(
+                return Err(
                     "Lit on left hand side can only be unified with lit on right hand side"
-                ));
+                        .to_string(),
+                );
             };
             // They must be equal, if not return error
             if *l != *e_lit {
-                return Err(format!(
-                    "pattern matching failed in Lit must be equal in pattern matching."
-                ));
+                return Err(
+                    "pattern matching failed in Lit must be equal in pattern matching.".to_string(),
+                );
             };
             Ok(())
         }
@@ -466,27 +462,27 @@ fn lookup_st_from_label(
 
     // Get the label for current pattern
     if pat.len() != 1 {
-        return Err(format!("Label cannot exist if length is not 1"));
+        return Err("Label cannot exist if length is not 1".to_string());
     }
     let Pat::Lit(atom) = pat.first().unwrap() else {
-        return Err(format!("label must be an atom #1"));
+        return Err("label must be an atom #1".to_string());
     };
     let Lit::Atom(atom) = atom else {
-        return Err(format!("label must be an atom #2"));
+        return Err("label must be an atom #2".to_string());
     };
     let crate::cerl_parser::ast::Atom(pat_label) = atom;
 
     // Look for label in session type
     if session_offers.0.len() != 1 {
-        return Err(format!("Length of session offers is not as expected"));
+        return Err("Length of session offers is not as expected".to_string());
     }
     let SessionType::OfferChoice(session_offers) = session_offers.0.first().unwrap() else {
-        return Err(format!("Case not possible without session offer"));
+        return Err("Case not possible without session offer".to_string());
     };
 
     // TODO: Can clone be avoided here?
     match session_offers.get(&Label(pat_label.clone())) {
         Some(st) => Ok(st.clone()),
-        None => return Err(format!("No matching offer found in session!")),
+        None => Err("No matching offer found in session!".to_string()),
     }
 }

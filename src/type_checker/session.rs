@@ -24,7 +24,7 @@ pub fn diff_consumed(before_envs: &TypeEnvs, after_envs: &TypeEnvs) -> Result<()
             TypeEnv::Gamma(_) => continue,
             TypeEnv::Delta(check_consumed) => {
                 // Check session is consumed
-                if check_consumed.0.len() == 0 {
+                if check_consumed.0.is_empty() {
                     continue;
                 }
                 if check_consumed.0.len() == 1 {

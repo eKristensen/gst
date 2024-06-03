@@ -52,7 +52,7 @@ fn add_base_spec(spec: &Lit) -> Result<(FunName, BaseSpecs), String> {
         let (input, output) = get_absform_clause(absform_clause)?;
         let input = get_absform_type(&input)?;
         let BaseSpecElm::Base(output) = get_absform_direct_type(&output)? else {
-            return Err(format!("add_base_spec: -spec parse failure #1"));
+            return Err("add_base_spec: -spec parse failure #1".to_string());
         };
         base_specs.0.push(BaseSpec {
             args: input,
@@ -66,45 +66,45 @@ fn add_base_spec(spec: &Lit) -> Result<(FunName, BaseSpecs), String> {
 fn get_fname_content(spec: &Lit) -> Result<(FunName, &Lit), String> {
     // Outer wrapper is a list with a two-element tuple
     let Lit::Cons(spec) = spec else {
-        return Err(format!("get_fname_content: -spec parse failure #1"));
+        return Err("get_fname_content: -spec parse failure #1".to_string());
     };
     if spec.len() != 1 {
-        return Err(format!("get_fname_content: -spec parse failure #2"));
+        return Err("get_fname_content: -spec parse failure #2".to_string());
     }
     let spec = spec.first().unwrap();
     let Lit::Tuple(spec) = spec else {
-        return Err(format!("get_fname_content: -spec parse failure #3"));
+        return Err("get_fname_content: -spec parse failure #3".to_string());
     };
 
     // The tuple has two elements: Function name encoded as a two-element tuple and the inner content.
     // The function name is parsed here and the rest is returned
     if spec.len() != 2 {
-        return Err(format!("get_fname_content: -spec parse failure #4"));
+        return Err("get_fname_content: -spec parse failure #4".to_string());
     }
 
     // Parse function name:
     let Lit::Tuple(fname_tuple) = spec.first().unwrap() else {
-        return Err(format!("get_fname_content: -spec parse failure #5"));
+        return Err("get_fname_content: -spec parse failure #5".to_string());
     };
     if fname_tuple.len() != 2 {
-        return Err(format!("get_fname_content: -spec parse failure #6"));
+        return Err("get_fname_content: -spec parse failure #6".to_string());
     }
     let Lit::Atom(fun_name) = fname_tuple.first().unwrap() else {
-        return Err(format!("get_fname_content: -spec parse failure #6"));
+        return Err("get_fname_content: -spec parse failure #6".to_string());
     };
     let Lit::Int(arity) = &fname_tuple[1] else {
-        return Err(format!("get_fname_content: -spec parse failure #7"));
+        return Err("get_fname_content: -spec parse failure #7".to_string());
     };
 
     // Sanity check
     if *arity < 0 {
-        return Err(format!("get_fname_content: -spec parse failure #8"));
+        return Err("get_fname_content: -spec parse failure #8".to_string());
     }
 
     // Unsigned arity
     let arity = u64::try_from(*arity);
     if arity.is_err() {
-        return Err(format!("get_fname_content: -spec parse failure #9"));
+        return Err("get_fname_content: -spec parse failure #9".to_string());
     }
     let arity = arity.unwrap();
 
@@ -120,7 +120,7 @@ fn get_fname_content(spec: &Lit) -> Result<(FunName, &Lit), String> {
 fn get_absform_clauses(spec: &Lit) -> Result<&Vec<Lit>, String> {
     // Expect top-level list and split each element. Very simple
     let Lit::Cons(spec) = spec else {
-        return Err(format!("get_absform_clauses: -spec parse failure #1"));
+        return Err("get_absform_clauses: -spec parse failure #1".to_string());
     };
     Ok(spec)
 }
@@ -132,15 +132,15 @@ fn get_absform_clause(spec: &Lit) -> Result<(Lit, Lit), String> {
 
     // First element after tag and location must be an atom that says 'fun'
     if Lit::Atom(Atom("fun".to_owned())) != spec[0] {
-        return Err(format!("get_absform_clause: -spec parse failure #01"));
+        return Err("get_absform_clause: -spec parse failure #01".to_string());
     }
 
     // First element after tag and location is a two-element list with the input and output.
     let Lit::Cons(io) = spec[1].clone() else {
-        return Err(format!("get_absform_clause: -spec parse failure #09"));
+        return Err("get_absform_clause: -spec parse failure #09".to_string());
     };
     if io.len() != 2 {
-        return Err(format!("get_absform_clause: -spec parse failure #10"));
+        return Err("get_absform_clause: -spec parse failure #10".to_string());
     }
 
     // We output input and output of the clause ready to be parsed later
@@ -153,15 +153,15 @@ fn get_absform_direct_type(spec: &Lit) -> Result<BaseSpecElm, String> {
 
     // First element after tag and location is the type as an atom
     let Lit::Atom(atom_type_string) = spec[0].clone() else {
-        return Err(format!("get_absform_direct_type: -spec parse failure #01"));
+        return Err("get_absform_direct_type: -spec parse failure #01".to_string());
     };
 
     // No arguments to types are allowed (yet). Therefor next element must be empty list
     let Lit::Cons(args) = spec[1].clone() else {
-        return Err(format!("get_absform_direct_type: -spec parse failure #02"));
+        return Err("get_absform_direct_type: -spec parse failure #02".to_string());
     };
-    if args.len() != 0 {
-        return Err(format!("get_absform_direct_type: -spec parse failure #03"));
+    if !args.is_empty() {
+        return Err("get_absform_direct_type: -spec parse failure #03".to_string());
     }
 
     let base_type = atom_to_base_type(&atom_type_string)?;
@@ -174,15 +174,15 @@ fn get_absform_user_type(spec: &Lit) -> Result<BaseSpecElm, String> {
 
     // First element after tag and location is the type as an atom
     let Lit::Atom(atom_type_string) = spec[0].clone() else {
-        return Err(format!("get_absform_user_type: -spec parse failure #01"));
+        return Err("get_absform_user_type: -spec parse failure #01".to_string());
     };
 
     // No arguments to types are allowed (yet). Therefor next element must be empty list
     let Lit::Cons(args) = spec[1].clone() else {
-        return Err(format!("get_absform_user_type: -spec parse failure #02"));
+        return Err("get_absform_user_type: -spec parse failure #02".to_string());
     };
-    if args.len() != 0 {
-        return Err(format!("get_absform_user_type: -spec parse failure #03"));
+    if !args.is_empty() {
+        return Err("get_absform_user_type: -spec parse failure #03".to_string());
     }
 
     let base_type = atom_to_session_type(&atom_type_string)?;
@@ -195,12 +195,12 @@ fn get_absform_product_type(spec: &Lit) -> Result<Vec<BaseSpecElm>, String> {
 
     // First element after tag and location is 'product'
     if Lit::Atom(Atom("product".to_owned())) != spec[0] {
-        return Err(format!("get_absform_product_type: -spec parse failure #01"));
+        return Err("get_absform_product_type: -spec parse failure #01".to_string());
     }
 
     // Second element after tag and location is the composite type.
     let Lit::Cons(types_list) = spec[1].clone() else {
-        return Err(format!("get_absform_product_type: -spec parse failure #02"));
+        return Err("get_absform_product_type: -spec parse failure #02".to_string());
     };
 
     // Each of these types is atoms that should be converted to base_types:
@@ -262,7 +262,7 @@ fn atom_to_base_type(spec: &Atom) -> Result<BaseSpecElm, String> {
         "float" => Ok(BaseSpecElm::Base(BaseType::Float)),
         "boolean" => Ok(BaseSpecElm::Base(BaseType::Boolean)),
         // TODO: Support cons/tuple types
-        _ => Err(format!("Unsupported type used")), // fallback
+        _ => Err("Unsupported type used".to_string()), // fallback
     }
 }
 
@@ -272,7 +272,7 @@ fn atom_to_session_type(spec: &Atom) -> Result<BaseSpecElm, String> {
     match atom.as_str() {
         "new" => Ok(BaseSpecElm::New),
         "consume" => Ok(BaseSpecElm::Consume),
-        _ => Err(format!("No custom types supported yet.")), // fallback
+        _ => Err("No custom types supported yet.".to_string()), // fallback
     }
 }
 
@@ -280,15 +280,11 @@ fn check_tag_return_residual<'a>(spec: &'a Lit, tag: &Atom) -> Result<&'a [Lit],
     // Checks a tag and returns the content of the tag if a match is found.
     // We assume length is always four for now.
     let Lit::Tuple(spec) = spec else {
-        return Err(format!(
-            "check_tag_return_residual: -spec parse failure #01"
-        ));
+        return Err("check_tag_return_residual: -spec parse failure #01".to_string());
     };
     // The type function spec tuple is always four element long
     if spec.len() != 4 {
-        return Err(format!(
-            "check_tag_return_residual: -spec parse failure #02"
-        ));
+        return Err("check_tag_return_residual: -spec parse failure #02".to_string());
     }
 
     // Sanity checks
@@ -302,24 +298,16 @@ fn check_tag_return_residual<'a>(spec: &'a Lit, tag: &Atom) -> Result<&'a [Lit],
 
     // Second element is a tuple with two integers
     let Lit::Tuple(location) = spec[1].clone() else {
-        return Err(format!(
-            "check_tag_return_residual: -spec parse failure #04"
-        ));
+        return Err("check_tag_return_residual: -spec parse failure #04".to_string());
     };
     if location.len() != 2 {
-        return Err(format!(
-            "check_tag_return_residual: -spec parse failure #05"
-        ));
+        return Err("check_tag_return_residual: -spec parse failure #05".to_string());
     }
     let Lit::Int(_l1) = location[0] else {
-        return Err(format!(
-            "check_tag_return_residual: -spec parse failure #06"
-        ));
+        return Err("check_tag_return_residual: -spec parse failure #06".to_string());
     };
     let Lit::Int(_l2) = location[1] else {
-        return Err(format!(
-            "check_tag_return_residual: -spec parse failure #07"
-        ));
+        return Err("check_tag_return_residual: -spec parse failure #07".to_string());
     };
 
     Ok(&spec[2..])

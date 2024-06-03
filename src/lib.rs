@@ -14,7 +14,7 @@ pub fn parse(src: &str) -> Result<CModule, nom::Err<ErrorTree<&str>>> {
     Ok(compose_contract(module).unwrap())
 }
 
-pub fn type_check(m: CModule) -> () {
+pub fn type_check(m: CModule) {
     module(m);
     todo!()
 }

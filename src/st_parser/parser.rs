@@ -104,7 +104,7 @@ fn st_receive(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
 
 fn base_type(i: &str) -> IResult<&str, BaseType, ErrorTree<&str>> {
     alt((
-        map(atom, |o| BaseType::Atom(o)),
+        map(atom, BaseType::Atom),
         value(BaseType::Pid, tag("pid")),
         value(BaseType::Reference, tag("reference")),
         value(BaseType::Integer, tag("integer")),
