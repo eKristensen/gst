@@ -451,7 +451,7 @@ fn ctype_to_typeenv(t: &CType) -> TypeEnv {
 }
 
 fn lookup_st_from_label(
-    pat: &Vec<Pat>,
+    pat: &[Pat],
     session_offers: &SessionTypesList,
 ) -> Result<SessionTypesList, String> {
     // We expect at very specific structure here:

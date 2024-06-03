@@ -18,7 +18,7 @@ pub fn base_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<BaseSpecDef
     // Use attributes to get spec
     for attribute in &ast.attributes {
         let Atom(a_name) = &attribute.name;
-        if *a_name == "spec".to_owned() {
+        if *a_name == "spec" {
             let new_base_spec = add_base_spec(&attribute.value);
             if new_base_spec.is_ok() {
                 let (fun_name, base_specs) = new_base_spec.unwrap();
@@ -207,14 +207,14 @@ fn get_absform_product_type(spec: &Lit) -> Result<Vec<BaseSpecElm>, String> {
     let mut base_types_out: Vec<BaseSpecElm> = Vec::new();
     for elm in types_list {
         let base_type = get_absform_direct_type(&elm);
-        if base_type.is_ok() {
-            base_types_out.push(base_type.unwrap());
+        if let Ok(base_type) = base_type {
+            base_types_out.push(base_type);
             continue;
         }
 
         let user_type = get_absform_user_type(&elm);
-        if user_type.is_ok() {
-            base_types_out.push(user_type.unwrap());
+        if let Ok(user_type) = user_type {
+            base_types_out.push(user_type);
             continue;
         }
 
@@ -232,8 +232,8 @@ fn get_absform_type(spec: &Lit) -> Result<Vec<BaseSpecElm>, String> {
     // Helper to try direct and product easily
     let specs = get_absform_product_type(spec);
 
-    if specs.is_ok() {
-        return Ok(specs.unwrap());
+    if let Ok(specs) = specs {
+        return Ok(specs);
     }
 
     // Try single type instead

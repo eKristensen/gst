@@ -5,7 +5,7 @@ use crate::type_checker::env::TypeEnv::Delta;
 use crate::type_checker::env::TypeEnv::Gamma;
 use crate::type_checker::env::TypeEnv::Sigma;
 
-pub fn init_env(envs: &mut TypeEnvs, args: &Vec<Var>, spec: &Vec<CType>) -> Result<(), String> {
+pub fn init_env(envs: &mut TypeEnvs, args: &[Var], spec: &[CType]) -> Result<(), String> {
     // TODO: For all places .zip is used, length should be checked.
     // Rust makes no errors, just stops when size is mismatched, see
     // https://stackoverflow.com/questions/57345197/

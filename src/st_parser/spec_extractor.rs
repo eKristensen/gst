@@ -60,8 +60,8 @@ fn add_session_spec(spec: &Lit) -> Result<(FunName, SessionSpecs), String> {
         let char_to_decode_last = char_to_decode_bytes.last().unwrap();
         let char_to_decode_last = &[*char_to_decode_last];
         let new_char = std::str::from_utf8(char_to_decode_last);
-        if new_char.is_ok() {
-            st_string.push_str(new_char.unwrap())
+        if let Ok(new_char) = new_char {
+            st_string.push_str(new_char)
         } else {
             return Err(format!(
                 "ASCII Decimal to string conversion failure: {:?}",
