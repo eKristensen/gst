@@ -10,7 +10,6 @@ pub fn finished(envs: &TypeEnvs) -> Result<(), String> {
     diff_consumed(&empty, envs)
 }
 
-// TODO: Consider result instead of panic failure... More controlled way to test in a test.
 pub fn diff_consumed(before_envs: &TypeEnvs, after_envs: &TypeEnvs) -> Result<(), String> {
     // println!("\ndiff consume check.\nBefore env: {:?}", before_envs);
     // println!("After envs: {:?}", after_envs);

@@ -11,9 +11,6 @@ use super::{
     session::diff_consumed,
 };
 
-// TODO: Get rid of all "panic!"
-
-// Maybe it would be better to return Result instead of panic .
 pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, String> {
     match e {
         CExpr::Var(v) => e_base(envs, v),
@@ -27,6 +24,7 @@ pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, S
     }
 }
 
+// TODO: e-call function is too big, split into smaller parts.
 fn e_call(
     module: &CModule,
     envs: &mut TypeEnvs,
@@ -108,11 +106,13 @@ fn e_call(
         match session_type.0.first().unwrap() {
             SessionType::Send(to_send_val) => {
                 if session_type.0.len() < 2 {
-                    panic!("Session type too short for sync send-receive")
+                    return Err(format!("Session type too short for sync send-receive"));
                 }
                 // Send base value
                 if sending_val != *to_send_val {
-                    panic!("Mismatch between expected to send and actual type.")
+                    return Err(format!(
+                        "Mismatch between expected to send and actual type."
+                    ));
                 }
                 session_type.0.remove(0);
                 // Return type is received value
@@ -123,9 +123,11 @@ fn e_call(
                     .insert(session_var.clone(), TypeEnv::Delta(session_type));
                 return Ok(CType::CBaseType(received));
             }
-            SessionType::Receive(_) => panic!("Session type says receive, we are about to send"),
+            SessionType::Receive(_) => {
+                return Err(format!("Session type says receive, we are about to send"))
+            }
             SessionType::MakeChoice(_, _) => {
-                panic!("Session type MakeChoice, expected OfferChoice")
+                return Err(format!("Session type MakeChoice, expected OfferChoice"))
             }
             SessionType::OfferChoice(offers) => {
                 // Make choice
@@ -145,10 +147,12 @@ fn e_call(
                             continuation.clone(),
                         ));
                     }
-                    None => panic!("Trying to make choice not offered by session"),
+                    None => return Err(format!("Trying to make choice not offered by session")),
                 }
             }
-            SessionType::End => panic!("Session type is End, but we are about to use it"),
+            SessionType::End => {
+                return Err(format!("Session type is End, but we are about to use it"))
+            }
         }
 
         // Call by value, We need to argument type. Execution environment? Should I consider it isolated? I suppose?
@@ -164,10 +168,10 @@ fn e_call(
     if *call == gsp_new {
         // To find the right sub-call we need to check the args. There must be three args
         if args.len() != 1 {
-            panic!(
+            return Err(format!(
                 "gen_server_plus:new only works with one argument. {:?}",
                 args
-            )
+            ));
         }
         // Get the third argument. This is the important value
         let server_pid = args.first().unwrap();
@@ -420,9 +424,11 @@ fn pattern_matching(
         Pat::Lit(l) => {
             // Must match on lit
             let CExpr::Lit(e_lit) = e else {
-                panic!("Lit on left hand side can only be unified with lit on right hand side")
+                return Err(format!(
+                    "Lit on left hand side can only be unified with lit on right hand side"
+                ));
             };
-            // NOOP if they are equal, but panic if they are not
+            // They must be equal, if not return error
             if *l != *e_lit {
                 return Err(format!(
                     "pattern matching failed in Lit must be equal in pattern matching."
@@ -431,7 +437,7 @@ fn pattern_matching(
             Ok(())
         }
         Pat::Cons(_) => todo!(),
-        Pat::Tuple(t) => {
+        Pat::Tuple(_) => {
             todo!()
         }
         Pat::Alias(_, _) => todo!(),

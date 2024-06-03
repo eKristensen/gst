@@ -125,6 +125,7 @@ pub fn opt_sign_digit1<
         Some(sign) => match sign {
             '+' => map_res(digit1, str::parse::<i64>)(i),
             '-' => {let (i, res) = map_res(digit1, str::parse::<i64>)(i)?; Ok((i,(-1 * res)))},
+            // TODO: Can I get rid of the panic here ?
             _ => panic!("Sign not + or - should never be reachable after checking the value is either of those two.")
         }
     }

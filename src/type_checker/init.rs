@@ -5,7 +5,7 @@ use crate::type_checker::env::TypeEnv::Delta;
 use crate::type_checker::env::TypeEnv::Gamma;
 use crate::type_checker::env::TypeEnv::Sigma;
 
-pub fn init_env(envs: &mut TypeEnvs, args: &Vec<Var>, spec: &Vec<CType>) -> () {
+pub fn init_env(envs: &mut TypeEnvs, args: &Vec<Var>, spec: &Vec<CType>) -> Result<(), String> {
     // TODO: For all places .zip is used, length should be checked.
     // Rust makes no errors, just stops when size is mismatched, see
     // https://stackoverflow.com/questions/57345197/
@@ -13,7 +13,7 @@ pub fn init_env(envs: &mut TypeEnvs, args: &Vec<Var>, spec: &Vec<CType>) -> () {
         // Panic is acceptable as this should have been checked
         // before contract core erlang was constructed
         // Panic is better than silent acceptance
-        panic!("args and spec do not have the same length")
+        return Err(format!("args and spec do not have the same length"));
     }
     for (var, elm_ctype) in args.iter().zip(spec.iter()) {
         let insert_res = match elm_ctype {
@@ -31,7 +31,8 @@ pub fn init_env(envs: &mut TypeEnvs, args: &Vec<Var>, spec: &Vec<CType>) -> () {
                 .is_none(),
         };
         if !insert_res {
-            panic!("Duplicate var in args, should not be possible!!!")
+            return Err(format!("Duplicate var in args, should not be possible!!!"));
         }
     }
+    Ok(())
 }

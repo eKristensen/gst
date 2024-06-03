@@ -137,6 +137,7 @@ fn st_offer_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
 
             for (label, elm) in o {
                 if offer_choice.insert(label.clone(), elm.clone()).is_some() {
+                    // TODO: Can i get rid of the panic here?
                     panic!("Duplicate label in offer choice")
                 }
             }

@@ -12,7 +12,7 @@ use crate::{
 
 use super::ast::{BaseSpec, BaseSpecDef, BaseSpecElm, BaseSpecs};
 
-pub fn base_spec_extractor(ast: &cerl_parser::ast::Module) -> BaseSpecDef {
+pub fn base_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<BaseSpecDef, String> {
     let mut base_spec_def: BaseSpecDef = BaseSpecDef(HashMap::new());
 
     // Use attributes to get spec
@@ -23,10 +23,10 @@ pub fn base_spec_extractor(ast: &cerl_parser::ast::Module) -> BaseSpecDef {
             if new_base_spec.is_ok() {
                 let (fun_name, base_specs) = new_base_spec.unwrap();
                 if base_spec_def.0.contains_key(&fun_name) {
-                    panic!(
+                    return Err(format!(
                         "FATAL: Duplicate -session for function {}. Exiting now...",
                         fun_name
-                    )
+                    ));
                 } else {
                     base_spec_def.0.insert(fun_name, base_specs);
                 }
@@ -39,7 +39,7 @@ pub fn base_spec_extractor(ast: &cerl_parser::ast::Module) -> BaseSpecDef {
         }
         // TODO: Add support for custom type declarations?
     }
-    base_spec_def
+    Ok(base_spec_def)
 }
 
 fn add_base_spec(spec: &Lit) -> Result<(FunName, BaseSpecs), String> {

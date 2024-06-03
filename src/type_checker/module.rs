@@ -22,7 +22,16 @@ pub fn module(module: CModule) -> (bool, Vec<String>) {
             let mut envs: TypeEnvs = TypeEnvs(HashMap::new());
 
             // Init env based on function header
-            init_env(&mut envs, &clause.args, &clause.spec);
+            let init_ok = init_env(&mut envs, &clause.args, &clause.spec);
+            if init_ok.is_err() {
+                println!(
+                    "Init env failed for {} due to {}",
+                    fun_name,
+                    init_ok.err().unwrap()
+                );
+                overall_acceptance = false;
+                continue;
+            }
 
             // Type check body, updates envs in place
             // module is sent along to give access to function signatures

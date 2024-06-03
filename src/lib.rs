@@ -11,7 +11,7 @@ use nom_supreme::error::ErrorTree;
 
 pub fn parse(src: &str) -> Result<CModule, nom::Err<ErrorTree<&str>>> {
     let (_, module) = cerl_parser::top::module(src)?;
-    Ok(compose_contract(module))
+    Ok(compose_contract(module).unwrap())
 }
 
 pub fn type_check(m: CModule) -> () {
@@ -20,6 +20,6 @@ pub fn type_check(m: CModule) -> () {
 }
 
 // pub fn analyze(m: Module) -> bool {
-//     let (env,skipped) = init_funcs_env(m);
+//     let (env,skipped) = init functions env(m);
 //     analyze_module_functions(&env, &skipped)
 // }

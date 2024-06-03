@@ -37,6 +37,7 @@ fn main() {
             .status()
             .expect("");
         if status.code().unwrap() > 0 {
+            // TODO: Sensible way to get rid of panic here?
             panic!("Could not convert erl to core")
         }
         new_filename = dir_path.to_owned();
@@ -53,6 +54,7 @@ fn main() {
                 println!("Type checker: {:?}", type_check(contract.unwrap()))
             }
         } // TODO: Pretty print
+        // TODO: Sensible way to get rid of panic here?
         Err(err) => panic!("Could not read file {} because {}", filename, err),
     }
 }

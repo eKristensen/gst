@@ -1,6 +1,5 @@
 // Translator from Core Erlang AST to Contract Core Erlang
 
-use core::panic;
 use std::collections::HashMap;
 
 use crate::{
@@ -30,13 +29,13 @@ use crate::spec_extractor::ast::BaseSpecElm::Base;
 use crate::st_parser::ast::SessionSpecElm::ConsumeSpec;
 use crate::st_parser::ast::SessionSpecElm::NewSpec;
 
-pub fn compose_contract(ast: cerl_parser::ast::Module) -> ast::CModule {
+pub fn compose_contract(ast: cerl_parser::ast::Module) -> Result<ast::CModule, String> {
     // Step 1: Resolve dependencies: Must get specs
-    let base_spec = base_spec_extractor(&ast);
-    let session_spec = session_spec_extractor(&ast);
+    let base_spec = base_spec_extractor(&ast)?;
+    let session_spec = session_spec_extractor(&ast)?;
 
     // Step 2: Convert while matching specs.
-    make_contract(&ast, base_spec, session_spec)
+    Ok(make_contract(&ast, base_spec, session_spec))
 }
 
 fn make_contract(
@@ -146,7 +145,9 @@ fn compose_function_with_contract(
     // We assume top-level Exprs follow the format of a top-level function specification at this point
     // Top level function can both be a case or a direct expression. Direct means there is only one clause.
     let cerl_parser::ast::Exprs::One(fun_body) = def.body else {
-        panic!("Top-level fun def body are not expected to be a value list")
+        return Err(format!(
+            "Top-level fun def body are not expected to be a value list"
+        ));
     };
 
     // Get the list of clauses

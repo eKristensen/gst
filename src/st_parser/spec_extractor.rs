@@ -14,7 +14,7 @@ use super::{
     parser::st_parse,
 };
 
-pub fn session_spec_extractor(ast: &cerl_parser::ast::Module) -> SessionSpecDef {
+pub fn session_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<SessionSpecDef, String> {
     // Find all session attributes
     let mut session_spec_def: SessionSpecDef = SessionSpecDef(HashMap::new());
     for attribute in &ast.attributes {
@@ -23,10 +23,10 @@ pub fn session_spec_extractor(ast: &cerl_parser::ast::Module) -> SessionSpecDef 
             if new_session_spec.is_ok() {
                 let (fun_name, session_specs) = new_session_spec.unwrap();
                 if session_spec_def.0.contains_key(&fun_name) {
-                    panic!(
+                    return Err(format!(
                         "FATAL: Duplicate -session for function {}. Exiting now...",
                         fun_name
-                    )
+                    ));
                 } else {
                     session_spec_def.0.insert(fun_name, session_specs);
                 }
@@ -39,7 +39,7 @@ pub fn session_spec_extractor(ast: &cerl_parser::ast::Module) -> SessionSpecDef 
         }
         // TODO: Add support for custom type declarations?
     }
-    session_spec_def
+    Ok(session_spec_def)
 }
 
 fn add_session_spec(spec: &Lit) -> Result<(FunName, SessionSpecs), String> {
