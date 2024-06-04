@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::contract_cerl::ast::{CModule, CType};
 
-use super::{env::TypeEnvs, expr::expr, init::init_env, session::finished};
+use super::{base::expr, env::TypeEnvs, init::init_env, session::finished};
 
 // Entry point for type checking.
 // One module in, no environment required

@@ -54,7 +54,7 @@ fn add_session_spec(spec: &Lit) -> Result<(FunName, SessionSpecs), String> {
     let mut st_string: String = String::new();
     for item in val_const {
         let Lit::Int(char_to_decode) = item else {
-            todo!()
+            return Err(format!("ASCII decimal string to string conversion only works on integer literals. Found {:?}", item));
         };
         let char_to_decode_bytes = char_to_decode.to_be_bytes();
         let char_to_decode_last = char_to_decode_bytes.last().unwrap();

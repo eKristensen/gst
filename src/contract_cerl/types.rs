@@ -19,6 +19,8 @@ pub enum BaseType {
     Boolean,
     Cons(Vec<BaseType>),
     Tuple(Vec<BaseType>),
+    Char,
+    String,
     Term, // Aka "any"
 }
 // Label to differentiate branches in session types. They are assumed to be non-overlapping

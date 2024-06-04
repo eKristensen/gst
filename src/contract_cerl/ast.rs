@@ -11,6 +11,7 @@
 // - Flatten functions (including handles) to pattern match on a top level
 // - Some types of expressions are removed as they cannot be analyzed right now:
 //   Fname, Map, Lambda functions, LetRec, Receive (gen server behavior must be used), Try, Catch
+// - Supports more types: String, Char, Term, Float, Integer, but not Number.
 
 // TODO: Keep in mind: It might make sense to encode "is_xxx(Var)" (e.g. "when is_pid(X)") and other restrictions into the contract later on.
 //       For now we rely completely on the specifications.
