@@ -42,7 +42,7 @@ pub fn gsp_new(
     };
     // println!("type of pid {:?}", session_type);
 
-    return Ok(CType::Consume(None, session_type));
+    Ok(CType::Consume(None, session_type))
 
     // Call by value, We need to argument type. Execution environment? Should I consider it isolated? I suppose?
     // The safest and more reasonable way to deal with the call-by-value is to assume it is like a let x (var-name) = expr type
@@ -135,13 +135,13 @@ pub fn gsp_sync_send(
             };
             envs.0
                 .insert(session_var.clone(), TypeEnv::Delta(session_type));
-            return Ok(CType::Base(received));
+            Ok(CType::Base(received))
         }
         SessionType::Receive(_) => {
-            return Err("Session type says receive, we are about to send".to_string())
+            Err("Session type says receive, we are about to send".to_string())
         }
         SessionType::MakeChoice(_, _) => {
-            return Err("Session type MakeChoice, expected OfferChoice".to_string())
+            Err("Session type MakeChoice, expected OfferChoice".to_string())
         }
         SessionType::OfferChoice(offers) => {
             // Make choice
@@ -156,16 +156,16 @@ pub fn gsp_sync_send(
                     envs.0
                         .insert(session_var.clone(), TypeEnv::Delta(continuation.clone()));
                     // print!("Updated Envs {:?} {:?}", session_var.clone(), envs);
-                    return Ok(CType::Consume(
+                    Ok(CType::Consume(
                         Some(session_var.clone()),
                         continuation.clone(),
-                    ));
+                    ))
                 }
-                None => return Err("Trying to make choice not offered by session".to_string()),
+                None => Err("Trying to make choice not offered by session".to_string()),
             }
         }
         SessionType::End => {
-            return Err("Session type is End, but we are about to use it".to_string())
+            Err("Session type is End, but we are about to use it".to_string())
         }
     }
 
