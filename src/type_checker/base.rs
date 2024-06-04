@@ -149,23 +149,14 @@ fn e_let(
     // Clone env to compare consume later. Keep using original ref otherwise changes within are going to be lost
     let envs_copy_baseline = TypeEnvs(envs.0.clone());
     let pat_ok = pattern_matching(module, envs, v, e1);
-    if pat_ok.is_err() {
-        return Err(format!(
-            "e_let ({:?} {:?} {:?}) failed #1 because {}",
-            v,
-            e1,
-            e2,
-            pat_ok.err().unwrap()
-        ));
+    if let Err(err_val) = pat_ok {
+        return Err(format!("e_let failed #1 because {}", err_val));
     }
 
     // println!("LET must consume");
     match must_st_consume_expr(module, &envs_copy_baseline, envs, e2) {
         Ok(ok_val) => Ok(ok_val),
-        Err(err_val) => Err(format!(
-            "e_let \n1) {:?}\n2) {:?}\n3) {:?}) \n failed #2 because {}",
-            v, e1, e2, err_val
-        )),
+        Err(err_val) => Err(format!("e_let failed #2 because {}", err_val)),
     }
 }
 
@@ -179,13 +170,12 @@ fn pattern_matching(
 ) -> Result<(), String> {
     match v {
         Pat::Var(v) => {
-            // TODO: No explicit isolation of env here. Is properly as it should be...
             // Get expression type
-            let t = expr(module, envs, e);
-            if t.is_err() {
+            let t = must_st_consume_expr(module, envs, &mut TypeEnvs(envs.0.clone()), e);
+            if let Err(err_val) = t {
                 return Err(format!(
                     "pattern matching failed in var because {}",
-                    t.err().unwrap()
+                    err_val
                 ));
             }
             // TODO: Add "remove if equal"/NOOP thing
