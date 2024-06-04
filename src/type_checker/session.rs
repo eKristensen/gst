@@ -164,9 +164,7 @@ pub fn gsp_sync_send(
                 None => Err("Trying to make choice not offered by session".to_string()),
             }
         }
-        SessionType::End => {
-            Err("Session type is End, but we are about to use it".to_string())
-        }
+        SessionType::End => Err("Session type is End, but we are about to use it".to_string()),
     }
 
     // Call by value, We need to argument type. Execution environment? Should I consider it isolated? I suppose?
