@@ -34,7 +34,7 @@ pub fn base_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<BaseSpecDef
                 return Err(format!(
                     "Warning: Failed base spec extraction. Reason: {:?}",
                     new_base_spec.err()
-                ))
+                ));
             }
         }
         // TODO: Add support for custom type declarations?

@@ -51,14 +51,14 @@ fn main() {
             let contract = parse(&src);
             println!("Contract core erlang debug text: {:?}", contract);
             if let Ok(contract) = contract {
-                if contract.warnings.len() > 0 {
+                if !contract.warnings.is_empty() {
                     println!("\nCore Erlang Contract created with the following warnings:");
                     for elm in contract.warnings {
                         println!("Warning: {}", elm);
                     }
                 }
                 let type_check_res = type_check(contract.res);
-                if type_check_res.warnings.len() > 0 {
+                if !type_check_res.warnings.is_empty() {
                     println!("\nType checker returned the following warnings:");
                     for elm in type_check_res.warnings {
                         println!("Warning: {}", elm);
