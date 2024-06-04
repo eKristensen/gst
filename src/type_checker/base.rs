@@ -1,8 +1,12 @@
 use crate::{
-    cerl_parser::ast::{Atom, Lit, Pat, Var},
+    cerl_parser::ast::{Lit, Pat, Var},
     contract_cerl::{
         ast::{CExpr, CFunCall, CModule, CType},
-        types::{BaseType, Label, SessionType},
+        types::BaseType,
+    },
+    type_checker::{
+        fun::bif_fun,
+        session::{gsp_new, gsp_sync_send},
     },
 };
 
@@ -15,13 +19,45 @@ pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, S
     match e {
         CExpr::Var(v) => e_base(envs, v),
         CExpr::Lit(l) => Ok(e_lit(l)),
-        CExpr::Cons(_) => todo!(),
-        CExpr::Tuple(_) => todo!(),
+        CExpr::Cons(cons) => {
+            let res = expr_base_type_list(module, envs, cons)?;
+            Ok(CType::Base(BaseType::Cons(res)))
+        }
+        CExpr::Tuple(tuple) => {
+            let res = expr_base_type_list(module, envs, tuple)?;
+            Ok(CType::Base(BaseType::Tuple(res)))
+        }
         CExpr::Let(v, e1, e2) => e_let(module, envs, v, e1, e2),
         CExpr::Case(base_expr, clauses) => e_case(module, envs, base_expr, clauses),
         CExpr::Call(call, args) => e_call(module, envs, call, args),
         CExpr::Do(e1, e2) => e_do(module, envs, e1, e2),
     }
+}
+
+fn expr_base_type_list(
+    module: &CModule,
+    envs: &mut TypeEnvs,
+    e: &Vec<CExpr>,
+) -> Result<Vec<BaseType>, String> {
+    let mut res: Vec<BaseType> = Vec::new();
+    for elm in e {
+        // Try to evaluate in isolated environment
+        match must_st_consume_expr(module, envs, &mut TypeEnvs(envs.0.clone()), elm) {
+            Ok(ok_val) => {
+                let CType::Base(ok_val) = ok_val else {
+                    return Err("Only base types supported in cons or tuple".to_string());
+                };
+                res.push(ok_val)
+            }
+            Err(err_val) => {
+                return Err(format!(
+                    "Evaluation for type of element in Cons or Tuple failed because of {}",
+                    err_val
+                ))
+            }
+        }
+    }
+    Ok(res)
 }
 
 // TODO: e-call function is too big, split into smaller parts.
@@ -38,170 +74,22 @@ fn e_call(
     // 1b) Send make choice (e_select)
     // 2)  A native call    (e_app, the fallback)
 
-    let gsp_sync_send = CFunCall::Call(Atom("gen_server_plus".to_owned()), Atom("call".to_owned()));
-    let gsp_new = CFunCall::Call(Atom("gen_server_plus".to_owned()), Atom("new".to_owned()));
-
-    if *call == gsp_sync_send {
-        // To find the right sub-call we need to check the args. There must be three args
-        if args.len() != 3 {
-            return Err(format!(
-                "gen_server_plus:call only works with three arguments. {:?}",
-                args
-            ));
-        }
-
-        println!("First and second argument ar not checked right now. Should they?");
-
-        // Get the third argument. This is the important value, can it be sent?
-        let sending_expr = &args[2];
-        // TODO Call by value isolation!!!!! Important!!!
-        println!("TODO Call by value isolation!!!!! Important!!!");
-        let CType::Base(sending_val) =
-            (match expr(module, &mut TypeEnvs(envs.0.clone()), sending_expr) {
-                Ok(ok_val) => ok_val,
-                Err(err_val) => {
-                    return Err(format!("e_call gsp_sync_send failed because {}", err_val))
-                }
-            })
-        else {
-            return Err("e_call gsp_sync_send can only send base values".to_string());
-        };
-        //println!("{:?}", envs);
-
-        // Get current session
-        let session_id = &args[1];
-        let CExpr::Var(session_var) = session_id else {
-            return Err(
-                "e_call gsp_sync_send Session variable name must be used, not expression"
-                    .to_string(),
-            );
-        };
-        let CType::Consume(_, session_type) =
-            (match expr(module, &mut TypeEnvs(envs.0.clone()), session_id) {
-                Ok(ok_val) => ok_val,
-                Err(err_val) => {
-                    return Err(format!(
-                        "e_call gsp_sync_send failed because of {}",
-                        err_val
-                    ))
-                }
-            })
-        else {
-            return Err("e_call gsp_sync_send second argument must be session type".to_string());
-        };
-        let mut session_type = session_type;
-
-        // TODO: session_var must match, if not defined, set it!
-
-        // Session must have at least one element otherwise it is not possible to continue:
-        if session_type.0.is_empty() {
-            return Err("e_call gsp_sync_send Cannot send on empty/consumed session".to_string());
-        }
-
-        // It can be either an atom matching a label, or a simple value sent. Let us check:
-        match session_type.0.first().unwrap() {
-            SessionType::Send(to_send_val) => {
-                if session_type.0.len() < 2 {
-                    return Err("Session type too short for sync send-receive".to_string());
-                }
-                // Send base value
-                if sending_val != *to_send_val {
-                    return Err("Mismatch between expected to send and actual type.".to_string());
-                }
-                session_type.0.remove(0);
-                // Return type is received value
-                let SessionType::Receive(received) = session_type.0.remove(0) else {
-                    return Err("Expects ping-pong send-receive".to_string());
-                };
-                envs.0
-                    .insert(session_var.clone(), TypeEnv::Delta(session_type));
-                return Ok(CType::Base(received));
-            }
-            SessionType::Receive(_) => {
-                return Err("Session type says receive, we are about to send".to_string())
-            }
-            SessionType::MakeChoice(_, _) => {
-                return Err("Session type MakeChoice, expected OfferChoice".to_string())
-            }
-            SessionType::OfferChoice(offers) => {
-                // Make choice
-                let BaseType::Atom(Atom(atom_label)) = sending_val else {
-                    return Err(format!("Cannot make a choice without a label. Session type expects a choice {:?} {:?} {:?}", session_type, sending_val, args));
-                };
-                let try_label = Label(atom_label);
-                match offers.get(&try_label) {
-                    Some(continuation) => {
-                        // println!("DEBUG WAS HERE");
-                        // TODO: Update ENV, gotta get session_var from argument.
-                        envs.0
-                            .insert(session_var.clone(), TypeEnv::Delta(continuation.clone()));
-                        // print!("Updated Envs {:?} {:?}", session_var.clone(), envs);
-                        return Ok(CType::Consume(
-                            Some(session_var.clone()),
-                            continuation.clone(),
-                        ));
-                    }
-                    None => return Err("Trying to make choice not offered by session".to_string()),
-                }
-            }
-            SessionType::End => {
-                return Err("Session type is End, but we are about to use it".to_string())
-            }
-        }
-
-        // Call by value, We need to argument type. Execution environment? Should I consider it isolated? I suppose?
-        // The safest and more reasonable way to deal with the call-by-value is to assume it is like a let x (var-name) = expr type
-        // And to assume the environment of the call-by-value is enclosed, i.e. we require all lose ends to be finished and do not save any expressions that may be defined while evaluating the value in call-by-value.
-        // Generic "check env before-after" is strongly needed now!
-
-        // We can only send base values
-
-        // If it is not a base-value we assume it is select
+    // Try session constructor
+    if let Ok(res_ok) = gsp_new(module, envs, call, args) {
+        return Ok(res_ok);
     }
 
-    if *call == gsp_new {
-        // To find the right sub-call we need to check the args. There must be three args
-        if args.len() != 1 {
-            return Err(format!(
-                "gen_server_plus:new only works with one argument. {:?}",
-                args
-            ));
-        }
-        // Get the third argument. This is the important value
-        let server_pid = args.first().unwrap();
-
-        // TODO Call by value isolation!!!!! Important!!!
-        // println!("TODO Call by value isolation!!!!! Important!!!");
-        let CType::New(session_type) =
-            (match expr(module, &mut TypeEnvs(envs.0.clone()), server_pid) {
-                Ok(ok_val) => ok_val,
-                Err(err_val) => return Err(format!("E_call gsp_new failed due to {}", err_val)),
-            })
-        else {
-            return Err("Must construct new session here".to_string());
-        };
-        // println!("type of pid {:?}", session_type);
-
-        return Ok(CType::Consume(None, session_type));
-
-        // Call by value, We need to argument type. Execution environment? Should I consider it isolated? I suppose?
-        // The safest and more reasonable way to deal with the call-by-value is to assume it is like a let x (var-name) = expr type
-        // And to assume the environment of the call-by-value is enclosed, i.e. we require all lose ends to be finished and do not save any expressions that may be defined while evaluating the value in call-by-value.
-        // Generic "check env before-after" is strongly needed now!
-
-        // We can only send base values
-
-        // If it is not a base-value we assume it is select
+    // Try send-receive
+    if let Ok(res_ok) = gsp_sync_send(module, envs, call, args) {
+        return Ok(res_ok);
     }
 
-    // TODO: More clever way to handle BIF
-    let bif_io_format = CFunCall::Call(Atom("io".to_owned()), Atom("format".to_owned()));
-    if *call == bif_io_format {
-        return Ok(CType::Base(BaseType::Atom(Atom("ok".to_string()))));
+    // Try build-in functions (bif)
+    if let Ok(res_ok) = bif_fun(call) {
+        return Ok(res_ok);
     }
 
-    // println!("{:?} {:?}", call, args);
-    todo!()
+    Err("Could not type call".to_string())
 }
 
 fn e_base(envs: &TypeEnvs, v: &Var) -> Result<CType, String> {
@@ -218,14 +106,18 @@ fn e_base(envs: &TypeEnvs, v: &Var) -> Result<CType, String> {
 }
 
 fn e_lit(l: &Lit) -> CType {
+    CType::Base(e_lit_aux(l))
+}
+
+fn e_lit_aux(l: &Lit) -> BaseType {
     match l {
-        Lit::Int(_) => CType::Base(BaseType::Integer),
-        Lit::Float(_) => CType::Base(BaseType::Float),
-        Lit::Atom(a) => CType::Base(BaseType::Atom(a.clone())),
-        Lit::Char(_) => CType::Base(BaseType::Char),
-        Lit::Cons(_) => todo!(),
-        Lit::Tuple(_) => todo!(),
-        Lit::String(_) => CType::Base(BaseType::String),
+        Lit::Int(_) => BaseType::Integer,
+        Lit::Float(_) => BaseType::Float,
+        Lit::Atom(a) => BaseType::Atom(a.clone()),
+        Lit::Char(_) => BaseType::Char,
+        Lit::Cons(cons) => BaseType::Cons(cons.iter().map(e_lit_aux).collect()),
+        Lit::Tuple(tuple) => BaseType::Tuple(tuple.iter().map(e_lit_aux).collect()),
+        Lit::String(_) => BaseType::String,
     }
 }
 
@@ -316,9 +208,33 @@ fn pattern_matching(
             };
             Ok(())
         }
-        Pat::Cons(_) => todo!(),
-        Pat::Tuple(_) => todo!(),
-        Pat::Alias(_, _) => todo!(),
+        Pat::Cons(l_cons) => {
+            // What this means: Both sides must have cons, and content must be compatible
+            let CExpr::Cons(e) = e else {
+                return Err("Cons pattern mismatch".to_string());
+            };
+            for (v_elm, e_elm) in l_cons.iter().zip(e.iter()) {
+                if let Err(err_val) = pattern_matching(module, envs, v_elm, e_elm) {
+                    return Err(format!("Pat cons failed due to {}", err_val));
+                }
+            }
+            Ok(())
+        }
+        Pat::Tuple(l_tuple) => {
+            // What this means: Both sides must have tuple, and content must be compatible
+            let CExpr::Tuple(e) = e else {
+                return Err("Tuple pattern mismatch".to_string());
+            };
+            for (v_elm, e_elm) in l_tuple.iter().zip(e.iter()) {
+                if let Err(err_val) = pattern_matching(module, envs, v_elm, e_elm) {
+                    return Err(format!("Pat tuple failed due to {}", err_val));
+                }
+            }
+            Ok(())
+        }
+        Pat::Alias(_, _) => todo!(
+            "How to pattern match alias? Find example where this todo is triggered and implement."
+        ),
     }
 }
 
