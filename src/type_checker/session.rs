@@ -34,14 +34,12 @@ pub fn gsp_new(
     let server_pid = args.first().unwrap();
 
     // TODO Call by value isolation!!!!! Important!!!
-    // println!("TODO Call by value isolation!!!!! Important!!!");
     let CType::New(session_type) = (match expr(module, &mut TypeEnvs(envs.0.clone()), server_pid) {
         Ok(ok_val) => ok_val,
         Err(err_val) => return Err(format!("E_call gsp_new failed due to {}", err_val)),
     }) else {
         return Err("Must construct new session here".to_string());
     };
-    // println!("type of pid {:?}", session_type);
 
     Ok(CType::Consume(None, session_type))
 
@@ -75,12 +73,10 @@ pub fn gsp_sync_send(
         ));
     }
 
-    println!("First and second argument ar not checked right now. Should they?");
+    println!("TODO: First and second argument are not checked right now. Should they?");
 
     // Get the third argument. This is the important value, can it be sent?
     let sending_expr = &args[2];
-    // TODO Call by value isolation!!!!! Important!!!
-    println!("TODO Call by value isolation!!!!! Important!!!");
     let CType::Base(sending_val) = (match expr(module, &mut TypeEnvs(envs.0.clone()), sending_expr)
     {
         Ok(ok_val) => ok_val,
@@ -88,7 +84,6 @@ pub fn gsp_sync_send(
     }) else {
         return Err("e_call gsp_sync_send can only send base values".to_string());
     };
-    //println!("{:?}", envs);
 
     // Get current session
     let session_id = &args[1];
@@ -152,11 +147,9 @@ pub fn gsp_sync_send(
             let try_label = Label(atom_label);
             match offers.get(&try_label) {
                 Some(continuation) => {
-                    // println!("DEBUG WAS HERE");
                     // TODO: Update ENV, gotta get session_var from argument.
                     envs.0
                         .insert(session_var.clone(), TypeEnv::Delta(continuation.clone()));
-                    // print!("Updated Envs {:?} {:?}", session_var.clone(), envs);
                     Ok(CType::Consume(
                         Some(session_var.clone()),
                         continuation.clone(),
@@ -274,9 +267,6 @@ pub fn finished(envs: &TypeEnvs) -> Result<(), String> {
 }
 
 pub fn diff_consumed(before_envs: &TypeEnvs, after_envs: &TypeEnvs) -> Result<(), String> {
-    // println!("\ndiff consume check.\nBefore env: {:?}", before_envs);
-    // println!("After envs: {:?}", after_envs);
-
     // Check all that should be consumed, has been consumed (aka "finished" function)
     // Two stage: Find all to check, and then to check their value.
     let before_vars = before_envs.0.keys().cloned().collect();
@@ -310,10 +300,6 @@ pub fn must_st_consume_expr(
     current_envs: &mut TypeEnvs,
     e: &CExpr,
 ) -> Result<CType, String> {
-    // println!("\nmust expr {:?}", e);
-    // println!("before  {:?}", before_envs);
-    // println!("current {:?}\n", current_envs);
-
     // Check e2 in double mark
     match expr(module, current_envs, e) {
         Ok(return_type) => {

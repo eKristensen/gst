@@ -138,7 +138,6 @@ fn e_do(module: &CModule, envs: &mut TypeEnvs, e1: &CExpr, e2: &CExpr) -> Result
         return Err(format!("e_do failed because {}", err_val));
     }
 
-    // println!("DO must consume");
     match must_st_consume_expr(module, &envs_copy_baseline, envs, e2) {
         Ok(ok_val) => Ok(ok_val),
         Err(err_val) => Err(format!("e_do failed because {}", err_val)),
@@ -164,7 +163,6 @@ fn e_let(
     }
     let _env_debug_copy = TypeEnvs(envs.0.clone());
 
-    // println!("LET must consume");
     match must_st_consume_expr(module, &envs_copy_baseline, envs, e2) {
         Ok(ok_val) => Ok(ok_val),
         Err(err_val) => Err(format!("e_let failed #2 because {}", err_val)),
