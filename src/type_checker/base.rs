@@ -21,11 +21,11 @@ pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, S
         CExpr::Lit(l) => Ok(e_lit(l)),
         CExpr::Cons(cons) => match expr_base_type_list(module, envs, cons) {
             Ok(res) => Ok(CType::Base(BaseType::Cons(res))),
-            Err(err_val) => return Err(format!("expr cons failed because {}", err_val)),
+            Err(err_val) => Err(format!("expr cons failed because {}", err_val)),
         },
         CExpr::Tuple(tuple) => match expr_base_type_list(module, envs, tuple) {
             Ok(res) => Ok(CType::Base(BaseType::Tuple(res))),
-            Err(err_val) => return Err(format!("expr tuple failed because {}", err_val)),
+            Err(err_val) => Err(format!("expr tuple failed because {}", err_val)),
         },
         CExpr::Let(v, e1, e2) => e_let(module, envs, v, e1, e2),
         CExpr::Case(base_expr, clauses) => e_case(module, envs, base_expr, clauses),
@@ -42,7 +42,7 @@ fn expr_base_type_list(
     let mut res: Vec<BaseType> = Vec::new();
     for elm in e {
         // Try to evaluate in isolated environment
-        match must_st_consume_expr(module, &mut TypeEnvs(envs.0.clone()), envs, elm) {
+        match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, elm) {
             Ok(ok_val) => {
                 let CType::Base(ok_val) = ok_val else {
                     return Err("Only base types supported in cons or tuple".to_string());
@@ -162,7 +162,7 @@ fn e_let(
     if let Err(err_val) = pat_ok {
         return Err(format!("e_let failed #1 because {}", err_val));
     }
-    let env_debug_copy = TypeEnvs(envs.0.clone());
+    let _env_debug_copy = TypeEnvs(envs.0.clone());
 
     // println!("LET must consume");
     match must_st_consume_expr(module, &envs_copy_baseline, envs, e2) {
