@@ -50,8 +50,27 @@ fn main() {
         Ok(src) => {
             let contract = parse(&src);
             println!("Contract core erlang debug text: {:?}", contract);
-            if contract.is_ok() {
-                println!("Type checker: {:?}", type_check(contract.unwrap()))
+            if let Ok(contract) = contract {
+                if contract.warnings.len() > 0 {
+                    println!("\nCore Erlang Contract created with the following warnings:");
+                    for elm in contract.warnings {
+                        println!("Warning: {}", elm);
+                    }
+                }
+                let type_check_res = type_check(contract.res);
+                if type_check_res.warnings.len() > 0 {
+                    println!("\nType checker returned the following warnings:");
+                    for elm in type_check_res.warnings {
+                        println!("Warning: {}", elm);
+                    }
+                } else {
+                    println!("\nThere were no warnings from the type checker.")
+                }
+                if type_check_res.res {
+                    println!("\nResult: PASS\n");
+                } else {
+                    println!("\nResult: FAIL\n");
+                }
             }
         } // TODO: Pretty print
         // TODO: Sensible way to get rid of panic here?

@@ -8,7 +8,7 @@ module 'simple-02' ['foo'/2,
 		%% Line 4
 		'spec' =
 		    %% Line 4
-		    [{{'foo',2},[{'type',{4,10},'fun',[{'type',{4,10},'product',[{'type',{4,11},'boolean',[]}|[{'type',{4,22},'number',[]}]]}|[{'type',{4,36},'boolean',[]}]]}|[{'type',{5,10},'fun',[{'type',{5,10},'product',[{'type',{5,11},'pid',[]}|[{'type',{5,18},'list',[]}]]}|[{'type',{5,29},'reference',[]}]]}]]}]]
+		    [{{'foo',2},[{'type',{4,10},'fun',[{'type',{4,10},'product',[{'type',{4,11},'boolean',[]}|[{'type',{4,22},'integer',[]}]]}|[{'type',{4,37},'boolean',[]}]]}|[{'type',{5,10},'fun',[{'type',{5,10},'product',[{'type',{5,11},'pid',[]}|[{'type',{5,18},'list',[]}]]}|[{'type',{5,29},'reference',[]}]]}]]}]]
 'foo'/2 =
     %% Line 6
     ( fun (_0,_1) ->

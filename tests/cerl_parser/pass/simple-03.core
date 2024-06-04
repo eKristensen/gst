@@ -8,7 +8,7 @@ module 'simple-03' ['foo'/3,
 		%% Line 4
 		'spec' =
 		    %% Line 4
-		    [{{'foo',3},[{'type',{4,10},'fun',[{'type',{4,10},'product',[{'type',{4,11},'boolean',[]}|[{'type',{4,22},'number',[]}|[{'type',{4,32},'float',[]}]]]}|[{'type',{4,45},'boolean',[]}]]}|[{'type',{5,10},'fun',[{'type',{5,10},'product',[{'type',{5,11},'pid',[]}|[{'type',{5,18},'list',[]}|[{'type',{5,26},'reference',[]}]]]}|[{'type',{5,42},'reference',[]}]]}]]}]]
+		    [{{'foo',3},[{'type',{4,10},'fun',[{'type',{4,10},'product',[{'type',{4,11},'boolean',[]}|[{'type',{4,22},'integer',[]}|[{'type',{4,33},'float',[]}]]]}|[{'type',{4,46},'boolean',[]}]]}|[{'type',{5,10},'fun',[{'type',{5,10},'product',[{'type',{5,11},'pid',[]}|[{'type',{5,18},'list',[]}|[{'type',{5,26},'reference',[]}]]]}|[{'type',{5,42},'reference',[]}]]}]]}]]
 'foo'/3 =
     %% Line 6
     ( fun (_0,_1,_2) ->

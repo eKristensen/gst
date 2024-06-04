@@ -6,17 +6,16 @@ mod type_checker;
 
 use crate::contract_cerl::compose_contract::compose_contract;
 use crate::type_checker::module::module;
-use contract_cerl::ast::CModule;
+use contract_cerl::ast::{CModule, OptWarnings};
 use nom_supreme::error::ErrorTree;
 
-pub fn parse(src: &str) -> Result<CModule, nom::Err<ErrorTree<&str>>> {
+pub fn parse(src: &str) -> Result<OptWarnings<CModule>, nom::Err<ErrorTree<&str>>> {
     let (_, module) = cerl_parser::top::module(src)?;
     Ok(compose_contract(module).unwrap())
 }
 
-pub fn type_check(m: CModule) {
-    module(m);
-    todo!()
+pub fn type_check(m: CModule) -> OptWarnings<bool> {
+    module(m)
 }
 
 // pub fn analyze(m: Module) -> bool {

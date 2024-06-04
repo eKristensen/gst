@@ -18,7 +18,7 @@ use crate::{
 };
 
 use super::{
-    ast::{self, CClause, CExpr, CFun, CModule, CType},
+    ast::{self, CClause, CExpr, CFun, CModule, CType, OptWarnings},
     types::BaseType,
 };
 use crate::contract_cerl::ast::CFunCall;
@@ -26,7 +26,9 @@ use crate::spec_extractor::ast::BaseSpecElm::Base;
 use crate::st_parser::ast::SessionSpecElm::ConsumeSpec;
 use crate::st_parser::ast::SessionSpecElm::NewSpec;
 
-pub fn compose_contract(ast: cerl_parser::ast::Module) -> Result<ast::CModule, String> {
+pub fn compose_contract(
+    ast: cerl_parser::ast::Module,
+) -> Result<OptWarnings<ast::CModule>, String> {
     // Step 1: Resolve dependencies: Must get specs
     let base_spec = base_spec_extractor(&ast)?;
     let session_spec = session_spec_extractor(&ast)?;
@@ -39,7 +41,8 @@ fn make_contract(
     ast: &cerl_parser::ast::Module,
     base_spec: BaseSpecDef,
     session_spec: SessionSpecDef,
-) -> ast::CModule {
+) -> OptWarnings<ast::CModule> {
+    let mut warnings: Vec<String> = Vec::new();
     let mut functions: HashMap<FunName, Vec<CFun>> = HashMap::new();
     // One body for each module
     for (fname, def) in ast.body.clone() {
@@ -48,16 +51,19 @@ fn make_contract(
                 functions.insert(fname, contract_clauses);
             }
             Err(err) => {
-                println!(
-                    "Warning: Function {} could not be included in Contract Core Erlang because {}",
+                warnings.push(format!(
+                    "Function {} could not be included in Contract Core Erlang because {}",
                     fname, err
-                );
+                ));
             }
         };
     }
-    CModule {
-        name: ast.name.clone(),
-        functions,
+    OptWarnings {
+        res: CModule {
+            name: ast.name.clone(),
+            functions,
+        },
+        warnings,
     }
 }
 
@@ -78,7 +84,7 @@ fn merge_base_session_spec(
             (Base(base_elm), SessionSpecElm::BasePlaceholder) => {
                 clause_spec.push(CType::Base(base_elm.clone()))
             }
-            _ => return Err("Warning: Bad spec.".to_string()),
+            _ => return Err("Bad spec.".to_string()),
         }
     }
     Ok(clause_spec)
@@ -96,27 +102,24 @@ fn compose_function_with_contract(
     // fname is the fun-name.
     // WF check makes a lot of sense here....
     if !base_spec.0.contains_key(fname) {
-        // TODO: A better way to handle warnings?
         return Err(format!(
-            "Warning: Function {} is excluded from contract erlang as it got no base spec",
+            "Function {} is excluded from contract erlang as it got no base spec",
             fname
         ));
     }
     let this_base_spec = base_spec.0.get(fname).unwrap();
 
     if !session_spec.0.contains_key(fname) {
-        // TODO: A better way to handle warnings?
         return Err(format!(
-            "Warning: Function {} is excluded from contract erlang as it got no session spec",
+            "Function {} is excluded from contract erlang as it got no session spec",
             fname
         ));
     }
     let this_session_spec = session_spec.0.get(fname).unwrap();
 
     if this_base_spec.0.len() != this_session_spec.0.len() {
-        // TODO: A better way to handle warnings?
         return Err(format!(
-            "Warning: Function {} is excluded due to mismatch in spec length",
+            "Function {} is excluded due to mismatch in spec length",
             fname
         ));
     }
@@ -164,9 +167,8 @@ fn compose_function_with_contract(
     };
 
     if partial_cfun.len() != clauses.len() {
-        // TODO: A better way to handle warnings?
         return Err(format!(
-            "Warning: Function {} is excluded due to mismatch in number of spec and body clauses",
+            " Function {} is excluded due to mismatch in number of spec and body clauses",
             fname
         ));
     }

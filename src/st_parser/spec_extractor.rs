@@ -31,10 +31,10 @@ pub fn session_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<SessionS
                     session_spec_def.0.insert(fun_name.clone(), session_specs);
                 }
             } else {
-                println!(
-                    "Warning: Failed session spec extraction. Reason: {:?}",
+                return Err(format!(
+                    "Failed session spec extraction. Reason: {:?}",
                     new_session_spec.err()
-                )
+                ));
             }
         }
         // TODO: Add support for custom type declarations?

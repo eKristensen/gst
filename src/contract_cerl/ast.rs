@@ -72,3 +72,9 @@ pub enum CType {
     New(SessionTypesList),
     Consume(Option<Var>, SessionTypesList), // Option<Var> is used by the type_checker to identify sessions.
 }
+
+#[derive(Debug)]
+pub struct OptWarnings<T> {
+    pub res: T,
+    pub warnings: Vec<String>,
+}
