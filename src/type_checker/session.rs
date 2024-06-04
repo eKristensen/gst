@@ -19,9 +19,10 @@ pub fn gsp_new(
     args: &Vec<CExpr>,
 ) -> Result<CType, String> {
     let gsp_new = CFunCall::Call(Atom("gen_server_plus".to_owned()), Atom("new".to_owned()));
-    if *call == gsp_new {
+    if *call != gsp_new {
         return Err("Not gen server plus new session constructor".to_string());
     }
+
     // To find the right sub-call we need to check the args. There must be three args
     if args.len() != 1 {
         return Err(format!(
@@ -318,14 +319,42 @@ pub fn must_st_consume_expr(
         Ok(return_type) => {
             // Check finished for all new sessions, diff between environments
             let diff_ok = diff_consumed(before_envs, current_envs);
-            if diff_ok.is_err() {
-                return  Err(format!("must st consume expr {:?} failed because {}\n DEBUG:\nBefore Envs: {:?}\nAfter Envs: {:?}", e, diff_ok.err().unwrap(), before_envs, current_envs));
+            if let Err(err_val) = diff_ok {
+                return Err(format!(
+                    "must st consume expr failed because {} \nWhile checking {:?} \n",
+                    err_val, e
+                ));
             }
+
+            // Env isolation step: Remove all new definitions, unless they are session identifiers
+            // In this case, it would have been easier to have the envs separate
+            envs_isolation(before_envs, current_envs);
 
             // Return return_type
             Ok(return_type)
         }
         Err(err_val) => Err(format!("must_st_consume_expr failed because {}", err_val)),
+    }
+}
+
+// Task: Ensure that we preserve isolation of all environments but except Delta. Remove new values and restore old values.
+// Used to e.g. ensure arguments are evaluated in an isolated environment.
+fn envs_isolation(old_envs: &TypeEnvs, new_envs: &mut TypeEnvs) {
+    let new_vars: HashSet<Var> = new_envs.0.keys().cloned().collect();
+    // Check current env. For all that is not Delta, the definition must be the same as in before. Remove or update as needed
+    for var_key in new_vars {
+        let cur_val = new_envs.0.get(&var_key).unwrap();
+        match cur_val {
+            TypeEnv::Delta(_) => continue, // Keep only changes in Delta
+            _ => match old_envs.0.get(&var_key) {
+                Some(old_val) => {
+                    new_envs.0.insert(var_key.clone(), old_val.clone());
+                }
+                None => {
+                    new_envs.0.remove(&var_key);
+                }
+            },
+        }
     }
 }
 

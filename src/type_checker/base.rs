@@ -19,14 +19,14 @@ pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, S
     match e {
         CExpr::Var(v) => e_base(envs, v),
         CExpr::Lit(l) => Ok(e_lit(l)),
-        CExpr::Cons(cons) => {
-            let res = expr_base_type_list(module, envs, cons)?;
-            Ok(CType::Base(BaseType::Cons(res)))
-        }
-        CExpr::Tuple(tuple) => {
-            let res = expr_base_type_list(module, envs, tuple)?;
-            Ok(CType::Base(BaseType::Tuple(res)))
-        }
+        CExpr::Cons(cons) => match expr_base_type_list(module, envs, cons) {
+            Ok(res) => Ok(CType::Base(BaseType::Cons(res))),
+            Err(err_val) => return Err(format!("expr cons failed because {}", err_val)),
+        },
+        CExpr::Tuple(tuple) => match expr_base_type_list(module, envs, tuple) {
+            Ok(res) => Ok(CType::Base(BaseType::Tuple(res))),
+            Err(err_val) => return Err(format!("expr tuple failed because {}", err_val)),
+        },
         CExpr::Let(v, e1, e2) => e_let(module, envs, v, e1, e2),
         CExpr::Case(base_expr, clauses) => e_case(module, envs, base_expr, clauses),
         CExpr::Call(call, args) => e_call(module, envs, call, args),
@@ -42,7 +42,7 @@ fn expr_base_type_list(
     let mut res: Vec<BaseType> = Vec::new();
     for elm in e {
         // Try to evaluate in isolated environment
-        match must_st_consume_expr(module, envs, &mut TypeEnvs(envs.0.clone()), elm) {
+        match must_st_consume_expr(module, &mut TypeEnvs(envs.0.clone()), envs, elm) {
             Ok(ok_val) => {
                 let CType::Base(ok_val) = ok_val else {
                     return Err("Only base types supported in cons or tuple".to_string());
@@ -75,21 +75,30 @@ fn e_call(
     // 2)  A native call    (e_app, the fallback)
 
     // Try session constructor
-    if let Ok(res_ok) = gsp_new(module, envs, call, args) {
+    let gsp_new_res = gsp_new(module, envs, call, args);
+    if let Ok(res_ok) = gsp_new_res {
         return Ok(res_ok);
     }
 
     // Try send-receive
-    if let Ok(res_ok) = gsp_sync_send(module, envs, call, args) {
+    let gsp_sync_send_res = gsp_sync_send(module, envs, call, args);
+    if let Ok(res_ok) = gsp_sync_send_res {
         return Ok(res_ok);
     }
 
     // Try build-in functions (bif)
-    if let Ok(res_ok) = bif_fun(call) {
+    let bif_res = bif_fun(call);
+    if let Ok(res_ok) = bif_res {
         return Ok(res_ok);
     }
 
-    Err("Could not type call".to_string())
+    Err(format!(
+        "Could not type call {:?}. gsp+ new error: {}, gsp+ send error {}, bif error {}",
+        call,
+        gsp_new_res.err().unwrap(),
+        gsp_sync_send_res.err().unwrap(),
+        bif_res.err().unwrap()
+    ))
 }
 
 fn e_base(envs: &TypeEnvs, v: &Var) -> Result<CType, String> {
@@ -125,9 +134,10 @@ fn e_do(module: &CModule, envs: &mut TypeEnvs, e1: &CExpr, e2: &CExpr) -> Result
     // Clone env to compare consume later. Keep using original ref otherwise changes within are going to be lost
     let envs_copy_baseline = TypeEnvs(envs.0.clone());
     let eval_ok = expr(module, envs, e1);
-    if eval_ok.is_err() {
-        return Err(format!("e_do failed because {}", eval_ok.err().unwrap()));
+    if let Err(err_val) = eval_ok {
+        return Err(format!("e_do failed because {}", err_val));
     }
+
     // println!("DO must consume");
     match must_st_consume_expr(module, &envs_copy_baseline, envs, e2) {
         Ok(ok_val) => Ok(ok_val),
@@ -152,6 +162,7 @@ fn e_let(
     if let Err(err_val) = pat_ok {
         return Err(format!("e_let failed #1 because {}", err_val));
     }
+    let env_debug_copy = TypeEnvs(envs.0.clone());
 
     // println!("LET must consume");
     match must_st_consume_expr(module, &envs_copy_baseline, envs, e2) {
@@ -171,7 +182,7 @@ fn pattern_matching(
     match v {
         Pat::Var(v) => {
             // Get expression type
-            let t = must_st_consume_expr(module, envs, &mut TypeEnvs(envs.0.clone()), e);
+            let t = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, e);
             if let Err(err_val) = t {
                 return Err(format!(
                     "pattern matching failed in var because {}",
