@@ -66,45 +66,37 @@ fn add_base_spec(spec: &Lit) -> Result<(FunName, BaseSpecs), String> {
 fn get_fname_content(spec: &Lit) -> Result<(FunName, &Lit), String> {
     // Outer wrapper is a list with a two-element tuple
     let Lit::Cons(spec) = spec else {
-        return Err("get_fname_content: -spec parse failure #1".to_string());
+        return Err("get_fname_content expected outer cons".to_string());
     };
-    if spec.len() != 1 {
-        return Err("get_fname_content: -spec parse failure #2".to_string());
-    }
-    let spec = spec.first().unwrap();
+    let &[spec] = &spec.as_slice() else {
+        return Err("get_fname_content expected single element".to_string());
+    };
+
     let Lit::Tuple(spec) = spec else {
-        return Err("get_fname_content: -spec parse failure #3".to_string());
+        return Err("get_fname_content: Main tuple missing".to_string());
     };
-
+    // The main spec tuple
     // The tuple has two elements: Function name encoded as a two-element tuple and the inner content.
-    // The function name is parsed here and the rest is returned
-    if spec.len() != 2 {
-        return Err("get_fname_content: -spec parse failure #4".to_string());
-    }
+    let &[fname_tuple, inner_spec] = &spec.as_slice() else {
+        return Err("get_fname_content: Main tuple wrong format".to_string());
+    };
 
-    // Parse function name:
-    let Lit::Tuple(fname_tuple) = spec.first().unwrap() else {
-        return Err("get_fname_content: -spec parse failure #5".to_string());
+    let Lit::Tuple(fname_tuple) = fname_tuple else {
+        return Err("get_fname_content: Fun-name must be in a tuple".to_string());
     };
-    if fname_tuple.len() != 2 {
-        return Err("get_fname_content: -spec parse failure #6".to_string());
-    }
-    let Lit::Atom(fun_name) = fname_tuple.first().unwrap() else {
-        return Err("get_fname_content: -spec parse failure #6".to_string());
-    };
-    let Lit::Int(arity) = &fname_tuple[1] else {
-        return Err("get_fname_content: -spec parse failure #7".to_string());
+    let &[Lit::Atom(fun_name), Lit::Int(arity)] = &fname_tuple.as_slice() else {
+        return Err("get_fname_content: Wrong fun name tuple format".to_string());
     };
 
     // Sanity check
     if *arity < 0 {
-        return Err("get_fname_content: -spec parse failure #8".to_string());
+        return Err("get_fname_content: negative arity is bad".to_string());
     }
 
     // Unsigned arity
     let arity = u64::try_from(*arity);
     if arity.is_err() {
-        return Err("get_fname_content: -spec parse failure #9".to_string());
+        return Err("get_fname_content: Arity conversion to unsigned failed".to_string());
     }
     let arity = arity.unwrap();
 
@@ -113,7 +105,7 @@ fn get_fname_content(spec: &Lit) -> Result<(FunName, &Lit), String> {
             name: (*fun_name).clone(),
             arity,
         },
-        &spec[1],
+        inner_spec,
     ))
 }
 
