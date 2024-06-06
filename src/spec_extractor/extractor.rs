@@ -32,7 +32,7 @@ pub fn base_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<BaseSpecDef
                 }
                 Err(err_val) => {
                     return Err(format!(
-                        "Warning: Failed base spec extraction. Reason: {}",
+                        "Failed base spec extraction. Reason: {}",
                         err_val
                     ))
                 }
