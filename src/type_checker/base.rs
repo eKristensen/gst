@@ -238,6 +238,7 @@ fn pattern_matching(
 }
 
 // TODO: Reuse this function. Implemented after this patter has been used a few times.. (check source code!)
+// Function purpose: Takes a CType and add it to the right environment.
 fn ctype_to_typeenv(t: &CType) -> TypeEnv {
     match t {
         CType::Base(b) => TypeEnv::Sigma(b.clone()),
