@@ -158,7 +158,7 @@ fn get_absform_types(spec_in: &Lit) -> Result<Vec<BaseSpecElm>, String> {
     // Each of these types should be parsed:
     let mut base_types_out: Vec<BaseSpecElm> = Vec::new();
     for elm in types_list {
-        let elm_type = get_absform_type(&elm)?;
+        let elm_type = get_absform_type(elm)?;
         base_types_out.push(elm_type);
     }
 
@@ -195,7 +195,7 @@ fn get_absform_type(spec: &Lit) -> Result<BaseSpecElm, String> {
             }
         }
         &[Lit::Atom(tag), _, Lit::Atom(tag2)] => match (tag.0.as_str(), tag2) {
-            ("atom", atom_name) => Ok(BaseSpecElm::Base(BaseType::Atom((atom_name.clone())))),
+            ("atom", atom_name) => Ok(BaseSpecElm::Base(BaseType::Atom(atom_name.clone()))),
             _ => Err("Expected atom literal".to_string()),
         },
         x => Err(format!("Unexpected type format: {:?}", x)),
