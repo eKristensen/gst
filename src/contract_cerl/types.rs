@@ -22,6 +22,8 @@ pub enum BaseType {
     Char,
     String,
     Term, // Aka "any"
+    List, // TODO: Differentiate between list types and include maybe improper and improper lists.
+    Map,  // TODO: Differentiate between different kinds of maps.
 }
 // Label to differentiate branches in session types. They are assumed to be non-overlapping
 // TODO: Non-overlapping assumption reconsider

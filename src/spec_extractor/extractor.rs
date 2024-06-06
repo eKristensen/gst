@@ -31,10 +31,7 @@ pub fn base_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<BaseSpecDef
                     }
                 }
                 Err(err_val) => {
-                    return Err(format!(
-                        "Failed base spec extraction. Reason: {}",
-                        err_val
-                    ))
+                    return Err(format!("Failed base spec extraction. Reason: {}", err_val))
                 }
             }
         }
@@ -184,6 +181,7 @@ fn get_absform_type(spec: &Lit) -> Result<BaseSpecElm, String> {
                 ("type", "integer", &[]) => Ok(BaseSpecElm::Base(BaseType::Integer)),
                 ("type", "float", &[]) => Ok(BaseSpecElm::Base(BaseType::Float)),
                 ("type", "boolean", &[]) => Ok(BaseSpecElm::Base(BaseType::Boolean)),
+                ("type", "list", &[]) => Ok(BaseSpecElm::Base(BaseType::List)),
                 ("type", type_name, type_args) => Err(format!(
                     "Unknown type {:?} with args {:?}",
                     type_name, type_args
@@ -193,6 +191,18 @@ fn get_absform_type(spec: &Lit) -> Result<BaseSpecElm, String> {
                     type_name, type_args
                 )),
                 _ => Err("Could not match any type".to_string()),
+            }
+        }
+        &[Lit::Atom(tag), _, Lit::Atom(tag2), Lit::Atom(tag3)] => {
+            match (tag.0.as_str(), tag2.0.as_str(), tag3.0.as_str()) {
+                ("type", "map", "any") => Ok(BaseSpecElm::Base(BaseType::Map)),
+                ("type", "tuple", "any") => {
+                    Ok(BaseSpecElm::Base(BaseType::Tuple(vec![BaseType::Term])))
+                }
+                x => Err(format!(
+                    "Unknown type where map or tuple was expected: {:?}",
+                    x
+                )),
             }
         }
         &[Lit::Atom(tag), _, Lit::Atom(tag2)] => match (tag.0.as_str(), tag2) {
