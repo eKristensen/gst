@@ -3,7 +3,7 @@ mod cerl_parser {
     mod pass;
 }
 
-// mod analysis {
-//     mod fail;
-//     mod pass;
-// }
+mod type_checker {
+    mod fail;
+    mod pass;
+}

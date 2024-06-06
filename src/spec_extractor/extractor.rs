@@ -182,6 +182,7 @@ fn get_absform_type(spec: &Lit) -> Result<BaseSpecElm, String> {
                 ("type", "float", &[]) => Ok(BaseSpecElm::Base(BaseType::Float)),
                 ("type", "boolean", &[]) => Ok(BaseSpecElm::Base(BaseType::Boolean)),
                 ("type", "list", &[]) => Ok(BaseSpecElm::Base(BaseType::List)),
+                ("type", "string", &[]) => Ok(BaseSpecElm::Base(BaseType::String)),
                 ("type", type_name, type_args) => Err(format!(
                     "Unknown type {:?} with args {:?}",
                     type_name, type_args

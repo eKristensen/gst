@@ -110,6 +110,7 @@ fn base_type(i: &str) -> IResult<&str, BaseType, ErrorTree<&str>> {
         value(BaseType::Integer, tag("integer")),
         value(BaseType::Float, tag("float")),
         value(BaseType::Boolean, tag("boolean")),
+        value(BaseType::String, tag("string")),
         // TODO: How to do cons and tuple in a sensible way???
     ))(i)
 }

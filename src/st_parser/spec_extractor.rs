@@ -19,22 +19,23 @@ pub fn session_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<SessionS
     let mut session_spec_def: SessionSpecDef = SessionSpecDef(HashMap::new());
     for attribute in &ast.attributes {
         if attribute.name == Atom("session".to_owned()) {
-            let new_session_spec = add_session_spec(&attribute.value);
-            if new_session_spec.is_ok() {
-                let (fun_name, session_specs) = new_session_spec.unwrap();
-                if session_spec_def.0.contains_key(&fun_name) {
-                    return Err(format!(
-                        "FATAL: Duplicate -session for function {}. Exiting now...",
-                        &fun_name
-                    ));
-                } else {
-                    session_spec_def.0.insert(fun_name.clone(), session_specs);
+            match add_session_spec(&attribute.value) {
+                Ok((fun_name, session_specs)) => {
+                    if session_spec_def.0.contains_key(&fun_name) {
+                        return Err(format!(
+                            "FATAL: Duplicate -session for function {}. Exiting now...",
+                            &fun_name
+                        ));
+                    } else {
+                        session_spec_def.0.insert(fun_name.clone(), session_specs);
+                    }
                 }
-            } else {
-                return Err(format!(
-                    "Failed session spec extraction. Reason: {:?}",
-                    new_session_spec.err()
-                ));
+                Err(err_val) => {
+                    return Err(format!(
+                        "Failed session spec extraction. Reason: {:?}",
+                        err_val
+                    ))
+                }
             }
         }
         // TODO: Add support for custom type declarations?

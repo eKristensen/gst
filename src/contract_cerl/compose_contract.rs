@@ -51,6 +51,11 @@ fn make_contract(
                 functions.insert(fname, contract_clauses);
             }
             Err(err) => {
+                // TODO: Consider to make a strict mode that requires full annotation
+                if fname.name.0 == "module_info" && (fname.arity == 0 || fname.arity == 1) {
+                    // Ignore 'module_info'/0 and 'module_info'/1
+                    continue;
+                }
                 warnings.push(format!(
                     "Function {} could not be included in Contract Core Erlang because {}",
                     fname, err
