@@ -129,3 +129,33 @@ Note 25. jan 2025: If the number of sessions that a function opens is not static
 However it might be relevant to consider later
 
 Maybe we will need to work with dependent types.
+
+# Erlang no native session types
+
+Erlang does not have native session types or the ability to create a new type
+
+I could use any() and then somehow use the type name for something, but that is not transparent/easy to understand
+Therefore it is a bad idea
+
+I decide not to use the built in -spec and type everything myself.
+
+Maybe the best option is somewhere in the middle
+
+The session id is going to be a ref, and that is enough for dialyzer/eqwalizer
+
+We need more to check sessions, but the checks are only "symbolic", not enforced by erlang.
+Channel types does not exist natively in erlang, so anything that needs to describe it must be "fake"/a string
+
+
+
+How would a client hand over a session to another client i erlang? aka what would a session type look like?
+Just a ref sent along for further use?
+Something more?
+
+Session-channel = {ServerID, SessionID} = {ref(),atom()}
+
+    new      session = {ref(), new}         <-- "constructor"
+fwd/existing session = {ref(), atom()}      <-- "ongoing"
+
+ref() needs to be known.
+
