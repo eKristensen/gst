@@ -19,22 +19,23 @@ pub fn base_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<BaseSpecDef
     for attribute in &ast.attributes {
         let Atom(a_name) = &attribute.name;
         if *a_name == "spec" {
-            let new_base_spec = add_base_spec(&attribute.value);
-            if new_base_spec.is_ok() {
-                let (fun_name, base_specs) = new_base_spec.unwrap();
-                if base_spec_def.0.contains_key(&fun_name) {
-                    return Err(format!(
-                        "FATAL: Duplicate -session for function {}. Exiting now...",
-                        &fun_name
-                    ));
-                } else {
-                    base_spec_def.0.insert(fun_name.clone(), base_specs);
+            match add_base_spec(&attribute.value) {
+                Ok((fun_name, base_specs)) => {
+                    if base_spec_def.0.contains_key(&fun_name) {
+                        return Err(format!(
+                            "FATAL: Duplicate -session for function {}. Exiting now...",
+                            &fun_name
+                        ));
+                    } else {
+                        base_spec_def.0.insert(fun_name.clone(), base_specs);
+                    }
                 }
-            } else {
-                return Err(format!(
-                    "Warning: Failed base spec extraction. Reason: {:?}",
-                    new_base_spec.err()
-                ));
+                Err(err_val) => {
+                    return Err(format!(
+                        "Warning: Failed base spec extraction. Reason: {}",
+                        err_val
+                    ))
+                }
             }
         }
         // TODO: Add support for custom type declarations?
