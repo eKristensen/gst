@@ -50,9 +50,9 @@ fn add_base_spec(spec: &Lit) -> Result<(FunName, BaseSpecs), String> {
     let mut base_specs: BaseSpecs = BaseSpecs(Vec::new());
     for absform_clause in absform_clauses {
         let (input, output) = get_absform_clause(absform_clause)?;
-        let input = get_absform_type(&input)?;
-        let BaseSpecElm::Base(output) = get_absform_direct_type(&output)? else {
-            return Err("add_base_spec: -spec parse failure #1".to_string());
+        let input = get_absform_types(&input)?;
+        let BaseSpecElm::Base(output) = get_absform_type(&output)? else {
+            return Err("add_base_spec: Output type must be a base type".to_string());
         };
         base_specs.0.push(BaseSpec {
             args: input,
@@ -120,17 +120,17 @@ fn get_absform_clauses(spec: &Lit) -> Result<&Vec<Lit>, String> {
 fn get_absform_clause(spec: &Lit) -> Result<(Lit, Lit), String> {
     // Each clause starts with a certain type fun tag we need to check exists, and otherwise ignore
     // We check, but ignore the location info that is encoded in the the absform.
-    let spec = check_tag_return_residual(spec, &Atom("type".to_owned()))?;
+    let Lit::Tuple(spec) = spec else {
+        return Err("get_absform_clause must be in a tuple".to_string());
+    };
 
-    // First element after tag and location must be an atom that says 'fun'
-    if Lit::Atom(Atom("fun".to_owned())) != spec[0] {
-        return Err("get_absform_clause: -spec parse failure #01".to_string());
+    let &[Lit::Atom(tag), _, Lit::Atom(tag2), Lit::Cons(io)] = &spec.as_slice() else {
+        return Err("get_absform_types: Wrong length tuple.".to_string());
+    };
+    if *tag != Atom("type".to_owned()) || *tag2 != Atom("fun".to_owned()) {
+        return Err("get_absform_clause wrong tags in tuple".to_string());
     }
 
-    // First element after tag and location is a two-element list with the input and output.
-    let Lit::Cons(io) = spec[1].clone() else {
-        return Err("get_absform_clause: -spec parse failure #09".to_string());
-    };
     if io.len() != 2 {
         return Err("get_absform_clause: -spec parse failure #10".to_string());
     }
@@ -139,168 +139,65 @@ fn get_absform_clause(spec: &Lit) -> Result<(Lit, Lit), String> {
     Ok((io[0].clone(), io[1].clone()))
 }
 
-fn get_absform_direct_type(spec: &Lit) -> Result<BaseSpecElm, String> {
-    // A direct type, i.e. a type that is not a product type. General parsing similar to absform clause
-    let spec = check_tag_return_residual(spec, &Atom("type".to_owned()))?;
-
-    // First element after tag and location is the type as an atom
-    let Lit::Atom(atom_type_string) = spec[0].clone() else {
-        return Err("get_absform_direct_type: -spec parse failure #01".to_string());
-    };
-
-    // No arguments to types are allowed (yet). Therefor next element must be empty list
-    let Lit::Cons(args) = spec[1].clone() else {
-        return Err("get_absform_direct_type: -spec parse failure #02".to_string());
-    };
-    if !args.is_empty() {
-        return Err("get_absform_direct_type: -spec parse failure #03".to_string());
-    }
-
-    let base_type = atom_to_base_type(&atom_type_string)?;
-    Ok(base_type)
-}
-
-fn get_absform_user_type(spec: &Lit) -> Result<BaseSpecElm, String> {
-    // A direct user type, i.e. a type that is not a product type. General parsing similar to absform clause
-    let spec = check_tag_return_residual(spec, &Atom("user_type".to_owned()))?;
-
-    // First element after tag and location is the type as an atom
-    let Lit::Atom(atom_type_string) = spec[0].clone() else {
-        return Err("get_absform_user_type: -spec parse failure #01".to_string());
-    };
-
-    // No arguments to types are allowed (yet). Therefor next element must be empty list
-    let Lit::Cons(args) = spec[1].clone() else {
-        return Err("get_absform_user_type: -spec parse failure #02".to_string());
-    };
-    if !args.is_empty() {
-        return Err("get_absform_user_type: -spec parse failure #03".to_string());
-    }
-
-    let base_type = atom_to_session_type(&atom_type_string)?;
-    Ok(base_type)
-}
-
-fn get_absform_product_type(spec: &Lit) -> Result<Vec<BaseSpecElm>, String> {
+fn get_absform_types(spec_in: &Lit) -> Result<Vec<BaseSpecElm>, String> {
     // Product type is a special kind of type that can nest other types.
-    let spec = check_tag_return_residual(spec, &Atom("type".to_owned()))?;
-
-    // First element after tag and location is 'product'
-    if Lit::Atom(Atom("product".to_owned())) != spec[0] {
-        return Err("get_absform_product_type: -spec parse failure #01".to_string());
-    }
-
-    // Second element after tag and location is the composite type.
-    let Lit::Cons(types_list) = spec[1].clone() else {
-        return Err("get_absform_product_type: -spec parse failure #02".to_string());
+    let Lit::Tuple(spec) = spec_in else {
+        return Err("get_absform_product_type can only be in a tuple.".to_string());
     };
 
-    // Each of these types is atoms that should be converted to base_types:
+    // TODO: Not ignore Anno/check content of annotation
+    let &[Lit::Atom(tag), _, Lit::Atom(tag2), Lit::Cons(types_list)] = &spec.as_slice() else {
+        return Err("get_absform_types: Wrong length tuple.".to_string());
+    };
+    if *tag != Atom("type".to_owned()) || *tag2 != Atom("product".to_owned()) {
+        // Not product type assume a it is a ordinary type instead
+        let single_type = get_absform_type(spec_in)?;
+        return Ok(vec![single_type]);
+    }
+
+    // Each of these types should be parsed:
     let mut base_types_out: Vec<BaseSpecElm> = Vec::new();
     for elm in types_list {
-        let base_type = get_absform_direct_type(&elm);
-        if let Ok(base_type) = base_type {
-            base_types_out.push(base_type);
-            continue;
-        }
-
-        let user_type = get_absform_user_type(&elm);
-        if let Ok(user_type) = user_type {
-            base_types_out.push(user_type);
-            continue;
-        }
-
-        return Err(format!(
-            "get_absform_product_type: -spec parse failure #03, debug info: {:?}, {:?}",
-            base_type.err(),
-            user_type.err()
-        ));
+        let elm_type = get_absform_type(&elm)?;
+        base_types_out.push(elm_type);
     }
 
     Ok(base_types_out)
 }
 
-fn get_absform_type(spec: &Lit) -> Result<Vec<BaseSpecElm>, String> {
-    // Helper to try direct and product easily
-    let specs = get_absform_product_type(spec);
-
-    if let Ok(specs) = specs {
-        return Ok(specs);
-    }
-
-    // Try single type instead
-    let single_type = get_absform_direct_type(spec);
-
-    if single_type.is_ok() {
-        return Ok(vec![single_type.unwrap()]);
-    }
-
-    Err(format!(
-        "No match found. Product type fail with {:?} and single type fail with {:?}",
-        specs.err(),
-        single_type.err()
-    ))
-}
-
-fn atom_to_base_type(spec: &Atom) -> Result<BaseSpecElm, String> {
-    // TODO: All unknown types are accepted as atom constants!
-    let Atom(atom) = spec;
-    match atom.as_str() {
-        "new" => Ok(BaseSpecElm::New),
-        "consume" => Ok(BaseSpecElm::Consume),
-        "pid" => Ok(BaseSpecElm::Base(BaseType::Pid)),
-        "reference" => Ok(BaseSpecElm::Base(BaseType::Reference)),
-        "integer" => Ok(BaseSpecElm::Base(BaseType::Integer)),
-        "float" => Ok(BaseSpecElm::Base(BaseType::Float)),
-        "boolean" => Ok(BaseSpecElm::Base(BaseType::Boolean)),
-        // TODO: Support cons/tuple types
-        _ => Err("Unsupported type used".to_string()), // fallback
-    }
-}
-
-fn atom_to_session_type(spec: &Atom) -> Result<BaseSpecElm, String> {
-    // TODO: All unknown types are accepted as atom constants!
-    let Atom(atom) = spec;
-    match atom.as_str() {
-        "new" => Ok(BaseSpecElm::New),
-        "consume" => Ok(BaseSpecElm::Consume),
-        _ => Err("No custom types supported yet.".to_string()), // fallback
-    }
-}
-
-fn check_tag_return_residual<'a>(spec: &'a Lit, tag: &Atom) -> Result<&'a [Lit], String> {
-    // Checks a tag and returns the content of the tag if a match is found.
-    // We assume length is always four for now.
+fn get_absform_type(spec: &Lit) -> Result<BaseSpecElm, String> {
+    // Expecting a tuple
     let Lit::Tuple(spec) = spec else {
-        return Err("check_tag_return_residual: -spec parse failure #01".to_string());
-    };
-    // The type function spec tuple is always four element long
-    if spec.len() != 4 {
-        return Err("check_tag_return_residual: -spec parse failure #02".to_string());
-    }
-
-    // Sanity checks
-    // First element must be an atom that says 'type'
-    // TODO: Can be performance optimized: Unwrap spec[0] and compare pointer values instead of clone.
-    if Lit::Atom(tag.clone()) != spec[0] {
-        return Err(format!(
-            "check_tag_return_residual: -spec parse failure #03. DEBUG info: spec is: {:?}, expected tag is: {:?}", spec, tag
-        ));
-    }
-
-    // Second element is a tuple with two integers
-    let Lit::Tuple(location) = spec[1].clone() else {
-        return Err("check_tag_return_residual: -spec parse failure #04".to_string());
-    };
-    if location.len() != 2 {
-        return Err("check_tag_return_residual: -spec parse failure #05".to_string());
-    }
-    let Lit::Int(_l1) = location[0] else {
-        return Err("check_tag_return_residual: -spec parse failure #06".to_string());
-    };
-    let Lit::Int(_l2) = location[1] else {
-        return Err("check_tag_return_residual: -spec parse failure #07".to_string());
+        return Err("get_absform_type expected tuple".to_string());
     };
 
-    Ok(&spec[2..])
+    // Type matching
+    // TODO: Not ignore Anno
+    match &spec.as_slice() {
+        &[Lit::Atom(tag), _, Lit::Atom(tag2), Lit::Cons(args)] => {
+            match (tag.0.as_str(), tag2.0.as_str(), args.as_slice()) {
+                ("user_type", "new", &[]) => Ok(BaseSpecElm::New),
+                ("user_type", "consume", &[]) => Ok(BaseSpecElm::Consume),
+                ("type", "pid", &[]) => Ok(BaseSpecElm::Base(BaseType::Pid)),
+                ("type", "reference", &[]) => Ok(BaseSpecElm::Base(BaseType::Reference)),
+                ("type", "integer", &[]) => Ok(BaseSpecElm::Base(BaseType::Integer)),
+                ("type", "float", &[]) => Ok(BaseSpecElm::Base(BaseType::Float)),
+                ("type", "boolean", &[]) => Ok(BaseSpecElm::Base(BaseType::Boolean)),
+                ("type", type_name, type_args) => Err(format!(
+                    "Unknown type {:?} with args {:?}",
+                    type_name, type_args
+                )),
+                ("user_type", type_name, type_args) => Err(format!(
+                    "Unknown user_type {:?} with args {:?}",
+                    type_name, type_args
+                )),
+                _ => Err("Could not match any type".to_string()),
+            }
+        }
+        &[Lit::Atom(tag), _, Lit::Atom(tag2)] => match (tag.0.as_str(), tag2) {
+            ("atom", atom_name) => Ok(BaseSpecElm::Base(BaseType::Atom((atom_name.clone())))),
+            _ => Err("Expected atom literal".to_string()),
+        },
+        x => Err(format!("Unexpected type format: {:?}", x)),
+    }
 }
