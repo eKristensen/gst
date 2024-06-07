@@ -52,8 +52,12 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
             // Check return-type somehow?
             // TODO: Possible performance optimization:
             // Instead of clone, unpack return_type and compare directly
-            if return_type.unwrap() != CType::Base(clause.return_type.clone()) {
-                // Add msg that return type is bad
+            let clause_actual_return_type = return_type.unwrap();
+            if clause_actual_return_type != CType::Base(clause.return_type.clone()) {
+                warnings.push(format!(
+                    "Wrong return type for function {}. Expected {:?} but found {:?}",
+                    fun_name, clause.return_type, clause_actual_return_type
+                ));
                 overall_acceptance = false;
             }
 

@@ -1,4 +1,4 @@
--module('dummy-syntax-poc-client').
+-module('wrong-return-type').
 
 % A simple static dual check
 % By Emil Kristensen, ITU 2024
@@ -43,4 +43,5 @@ negation(ServerPid,SessionId0,V1) ->
     % Updated is:
     Res = gen_server_plus:call(ServerPid,SessionID,V1),
     io:format("Client sent integer and got response: ~w~n", [Res]),
-    Res.
+    % Fail due to wrong return type.
+    SessionID.
