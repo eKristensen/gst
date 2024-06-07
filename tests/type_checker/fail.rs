@@ -51,12 +51,17 @@ fn type_checker_fail_expect_rejection(resource: &str) {
     // Special case for some files
     match resource {
         "tests/type_checker/fail/client.core" => assert_eq!(module.warnings.len(), 0),
+        "tests/type_checker/fail/client-over-use.core" => assert_eq!(module.warnings.len(), 0),
+        "tests/type_checker/fail/server.core" => assert_eq!(module.warnings.len(), 0),
         _ => assert_eq!(module.warnings.is_empty(), false),
     }
     let typed = gst::type_check(module.res);
     // Special case for some files
     match resource {
         "tests/type_checker/fail/client.core" => assert_eq!(typed.warnings.len(), 1),
+        // TODO: Assert content/error message type is correct. Would properly be better to do with a set of error messages rather than strings.
+        "tests/type_checker/fail/client-over-use.core" => assert_eq!(typed.warnings.len(), 1),
+        "tests/type_checker/fail/server.core" => assert_eq!(typed.warnings.len(), 1),
         _ => assert_eq!(typed.warnings.is_empty(), false),
     }
     assert_eq!(typed.res, false);

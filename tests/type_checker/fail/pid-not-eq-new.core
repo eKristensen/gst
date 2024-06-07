@@ -36,10 +36,9 @@ module 'pid-not-eq-new' ['bar'/3,
 	  let <SessionID> =
 	      call %% Line 19
 		   'gen_server_plus':%% Line 19
-				     'call'
+				     'new'
 		  (( _0
-		     -| [{'function',{'foo',1}}] ), %% Line 19
-						    'new')
+		     -| [{'function',{'foo',1}}] ))
 	  in  let <Res> =
 		  call %% Line 20
 		       'gen_server_plus':%% Line 20

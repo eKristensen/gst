@@ -16,7 +16,7 @@
 
 -spec foo(new()) -> integer().
 foo(ServerPid) ->
-    SessionID = gen_server_plus:call(ServerPid,new), 
+    SessionID = gen_server_plus:new(ServerPid), 
     Res = gen_server_plus:call(ServerPid,SessionID,42+3),
 
     bar(ServerPid, SessionID, Res).
