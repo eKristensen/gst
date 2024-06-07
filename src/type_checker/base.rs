@@ -11,8 +11,7 @@ use crate::{
 };
 
 use super::{
-    env::{TypeEnv, TypeEnvs},
-    session::{e_case, must_st_consume_expr},
+    env::{TypeEnv, TypeEnvs}, fun::e_app, session::{e_case, must_st_consume_expr}
 };
 
 pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, String> {
@@ -92,12 +91,19 @@ fn e_call(
         return Ok(res_ok);
     }
 
+    // Try function application
+    let app_res = e_app(module, envs, call, args);
+    if let Ok(res_ok) = app_res {
+        return Ok(res_ok);
+    }
+
     Err(format!(
-        "Could not type call {:?}. gsp+ new error: {}, gsp+ send error {}, bif error {}",
+        "Could not type call {:?}. gsp+ new error: {}, gsp+ send error {}, bif error {}, app error {}",
         call,
         gsp_new_res.err().unwrap(),
         gsp_sync_send_res.err().unwrap(),
-        bif_res.err().unwrap()
+        bif_res.err().unwrap(),
+        app_res.err().unwrap(),
     ))
 }
 

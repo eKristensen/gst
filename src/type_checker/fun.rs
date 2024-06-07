@@ -1,10 +1,12 @@
 use crate::{
     cerl_parser::ast::Atom,
     contract_cerl::{
-        ast::{CFunCall, CType},
+        ast::{CExpr, CFunCall, CModule, CType},
         types::BaseType,
     },
 };
+
+use super::env::TypeEnvs;
 
 // Handle build in functions
 pub fn bif_fun(
@@ -20,4 +22,14 @@ pub fn bif_fun(
     }
 
     Err("Not bif".to_string())
+}
+
+// e_app
+pub fn e_app(
+    module: &CModule,
+    envs: &mut TypeEnvs,
+    call: &CFunCall,
+    args: &Vec<CExpr>,
+) -> Result<CType, String> {
+    todo!()
 }
