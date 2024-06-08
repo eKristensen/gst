@@ -1,0 +1,61 @@
+Worklist:
+- [X] Refactor "-spec" parser. It gives errors that are impossible to understand right now and is way to complicated.
+  - I'm considering to print it to a string and then let nom parse it as a string, but it seems stupid
+  - Alternatively: Is there a nom-ish way that I can process the abstract format to see structures?
+- [ ] Systematic way to test that all I've done so far is preserved.
+  - [X] Include warnings somehow. println is hard to test for...
+  - [X] Test suite that requires acceptance and maybe even no warnings or expects some warnings.
+  - [ ] Include all old analysis tests.
+- [ ] Finish e_call:
+  - [X] split into smaller parts
+  - [X] Failover/pretty end if function not known (resolve todo)
+  - [ ] e_app, to call other functions
+    - [ ] IMPORTANT: Include some sort of test
+- [X] Finish tuple/cons handle (resolve todo's)
+- [ ] Finish case
+  - [ ] IMPORTANT TO TEST CASE!!!!
+    -  [ ] Test idea: Function that takes either neg or add and a number. It will either double the number or negate it. This will require case to be used.
+- [-] Pat Alias what to do with it?
+  - Note: Not sure how to use Alias. I'll wait and see when I see it.
+  - Maybe this helps: https://github.com/erlang/otp/blob/5521bd85f417b3b012d4b536e62f8548d844e611/erts/doc/guides/match_spec.md?plain=1#L22 ?
+- [ ] Wellformed checks:
+  - [ ] Check no ST has elements after "end".
+  - [ ] Check no ST has elements after a choice or offer. All should be contained within.
+- [ ] CI nice to have:
+  - [ ] Include clippy in github ci
+  - [ ] Include cargo fmt checker in github ci
+  - [ ] Cargo test warning should be error so I actually discover them. E.g. "exports" are never read in cerl ast. Which makes sense, cuz i do not use 'em.
+- [ ] Better than Pat work:
+  - Better Erlang integration. Avoid shell commands! Eqwalizer inspiration
+  - Keep anno location info to show location error messages compared to original source code.
+- [ ] General improvements
+  - Support reassign to self: e.g.: "SessionID = gen_server_plus:call(ServerPid,SessionID,neg),"
+
+More to test, basic stuff::
+- Use a session that has not been started
+- Start session with a non-constructor
+
+Why slow argumentation:
+- Primary reason: Project growth required better organization and separation of code.
+  - Less good decisions about uncertain design elements
+  - Type system has received a significant revision.
+  - Separation of responsibilities.
+- Most code reused, but restructured
+  - cerl parser:
+    - 90% unchanged
+    - Major improvement: Fixed string parsing for vars, strings, chars etc.
+    - Avoid interpretation of cerl: Minor design decisions moved further in.
+  - contract_cerl:
+    - Major addition
+    - Reduced core erlang with contracts
+    - Allows typing rules to be very close to the paper
+    - Keep all relevant info easily accessible.
+    - Why not direct to contract core erlang: Because the cerl parser is big. Code with to many purposes tend to fail and is hard to maintain.
+  - Important improvement: contract (spec/session) extraction
+    - Complexity of task required separate modules to keep my mind sane.
+    - Much more streamlined processing
+    - st_parser 95% unchanged. Was good as is.
+  - Typing:
+    - Structured typing environments
+    - Clear distinction between source code and environment.
+    - closer to paper rules
