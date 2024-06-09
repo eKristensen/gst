@@ -2,10 +2,10 @@ Worklist:
 - [X] Refactor "-spec" parser. It gives errors that are impossible to understand right now and is way to complicated.
   - I'm considering to print it to a string and then let nom parse it as a string, but it seems stupid
   - Alternatively: Is there a nom-ish way that I can process the abstract format to see structures?
-- [ ] Systematic way to test that all I've done so far is preserved.
+- [X] Systematic way to test that all I've done so far is preserved.
   - [X] Include warnings somehow. println is hard to test for...
   - [X] Test suite that requires acceptance and maybe even no warnings or expects some warnings.
-  - [ ] Include all old analysis tests.
+  - [X] Include all old analysis tests.
 - [ ] Finish e_call:
   - [X] split into smaller parts
   - [X] Failover/pretty end if function not known (resolve todo)
