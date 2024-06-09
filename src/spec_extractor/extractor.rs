@@ -92,7 +92,7 @@ fn get_fname_content(spec: &Lit) -> Result<(FunName, &Lit), String> {
     }
 
     // Unsigned arity
-    let arity = u64::try_from(*arity);
+    let arity = usize::try_from(*arity);
     if arity.is_err() {
         return Err("get_fname_content: Arity conversion to unsigned failed".to_string());
     }

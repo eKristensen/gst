@@ -1,11 +1,11 @@
-module 'pid-not-eq-new' ['bar'/3,
-			 'foo'/1,
-			 'module_info'/0,
-			 'module_info'/1]
+module 'fun-app-spec-mismatch' ['bar'/3,
+				'foo'/1,
+				'module_info'/0,
+				'module_info'/1]
     attributes [%% Line 1
 		'file' =
 		    %% Line 1
-		    [{[116|[101|[115|[116|[115|[47|[116|[121|[112|[101|[95|[99|[104|[101|[99|[107|[101|[114|[47|[102|[97|[105|[108|[47|[112|[105|[100|[45|[110|[111|[116|[45|[101|[113|[45|[110|[101|[119|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],1}],
+		    [{[116|[101|[115|[116|[115|[47|[116|[121|[112|[101|[95|[99|[104|[101|[99|[107|[101|[114|[47|[102|[97|[105|[108|[47|[102|[117|[110|[45|[97|[112|[112|[45|[115|[112|[101|[99|[45|[109|[105|[115|[109|[97|[116|[99|[104|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],1}],
 		%% Line 9
 		'type' =
 		    %% Line 9
@@ -62,12 +62,12 @@ module 'pid-not-eq-new' ['bar'/3,
 'module_info'/0 =
     ( fun () ->
 	  call 'erlang':'get_module_info'
-	      ('pid-not-eq-new')
+	      ('fun-app-spec-mismatch')
       -| [{'function',{'module_info',0}}] )
 'module_info'/1 =
     ( fun (_0) ->
 	  call 'erlang':'get_module_info'
-	      ('pid-not-eq-new', ( _0
-				   -| [{'function',{'module_info',1}}] ))
+	      ('fun-app-spec-mismatch', ( _0
+					  -| [{'function',{'module_info',1}}] ))
       -| [{'function',{'module_info',1}}] )
 end

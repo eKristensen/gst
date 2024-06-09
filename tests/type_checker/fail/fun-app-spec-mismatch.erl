@@ -1,4 +1,4 @@
--module('pid-not-eq-new').
+-module('fun-app-spec-mismatch').
 
 % Function calling another function to consume part of session type
 % By Emil Kristensen, ITU 2024

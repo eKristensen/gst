@@ -28,7 +28,7 @@ pub enum FunCall {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FunName {
     pub name: Atom,
-    pub arity: u64,
+    pub arity: usize,
 }
 
 #[derive(Debug, Clone)]

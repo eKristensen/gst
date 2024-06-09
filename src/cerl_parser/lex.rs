@@ -57,7 +57,7 @@ pub fn fname_inner(i: &str) -> IResult<&str, FunName, ErrorTree<&str>> {
         tuple((
             atom,
             tag("/"), // TODO: Check whether whitespace is allowed around this tag in this context
-            map_res(digit1, str::parse::<u64>),
+            map_res(digit1, str::parse::<usize>),
         )),
         |(name, _, arity)| FunName { name, arity },
     ))(i)

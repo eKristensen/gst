@@ -11,7 +11,9 @@ use crate::{
 };
 
 use super::{
-    env::{TypeEnv, TypeEnvs}, fun::e_app, session::{e_case, must_st_consume_expr}
+    env::{TypeEnv, TypeEnvs},
+    fun::e_app,
+    session::{e_case, must_st_consume_expr},
 };
 
 pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, String> {

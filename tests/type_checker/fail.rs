@@ -54,6 +54,9 @@ fn type_checker_fail_expect_rejection(resource: &str) {
         "tests/type_checker/fail/client-over-use.core" => assert_eq!(module.warnings.len(), 0),
         "tests/type_checker/fail/server.core" => assert_eq!(module.warnings.len(), 0),
         "tests/type_checker/fail/wrong-return-type.core" => assert_eq!(module.warnings.len(), 0),
+        "tests/type_checker/fail/fun-app-spec-mismatch.core" => {
+            assert_eq!(module.warnings.len(), 0)
+        }
         _ => assert_eq!(module.warnings.is_empty(), false),
     }
     let typed = gst::type_check(module.res);
@@ -64,6 +67,7 @@ fn type_checker_fail_expect_rejection(resource: &str) {
         "tests/type_checker/fail/client-over-use.core" => assert_eq!(typed.warnings.len(), 1),
         "tests/type_checker/fail/server.core" => assert_eq!(typed.warnings.len(), 1),
         "tests/type_checker/fail/wrong-return-type.core" => assert_eq!(typed.warnings.len(), 1),
+        "tests/type_checker/fail/fun-app-spec-mismatch.core" => assert_eq!(typed.warnings.len(), 1),
         _ => assert_eq!(typed.warnings.is_empty(), false),
     }
     assert_eq!(typed.res, false);
