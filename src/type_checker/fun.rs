@@ -1,5 +1,5 @@
 use crate::{
-    cerl_parser::ast::{Atom, FunName, Lit},
+    cerl_parser::ast::{Atom, FunName},
     contract_cerl::{
         ast::{CExpr, CFunCall, CModule, CType},
         types::{BaseType, SessionType, SessionTypesList},
@@ -88,7 +88,7 @@ pub fn e_app(
         }
 
         // 2c) Apply clause contract, basically apply session consume
-        if let Err(err_val) = e_app_contract(module, envs, &clause.spec, &args) {
+        if let Err(err_val) = e_app_contract(module, envs, &clause.spec, args) {
             return Err(format!(
                 "Could not apply function contract because {}",
                 err_val
@@ -100,12 +100,12 @@ pub fn e_app(
     }
 
     // No typeable function clause found
-    Err(format!("Found no function clause with matching type."))
+    Err("Found no function clause with matching type.".to_string())
 }
 
 // Check the input types are compatible with the contract.
 // Do not check session type content.
-fn fun_app_clause_match(type1: &Vec<CType>, type2: &Vec<CType>) -> bool {
+fn fun_app_clause_match(type1: &[CType], type2: &[CType]) -> bool {
     if type1.len() != type2.len() {
         return false;
     }
@@ -128,8 +128,8 @@ fn fun_app_clause_match(type1: &Vec<CType>, type2: &Vec<CType>) -> bool {
 fn e_app_contract(
     module: &CModule,
     envs: &mut TypeEnvs,
-    contract: &Vec<CType>,
-    inputs: &Vec<CExpr>,
+    contract: &[CType],
+    inputs: &[CExpr],
 ) -> Result<(), String> {
     for (contract_elm, input_elm) in contract.iter().zip(inputs.iter()) {
         let ctype_input_elm =
@@ -193,7 +193,7 @@ fn is_st_subtype_aux(t1: &[SessionType], t2: &[SessionType]) -> bool {
     if t1 == t2 {
         return true;
     };
-    if t1 == [SessionType::End] && t2.len() == 0 {
+    if t1 == [SessionType::End] && t2.is_empty() {
         return false;
     };
     match t2.first().unwrap() {
@@ -206,7 +206,7 @@ fn is_st_subtype_aux(t1: &[SessionType], t2: &[SessionType]) -> bool {
             if t2.len() != 1 {
                 return false;
             }
-            for (_, offer) in offers {
+            for offer in offers.values() {
                 if is_st_subtype_aux(t1, offer.0.as_slice()) {
                     return true;
                 }
@@ -252,6 +252,6 @@ fn st_consume_single_path(
         }
         (SessionType::OfferChoice(_), SessionType::OfferChoice(_)) => todo!(),
         (SessionType::End, SessionType::End) => Ok(SessionTypesList(source_session.to_vec())),
-        _ => return Err("Consume not possible".to_string()),
+        _ => Err("Consume not possible".to_string()),
     }
 }

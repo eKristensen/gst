@@ -56,7 +56,7 @@ fn apply(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     let (i, fname) = ws(fname)(i)?; // Note: Apparently fname is used here
     let (i, exprs_args) = comma_sep_list("(", ")", ws(exprs))(i)?;
     let FunName { name, arity } = fname.clone();
-    if arity != exprs_args.len().try_into().unwrap() {
+    if arity != exprs_args.len() {
         panic!(
             "Sanity check for {:?} failed. Expected {} args but found {}",
             name,

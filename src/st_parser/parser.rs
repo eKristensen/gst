@@ -32,7 +32,7 @@ pub fn st_parse(i: &str) -> IResult<&str, (FunName, SessionSpecs), ErrorTree<&st
             (
                 FunName {
                     name: fname,
-                    arity: clauses.0.first().unwrap().0.len().try_into().unwrap(),
+                    arity: clauses.0.first().unwrap().0.len(),
                 },
                 clauses,
             )

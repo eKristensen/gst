@@ -1,7 +1,5 @@
 #[cfg(test)]
 // Integration tests / Black box tests
-use gst;
-
 extern crate test_generator;
 use test_generator::test_resources; // TODO: Small lib, maybe use something else?
 
@@ -57,7 +55,7 @@ fn type_checker_fail_expect_rejection(resource: &str) {
         "tests/type_checker/fail/fun-app-spec-mismatch.core" => {
             assert_eq!(module.warnings.len(), 0)
         }
-        _ => assert_eq!(module.warnings.is_empty(), false),
+        _ => assert!(!module.warnings.is_empty()),
     }
     let typed = gst::type_check(module.res);
     // Special case for some files
@@ -68,7 +66,7 @@ fn type_checker_fail_expect_rejection(resource: &str) {
         "tests/type_checker/fail/server.core" => assert_eq!(typed.warnings.len(), 1),
         "tests/type_checker/fail/wrong-return-type.core" => assert_eq!(typed.warnings.len(), 1),
         "tests/type_checker/fail/fun-app-spec-mismatch.core" => assert_eq!(typed.warnings.len(), 1),
-        _ => assert_eq!(typed.warnings.is_empty(), false),
+        _ => assert!(!typed.warnings.is_empty()),
     }
-    assert_eq!(typed.res, false);
+    assert!(!typed.res);
 }

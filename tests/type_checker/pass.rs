@@ -1,7 +1,5 @@
 #[cfg(test)]
 // Integration tests / Black box tests
-use gst;
-
 extern crate test_generator;
 use test_generator::test_resources; // TODO: Small lib, maybe use something else?
 
@@ -48,8 +46,8 @@ fn type_checker_pass_erlc_acceptance(resource: &str) {
 fn type_checker_pass_acceptance(resource: &str) {
     let src = std::fs::read_to_string(resource).unwrap();
     let module = gst::parse(&src).unwrap();
-    assert_eq!(module.warnings.is_empty(), true);
+    assert!(module.warnings.is_empty());
     let typed = gst::type_check(module.res);
-    assert_eq!(typed.warnings.is_empty(), true);
-    assert_eq!(typed.res, true);
+    assert!(typed.warnings.is_empty());
+    assert!(typed.res);
 }
