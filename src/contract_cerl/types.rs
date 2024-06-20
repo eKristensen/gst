@@ -40,7 +40,7 @@ pub enum SessionType {
     Receive(BaseType),
     // TODO: Add wellformed check: No elements after MakeChoice/OfferChoice/End
     // Why list? Easier to work with in Rust to avoid Boxing.
-    MakeChoice(Label, SessionTypesList), // TODO: Is it possible to make more than one choice? In other words: Is it ok to include a branch that is not chosen?
+    MakeChoice(HashMap<Label, SessionTypesList>), // TODO: Is it possible to make more than one choice? In other words: Is it ok to include a branch that is not chosen? Response: It should be possible to specify more than one possible choice. Even when the code cannot offer more than one choice.
     OfferChoice(HashMap<Label, SessionTypesList>),
     End, // End is never consumed
          // TODO: Missing variable and recursion. How do they work?
