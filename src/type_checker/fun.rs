@@ -199,8 +199,16 @@ fn is_st_subtype_aux(t1: &[SessionType], t2: &[SessionType]) -> bool {
     match t2.first().unwrap() {
         SessionType::Send(_) => is_st_subtype_aux(t1, &t2[1..]),
         SessionType::Receive(_) => is_st_subtype_aux(t1, &t2[1..]),
-        SessionType::MakeChoice(_, choice) => {
-            is_st_subtype_aux(t1, choice.0.as_slice()) && t2.len() == 1
+        SessionType::MakeChoice(choices) => {
+            if t2.len() != 1 {
+                return false;
+            }
+            for choice in choices.values() {
+                if is_st_subtype_aux(t1, choice.0.as_slice()) {
+                    return true;
+                }
+            }
+            false
         }
         SessionType::OfferChoice(offers) => {
             if t2.len() != 1 {
@@ -241,14 +249,11 @@ fn st_consume_single_path(
             }
             st_consume_single_path(&source_session[1..], &to_consume[1..])
         }
-        (SessionType::MakeChoice(l1, t1), SessionType::MakeChoice(l2, t2)) => {
-            if *l1 != *l2 {
-                return Err("Label mismatch".to_string());
+        (SessionType::MakeChoice(t1), SessionType::MakeChoice(t2)) => {
+            if *t1 != *t2 {
+                return Err("Make choice type mismatch".to_string());
             }
-            if source_session.len() != 1 || to_consume.len() != 1 {
-                return Err("session type structure invalid".to_string());
-            }
-            st_consume_single_path(t1.0.as_slice(), t2.0.as_slice())
+            st_consume_single_path(&source_session[1..], &to_consume[1..])
         }
         (SessionType::OfferChoice(_), SessionType::OfferChoice(_)) => todo!(),
         (SessionType::End, SessionType::End) => Ok(SessionTypesList(source_session.to_vec())),

@@ -118,9 +118,25 @@ fn base_type(i: &str) -> IResult<&str, BaseType, ErrorTree<&str>> {
 // TODO: Avoid direct OK return
 // TODO: ElixirST has ? or ! on labels. Needed or not?
 fn st_make_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
+    // TODO: Currently just like st_offer_choice make avoid duplicate code
     map(
-        delimited(ws(tag("&{")), inner_choice, ws(tag("}"))),
-        |(o1, o2)| SessionType::MakeChoice(o1, o2),
+        delimited(
+            ws(tag("&{")),
+            separated_list1(ws(tag(",")), inner_choice),
+            ws(tag("}")),
+        ),
+        |o| {
+            let mut offer_choice = HashMap::new();
+
+            for (label, elm) in o {
+                if offer_choice.insert(label.clone(), elm.clone()).is_some() {
+                    // TODO: Can i get rid of the panic here?
+                    panic!("Duplicate label in offer choice")
+                }
+            }
+
+            SessionType::MakeChoice(offer_choice)
+        },
     )(i)
 }
 
@@ -449,10 +465,10 @@ mod tests {
             st_make_choice("&{test(!integer.)}").unwrap(),
             (
                 "",
-                SessionType::MakeChoice(
+                SessionType::MakeChoice(HashMap::from([(
                     Label("test".to_owned()),
                     SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
-                )
+                )]))
             )
         );
     }
@@ -469,10 +485,10 @@ mod tests {
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
-                        SessionType::MakeChoice(
+                        SessionType::MakeChoice(HashMap::from([(
                             Label("test".to_owned()),
                             SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
-                        )
+                        )]))
                     ))))))),
                 )
             )

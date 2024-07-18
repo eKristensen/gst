@@ -136,7 +136,7 @@ pub fn gsp_sync_send(
         SessionType::Receive(_) => {
             Err("Session type says receive, we are about to send".to_string())
         }
-        SessionType::MakeChoice(_, _) => {
+        SessionType::MakeChoice(_) => {
             Err("Session type MakeChoice, expected OfferChoice".to_string())
         }
         SessionType::OfferChoice(offers) => {
