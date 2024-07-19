@@ -117,8 +117,8 @@ fn fun_app_clause_match(type1: &[CType], type2: &[CType]) -> bool {
                 }
             }
             (CType::New(_), CType::New(_)) => continue, // Do not check session type content now. Later!
-            (CType::Consume(_, _), CType::Consume(_, _)) => continue, // Do not check session type content now. Later!
-            _ => return false,                                        // mismatch not ok.
+            (CType::Consume(_), CType::Consume(_)) => continue, // Do not check session type content now. Later!
+            _ => return false,                                  // mismatch not ok.
         }
     }
     true
@@ -153,7 +153,7 @@ fn e_app_contract(
                     return Err("Partial session equality relation failed".to_string());
                 }
             } // Subtype check
-            (CType::Consume(_, to_consume), CType::Consume(_, source_session)) => {
+            (CType::Consume(to_consume), CType::Consume(source_session)) => {
                 // do the consume
                 let updated_source_session =
                     st_consume_single_path(source_session.0.as_slice(), to_consume.0.as_slice())?;

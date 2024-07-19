@@ -41,7 +41,7 @@ pub fn gsp_new(
         return Err("Must construct new session here".to_string());
     };
 
-    Ok(CType::Consume(None, session_type))
+    Ok(CType::Consume(session_type))
 
     // Call by value, We need to argument type. Execution environment? Should I consider it isolated? I suppose?
     // The safest and more reasonable way to deal with the call-by-value is to assume it is like a let x (var-name) = expr type
@@ -92,7 +92,7 @@ pub fn gsp_sync_send(
             "e_call gsp_sync_send Session variable name must be used, not expression".to_string(),
         );
     };
-    let CType::Consume(_, session_type) =
+    let CType::Consume(session_type) =
         (match expr(module, &mut TypeEnvs(envs.0.clone()), session_id) {
             Ok(ok_val) => ok_val,
             Err(err_val) => {
@@ -127,6 +127,9 @@ pub fn gsp_sync_send(
             session_type.0.remove(0);
             // Return type is received value
             let SessionType::Receive(received) = session_type.0.remove(0) else {
+                // TODO: Do not return error here. This flow is normal and expected!
+                // Make choice should be fine. The time this type is used a choice must be made.
+                // Subtype relation should work here.
                 return Err("Expects ping-pong send-receive".to_string());
             };
             envs.0
@@ -150,10 +153,7 @@ pub fn gsp_sync_send(
                     // TODO: Update ENV, gotta get session_var from argument.
                     envs.0
                         .insert(session_var.clone(), TypeEnv::Delta(continuation.clone()));
-                    Ok(CType::Consume(
-                        Some(session_var.clone()),
-                        continuation.clone(),
-                    ))
+                    Ok(CType::Consume(continuation.clone()))
                 }
                 None => Err("Trying to make choice not offered by session".to_string()),
             }
@@ -171,6 +171,14 @@ pub fn gsp_sync_send(
     // If it is not a base-value we assume it is select
 }
 
+// TODO: Cases should be more generic:
+// Flow should be
+// 1) If base_expr return type is a consume type:
+//    If it also is a select type, then the case block should be treated as offer for the session type
+// Otherwise: Normal case function where each pattern is matched against the base_expr return type
+// Always: Require common return type.
+// Same isolation as used until now should work just fine.
+// Result: No need for var name in consume return type (CType) and support for ordinary branching.
 pub fn e_case(
     module: &CModule,
     envs: &TypeEnvs,
@@ -194,13 +202,8 @@ pub fn e_case(
 
     // base expr must return a consume session type, otherwise the choices cannot be checked against a session type
     // In other words: Any base or new type is a type error
-    let CType::Consume(var, to_consume) = base_res.unwrap() else {
+    let CType::Consume(to_consume) = base_res.unwrap() else {
         return Err("Type error case base expr must be consume".to_string());
-    };
-
-    // Var must be defined
-    let Some(var) = var else {
-        return Err("Cannot work without binding session".to_string());
     };
 
     // Return types

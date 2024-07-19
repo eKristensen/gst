@@ -117,7 +117,7 @@ fn e_base(envs: &TypeEnvs, v: &Var) -> Result<CType, String> {
     match res.unwrap() {
         // TODO: How to allow both base value checked properly, and not to "return" a base type?
         TypeEnv::Gamma(n) => Ok(CType::New(n.clone())),
-        TypeEnv::Delta(c) => Ok(CType::Consume(None, c.clone())),
+        TypeEnv::Delta(c) => Ok(CType::Consume(c.clone())),
         TypeEnv::Sigma(res) => Ok(CType::Base(res.clone())),
     }
 }
@@ -252,6 +252,6 @@ fn ctype_to_typeenv(t: &CType) -> TypeEnv {
         CType::Base(b) => TypeEnv::Sigma(b.clone()),
         CType::New(n) => TypeEnv::Gamma(n.clone()),
         // TODO: Note that consume var is lost here! Should Delta be updated to contain var?
-        CType::Consume(_, c) => TypeEnv::Delta(c.clone()),
+        CType::Consume(c) => TypeEnv::Delta(c.clone()),
     }
 }

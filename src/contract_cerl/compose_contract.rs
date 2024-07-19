@@ -84,7 +84,7 @@ fn merge_base_session_spec(
                 clause_spec.push(CType::New(session_elm.clone()))
             }
             (BaseSpecElm::Consume, ConsumeSpec(session_elm)) => {
-                clause_spec.push(CType::Consume(None, session_elm.clone()))
+                clause_spec.push(CType::Consume(session_elm.clone()))
             }
             (Base(base_elm), SessionSpecElm::BasePlaceholder) => {
                 clause_spec.push(CType::Base(base_elm.clone()))

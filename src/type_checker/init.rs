@@ -25,7 +25,7 @@ pub fn init_env(envs: &mut TypeEnvs, args: &[Var], spec: &[CType]) -> Result<(),
                 .0
                 .insert(var.clone(), Gamma(session_type.clone()))
                 .is_none(),
-            CType::Consume(_, session_type) => envs
+            CType::Consume(session_type) => envs
                 .0
                 .insert(var.clone(), Delta(session_type.clone()))
                 .is_none(),
