@@ -268,9 +268,11 @@ pub fn finished(envs: &TypeEnvs) -> Result<(), String> {
 
 pub fn diff_consumed(before_envs: &TypeEnvs, after_envs: &TypeEnvs) -> Result<(), String> {
     // Check all that should be consumed, has been consumed (aka "finished" function)
+    // Aka: Check all newly defined variables are consumed (if required).
     // Two stage: Find all to check, and then to check their value.
     let before_vars = before_envs.0.keys().cloned().collect();
     let after_vars: HashSet<Var> = after_envs.0.keys().cloned().collect();
+    // must_be_consumed == new variables that only exist within the enclosed let in
     let must_be_consumed: HashSet<&Var> = after_vars.difference(&before_vars).collect();
     for check_var in must_be_consumed {
         match after_envs.0.get(check_var).unwrap() {

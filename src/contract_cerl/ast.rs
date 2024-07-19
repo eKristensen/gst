@@ -71,7 +71,7 @@ pub struct CClause {
 pub enum CType {
     Base(BaseType),
     New(SessionTypesList),
-    Consume(Option<Var>, SessionTypesList), // Option<Var> is used by the type_checker to identify sessions.
+    Consume(SessionTypesList),
 }
 
 #[derive(Debug)]
