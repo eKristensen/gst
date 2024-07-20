@@ -171,72 +171,43 @@ pub fn gsp_sync_send(
     // If it is not a base-value we assume it is select
 }
 
-// TODO: Cases should be more generic:
-// Flow should be
-// 1) If base_expr return type is a consume type:
-//    If it also is a select type, then the case block should be treated as offer for the session type
-// Otherwise: Normal case function where each pattern is matched against the base_expr return type
-// Always: Require common return type.
-// Same isolation as used until now should work just fine.
-// Result: No need for var name in consume return type (CType) and support for ordinary branching.
-pub fn e_case(
+// Session type branching
+pub fn e_case_offer(
     module: &CModule,
     envs: &TypeEnvs,
-    base_expr: &CExpr,
+    offers: &HashMap<Label, SessionTypesList>,
     clauses: &Vec<CClause>,
 ) -> Result<CType, String> {
-    // Copy the env to save as a base case, we do not want to change the source env in this rule. The unchanged env must be returned.
-    // Maybe a better way to types env clone?
-    let case_start_envs = TypeEnvs(envs.0.clone());
-
-    // Base expr type check
-    // TODO: A bit manual env clone, maybe fix?
-    let mut case_base_expr_envs = TypeEnvs(envs.0.clone());
-    let base_res = expr(module, &mut case_base_expr_envs, base_expr);
-    if base_res.is_err() {
-        return Err(format!(
-            "E_case failed in base case because {}",
-            base_res.err().unwrap()
-        ));
-    }
-
-    // base expr must return a consume session type, otherwise the choices cannot be checked against a session type
-    // In other words: Any base or new type is a type error
-    let CType::Consume(to_consume) = base_res.unwrap() else {
-        return Err("Type error case base expr must be consume".to_string());
-    };
-
     // Return types
     // TODO: Find a way to compare it without needing to save all return values
     let mut common_return_type: Vec<CType> = Vec::new();
 
-    if clauses.is_empty() {
-        // TODO: Actually remember. I decided that no clauses == Do
-        //       Tbh this seemed like a simplification, but properly isn't, include Do in Contract Core Erlang?
-        return Err("Zero clauses in case makes no sense.".to_string());
-    }
-
-    // TODO: If clauses.len() == 1 allow a bit more, do not require match on session.
-    //       ^^ is the same as let x = e1 in e2
-    //       Tbh this seemed like a simplification, but properly isn't, include Let in Contract Core Erlang?
+    let mut case_start_envs = TypeEnvs(envs.0.clone());
 
     // Pattern for each case must match the current session type labels.
     // We require only that the clauses available must be in the session type, not complete session type coverage (TODO TODO TODO is this sane?)
     for clause in clauses {
         // Find match in current session type
-        // TODO: Should we keep track of which parts of the session that has been reached/used ?
-        let matching_st = lookup_st_from_label(&clause.pats, &to_consume);
-        if matching_st.is_err() {
-            return Err(format!(
-                "Case clause label mismatch because {}",
-                matching_st.err().unwrap()
-            ));
-        }
+        let mut clause_envs = TypeEnvs(envs.0.clone());
 
-        let mut clause_envs = TypeEnvs(case_base_expr_envs.0.clone());
-        clause_envs
-            .0
-            .insert(var.clone(), TypeEnv::Delta(matching_st.unwrap()));
+        // Get the label for current patten
+        let [Pat::Lit(label)] = clause.pats.as_slice() else {
+            return Err("label must be an atom #1".to_string());
+        };
+        let Lit::Atom(label) = label else {
+            return Err("label must be an atom #2".to_string());
+        };
+        let crate::cerl_parser::ast::Atom(pat_label) = label;
+
+        // Look for label in session type
+        // TODO: Can clone be avoided here?
+        let Some(matching_st) = offers.get(&Label(pat_label.clone())) else {
+            return Err("No matching offer found in session!".to_string());
+        };
+
+        // TODO: It looks like I am missing something. Maybe base_expr var name? Or am I odd to
+        // think so?
+
         // TODO: Potential optimization: Before vars are computed for each clause, where they could be computed outside loop.
         let clause_res =
             must_st_consume_expr(module, &case_start_envs, &mut clause_envs, &clause.res);
@@ -258,9 +229,7 @@ pub fn e_case(
         .iter()
         .all(|item| *item == *common_return_type_base);
 
-    // Remember common return type for each clause, this common type is the return value.
-
-    todo!()
+    Ok(common_return_type_base.clone())
 }
 
 // Check that all sessions are finished
@@ -346,42 +315,5 @@ fn envs_isolation(old_envs: &TypeEnvs, new_envs: &mut TypeEnvs) {
                 }
             },
         }
-    }
-}
-
-fn lookup_st_from_label(
-    pat: &[Pat],
-    session_offers: &SessionTypesList,
-) -> Result<SessionTypesList, String> {
-    // We expect at very specific structure here:
-    // The pattern must be one element long with just a atom
-    // The session type must be a offer-type and one of the labels must be the pattern atom
-    // We assume that the caller has checked the session_types list
-    // If any of the above does not hold, we have a type error
-
-    // Get the label for current pattern
-    if pat.len() != 1 {
-        return Err("Label cannot exist if length is not 1".to_string());
-    }
-    let Pat::Lit(atom) = pat.first().unwrap() else {
-        return Err("label must be an atom #1".to_string());
-    };
-    let Lit::Atom(atom) = atom else {
-        return Err("label must be an atom #2".to_string());
-    };
-    let crate::cerl_parser::ast::Atom(pat_label) = atom;
-
-    // Look for label in session type
-    if session_offers.0.len() != 1 {
-        return Err("Length of session offers is not as expected".to_string());
-    }
-    let SessionType::OfferChoice(session_offers) = session_offers.0.first().unwrap() else {
-        return Err("Case not possible without session offer".to_string());
-    };
-
-    // TODO: Can clone be avoided here?
-    match session_offers.get(&Label(pat_label.clone())) {
-        Some(st) => Ok(st.clone()),
-        None => Err("No matching offer found in session!".to_string()),
     }
 }
