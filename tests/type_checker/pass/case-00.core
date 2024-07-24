@@ -1,0 +1,44 @@
+module 'case-00' ['foo'/1,
+		  'module_info'/0,
+		  'module_info'/1]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[99|[97|[115|[101|[45|[48|[48|[46|[101|[114|[108]]]]]]]]]]],1}],
+		%% Line 4
+		'session' =
+		    %% Line 4
+		    [39|[102|[111|[111|[39|[40|[95|[41]]]]]]]],
+		%% Line 5
+		'spec' =
+		    %% Line 5
+		    [{{'foo',1},[{'type',{5,10},'fun',[{'type',{5,10},'product',[{'type',{5,11},'boolean',[]}]}|[{'type',{5,25},'boolean',[]}]]}]}]]
+'foo'/1 =
+    %% Line 6
+    ( fun (_0) ->
+	  case ( _0
+		 -| [{'function',{'foo',1}}] ) of
+	    %% Line 7
+	    <'true'> when 'true' ->
+		'false'
+	    %% Line 8
+	    <'false'> when 'true' ->
+		'true'
+	    ( <_1> when 'true' ->
+		  primop 'match_fail'
+		      ({'case_clause',_1})
+	      -| ['compiler_generated'] )
+	  end
+      -| [{'function',{'foo',1}}] )
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('case-00')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('case-00', ( _0
+			    -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end

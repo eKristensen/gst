@@ -9,6 +9,8 @@ use nom::{
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
+use super::{ast::Anno, lex::lit};
+
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#-ceol-style-comments
 // Comment
 fn comment(i: &str) -> IResult<&str, (), ErrorTree<&str>> {
@@ -24,7 +26,9 @@ fn comment(i: &str) -> IResult<&str, (), ErrorTree<&str>> {
 }
 
 // Removes annotation
-fn annotation<'a, F, O>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O, ErrorTree<&str>>
+fn annotation<'a, F, O>(
+    inner: F,
+) -> impl FnMut(&'a str) -> IResult<&'a str, Anno<O>, ErrorTree<&str>>
 where
     F: Parser<&'a str, O, ErrorTree<&'a str>>,
 {
@@ -33,20 +37,30 @@ where
             ws(tag("(")),
             inner,
             ws(tag("-|")),
-            take_until(")"),
+            lit,
+            ws(tag(")")),
             ws(tag(")")),
         )),
-        |(_, o, _, _, _)| o,
+        |(_, o1, _, o2, _, _)| Anno {
+            annotation: Some(o2),
+            inner: o1,
+        },
     )
 }
 
 pub fn opt_annotation<'a, F, O>(
     inner: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, ErrorTree<&str>>
+) -> impl FnMut(&'a str) -> IResult<&'a str, Anno<O>, ErrorTree<&str>>
 where
     F: Parser<&'a str, O, ErrorTree<&'a str>> + Clone,
 {
-    alt((inner.clone(), annotation(inner)))
+    alt((
+        map(inner.clone(), |o| Anno {
+            annotation: None,
+            inner: o,
+        }),
+        annotation(inner),
+    ))
 }
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#wrapper-combinators-that-eat-whitespace-before-and-after-a-parser

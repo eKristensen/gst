@@ -64,6 +64,12 @@ pub enum Lit {
     // Nil is intentionally left out. Cons is converted to vector, thus no need for nil.
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Anno<T> {
+    pub annotation: Option<Lit>,
+    pub inner: T,
+}
+
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub enum Exprs {
     One(Box<Expr>),
@@ -84,7 +90,10 @@ pub struct MapPair {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum Expr {
+pub struct Expr(pub Anno<ExprInner>);
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum ExprInner {
     Var(Var),
     Fname(FunName), // Note fname is for e.g. 'foo'/1 = fun (X) -> 1+X end.
     Lit(Lit),

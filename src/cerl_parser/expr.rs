@@ -8,7 +8,7 @@ use nom::{
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
-    ast::{Clause, Expr, Exprs, FunCall, FunName, MapPair, MapPairType, Var},
+    ast::{Anno, Clause, Expr, Exprs, FunCall, FunName, MapPair, MapPairType, Var},
     helpers::{comma_sep_list, opt_annotation, ws},
     lex::{fname, lit},
     pat::pats,
@@ -205,7 +205,7 @@ fn let_in(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     Ok((i, crate::cerl_parser::ast::Expr::Let(vars, exprs1, exprs2)))
 }
 
-fn vars(i: &str) -> IResult<&str, Vec<Var>, ErrorTree<&str>> {
+fn vars(i: &str) -> IResult<&str, Anno<Vec<Var>>, ErrorTree<&str>> {
     opt_annotation(vars_inner)(i)
 }
 
@@ -214,7 +214,7 @@ fn vars_inner(i: &str) -> IResult<&str, Vec<Var>, ErrorTree<&str>> {
     alt((map(var, |o| vec![o]), comma_sep_list("<", ">", var)))(i)
 }
 
-fn expr(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
+fn expr(i: &str) -> IResult<&str, Anno<Expr>, ErrorTree<&str>> {
     opt_annotation(expr_inner)(i)
 }
 
@@ -247,7 +247,7 @@ fn expr_inner(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     )))(i)
 }
 
-pub fn exprs(i: &str) -> IResult<&str, Exprs, ErrorTree<&str>> {
+pub fn exprs(i: &str) -> IResult<&str, Anno<Exprs>, ErrorTree<&str>> {
     opt_annotation(exprs_inner)(i)
 }
 
