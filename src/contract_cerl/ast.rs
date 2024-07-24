@@ -25,7 +25,7 @@ use crate::cerl_parser::ast::{Atom, LitInner, Var};
 use super::types::{BaseType, SessionTypesList};
 
 // TODO: Support more than one module for each "program" definition. Could also make a generic-ish way to define build in functions by lookup instead of hardcoded.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CModule {
     pub name: Atom,
     pub functions: HashMap<CFunName, Vec<CFunClause>>,

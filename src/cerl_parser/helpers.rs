@@ -90,5 +90,9 @@ pub fn comma_sep_list<'a, O, F>(
 where
     F: Parser<&'a str, O, ErrorTree<&'a str>>,
 {
-    delimited(tag(start), separated_list0(tag(","), elements), tag(end))
+    delimited(
+        ws(tag(start)),
+        separated_list0(tag(","), elements),
+        ws(tag(end)),
+    )
 }

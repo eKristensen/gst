@@ -5,17 +5,27 @@ mod st_parser;
 mod type_checker;
 
 use crate::contract_cerl::compose_contract::compose_contract;
-use crate::type_checker::module::module;
+use cerl_parser::{ast::Module, top::module};
 use contract_cerl::ast::{CModule, OptWarnings};
-use nom_supreme::error::ErrorTree;
+use nom_supreme::{error::ErrorTree, final_parser::final_parser};
 
-pub fn parse(src: &str) -> Result<OptWarnings<CModule>, nom::Err<ErrorTree<&str>>> {
-    let (_, module) = cerl_parser::top::module(src)?;
-    Ok(compose_contract(module).unwrap())
+fn cerl_final(input: &str) -> Result<Module, ErrorTree<&str>> {
+    final_parser(module)(input)
+}
+
+pub fn parse(src: &str) -> Result<OptWarnings<CModule>, ErrorTree<&str>> {
+    let module = cerl_final(src);
+    match module {
+        Err(err) => {
+            dbg!(err);
+            panic!("See error debug above")
+        }
+        Ok(module) => Ok(compose_contract(module).unwrap()),
+    }
 }
 
 pub fn type_check(m: CModule) -> OptWarnings<bool> {
-    module(m)
+    crate::type_checker::module::module(m)
 }
 
 // pub fn analyze(m: Module) -> bool {

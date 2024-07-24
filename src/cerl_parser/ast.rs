@@ -17,7 +17,6 @@ pub struct Var {
     pub name: String,
 }
 
-#[derive(Debug)]
 pub struct Module {
     pub anno: Anno,
     pub inner: ModuleInner,
