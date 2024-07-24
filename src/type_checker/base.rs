@@ -1,9 +1,10 @@
 use crate::{
-    cerl_parser::ast::{Lit, Pat, Var},
+    cerl_parser::ast::LitInner,
     contract_cerl::{
-        ast::{CClause, CExpr, CFunCall, CModule, CType},
+        ast::{CClause, CExpr, CFunCall, CModule, CPat, CType},
         types::{BaseType, SessionType},
     },
+    st_parser::spec_extractor::flatten_cons,
     type_checker::{
         fun::bif_fun,
         session::{gsp_new, gsp_sync_send},
@@ -109,7 +110,8 @@ fn e_call(
     ))
 }
 
-fn e_base(envs: &TypeEnvs, v: &Var) -> Result<CType, String> {
+// TODO: Change signature to have v: &Var again
+fn e_base(envs: &TypeEnvs, v: &String) -> Result<CType, String> {
     let res = envs.0.get(v);
     if res.is_none() {
         return Err(format!("used var that was not defined {:?}", v));
@@ -122,19 +124,23 @@ fn e_base(envs: &TypeEnvs, v: &Var) -> Result<CType, String> {
     }
 }
 
-fn e_lit(l: &Lit) -> CType {
+fn e_lit(l: &LitInner) -> CType {
     CType::Base(e_lit_aux(l))
 }
 
-fn e_lit_aux(l: &Lit) -> BaseType {
+// TODO: Run flatten once instead of many times!
+fn e_lit_aux(l: &LitInner) -> BaseType {
     match l {
-        Lit::Int(_) => BaseType::Integer,
-        Lit::Float(_) => BaseType::Float,
-        Lit::Atom(a) => BaseType::Atom(a.clone()),
-        Lit::Char(_) => BaseType::Char,
-        Lit::Cons(cons) => BaseType::Cons(cons.iter().map(e_lit_aux).collect()),
-        Lit::Tuple(tuple) => BaseType::Tuple(tuple.iter().map(e_lit_aux).collect()),
-        Lit::String(_) => BaseType::String,
+        LitInner::Int(_) => BaseType::Integer,
+        LitInner::Float(_) => BaseType::Float,
+        LitInner::Atom(a) => BaseType::Atom(a.clone()),
+        LitInner::Char(_) => BaseType::Char,
+        LitInner::Cons(_) => BaseType::Cons(flatten_cons(l).iter().map(|o| e_lit_aux(o)).collect()),
+        LitInner::Tuple(tuple) => {
+            BaseType::Tuple(tuple.iter().map(|arg0| e_lit_aux(&arg0.inner)).collect())
+        }
+        LitInner::String(_) => BaseType::String,
+        LitInner::Nil => BaseType::Cons(vec![]),
     }
 }
 
@@ -159,7 +165,7 @@ fn e_do(module: &CModule, envs: &mut TypeEnvs, e1: &CExpr, e2: &CExpr) -> Result
 fn e_let(
     module: &CModule,
     envs: &mut TypeEnvs,
-    v: &Pat,
+    v: &CPat,
     e1: &CExpr,
     e2: &CExpr,
 ) -> Result<CType, String> {
@@ -285,11 +291,11 @@ fn e_case_branching(
 fn pattern_matching(
     module: &CModule,
     envs: &mut TypeEnvs,
-    v: &Pat,
+    v: &CPat,
     e: &CExpr,
 ) -> Result<(), String> {
     match v {
-        Pat::Var(v) => {
+        CPat::Var(v) => {
             // Get expression type
             let t = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, e);
             if let Err(err_val) = t {
@@ -299,10 +305,10 @@ fn pattern_matching(
                 ));
             }
             // TODO: Add "remove if equal"/NOOP thing
-            envs.0.insert(v.clone(), ctype_to_typeenv(&t.unwrap()));
+            envs.0.insert(v.name.clone(), ctype_to_typeenv(&t.unwrap()));
             Ok(())
         }
-        Pat::Lit(l) => {
+        CPat::Lit(l) => {
             // Must match on lit
             let CExpr::Lit(e_lit) = e else {
                 return Err(
@@ -318,7 +324,7 @@ fn pattern_matching(
             };
             Ok(())
         }
-        Pat::Cons(l_cons) => {
+        CPat::Cons(l_cons) => {
             // What this means: Both sides must have cons, and content must be compatible
             let CExpr::Cons(e) = e else {
                 return Err("Cons pattern mismatch".to_string());
@@ -330,7 +336,7 @@ fn pattern_matching(
             }
             Ok(())
         }
-        Pat::Tuple(l_tuple) => {
+        CPat::Tuple(l_tuple) => {
             // What this means: Both sides must have tuple, and content must be compatible
             let CExpr::Tuple(e) = e else {
                 return Err("Tuple pattern mismatch".to_string());
@@ -342,7 +348,7 @@ fn pattern_matching(
             }
             Ok(())
         }
-        Pat::Alias(_, _) => todo!(
+        CPat::Alias(_, _) => todo!(
             "How to pattern match alias? Find example where this todo is triggered and implement."
         ),
     }

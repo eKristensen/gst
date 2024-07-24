@@ -9,7 +9,7 @@ use nom::{
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
-use super::{ast::Anno, lex::lit};
+use super::{ast::Anno, lex::lit_inner};
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#-ceol-style-comments
 // Comment
@@ -25,10 +25,10 @@ fn comment(i: &str) -> IResult<&str, (), ErrorTree<&str>> {
     )(i) // TODO: Better to use end of line instead of is_not ? TODO: Type of line endings...
 }
 
-// Removes annotation
+// Parse annotation with custom parser for the inner part
 fn annotation<'a, F, O>(
     inner: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, Anno<O>, ErrorTree<&str>>
+) -> impl FnMut(&'a str) -> IResult<&'a str, (O, Anno), ErrorTree<&str>>
 where
     F: Parser<&'a str, O, ErrorTree<&'a str>>,
 {
@@ -37,30 +37,22 @@ where
             ws(tag("(")),
             inner,
             ws(tag("-|")),
-            lit,
+            lit_inner,
             ws(tag(")")),
             ws(tag(")")),
         )),
-        |(_, o1, _, o2, _, _)| Anno {
-            annotation: Some(o2),
-            inner: o1,
-        },
+        |(_, inner_out, _, anno, _, _)| (inner_out, Anno(Some(anno))),
     )
 }
 
+// Generic to allow a parser to be wrapped in annotation.
 pub fn opt_annotation<'a, F, O>(
     inner: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, Anno<O>, ErrorTree<&str>>
+) -> impl FnMut(&'a str) -> IResult<&'a str, (O, Anno), ErrorTree<&str>>
 where
     F: Parser<&'a str, O, ErrorTree<&'a str>> + Clone,
 {
-    alt((
-        map(inner.clone(), |o| Anno {
-            annotation: None,
-            inner: o,
-        }),
-        annotation(inner),
-    ))
+    alt((map(inner.clone(), |o| (o, Anno(None))), annotation(inner)))
 }
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#wrapper-combinators-that-eat-whitespace-before-and-after-a-parser

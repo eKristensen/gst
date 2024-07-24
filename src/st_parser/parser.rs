@@ -10,11 +10,11 @@ use nom::{
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
-use crate::st_parser::ast::SessionSpecElm::BasePlaceholder;
 use crate::st_parser::ast::SessionSpecElm::ConsumeSpec;
 use crate::st_parser::ast::SessionSpecElm::NewSpec;
+use crate::{cerl_parser::ast::FunNameInner, st_parser::ast::SessionSpecElm::BasePlaceholder};
 use crate::{
-    cerl_parser::{ast::FunName, helpers::ws, terminals::atom},
+    cerl_parser::{helpers::ws, terminals::atom},
     contract_cerl::types::{BaseType, Label, SessionType, SessionTypesList},
 };
 
@@ -23,14 +23,14 @@ use super::ast::{SessionSpec, SessionSpecElm, SessionSpecs};
 // TODO: Reuse of functions from cerl parser allows for comments and maybe annotations inside the ST which is odd
 // Better to not reuse or rewrite so the core can be reused rather than the whole code.
 // Doing for now to get a working prototype
-pub fn st_parse(i: &str) -> IResult<&str, (FunName, SessionSpecs), ErrorTree<&str>> {
+pub fn st_parse(i: &str) -> IResult<&str, (FunNameInner, SessionSpecs), ErrorTree<&str>> {
     map(
         pair(atom, map(separated_list1(tag(";"), clause), SessionSpecs)),
         |(fname, clauses)| {
             // TODO: WF Check: Duplicate var in st binders
             // TODO: WF Check: Consistent number of arguments
             (
-                FunName {
+                FunNameInner {
                     name: fname,
                     arity: clauses.0.first().unwrap().0.len(),
                 },
@@ -104,7 +104,7 @@ fn st_receive(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
 
 fn base_type(i: &str) -> IResult<&str, BaseType, ErrorTree<&str>> {
     alt((
-        map(atom, BaseType::Atom),
+        map(atom, |o| BaseType::Atom(o.name)),
         value(BaseType::Pid, tag("pid")),
         value(BaseType::Reference, tag("reference")),
         value(BaseType::Integer, tag("integer")),
@@ -173,7 +173,7 @@ fn inner_choice(i: &str) -> IResult<&str, (Label, SessionTypesList), ErrorTree<&
 
 #[cfg(test)]
 mod tests {
-    use crate::cerl_parser::ast::Atom;
+    use crate::cerl_parser::ast::{Anno, Atom, FunNameInner};
 
     use super::*;
 
@@ -186,8 +186,11 @@ mod tests {
             (
                 "",
                 (
-                    FunName {
-                        name: Atom("test".to_owned()),
+                    FunNameInner {
+                        name: Atom {
+                            anno: Anno(None),
+                            name: "test".to_owned()
+                        },
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -206,8 +209,11 @@ mod tests {
             (
                 "",
                 (
-                    FunName {
-                        name: Atom("test".to_owned()),
+                    FunNameInner {
+                        name: Atom {
+                            anno: Anno(None),
+                            name: "test".to_owned()
+                        },
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -230,8 +236,11 @@ mod tests {
             (
                 "",
                 (
-                    FunName {
-                        name: Atom("test".to_owned()),
+                    FunNameInner {
+                        name: Atom {
+                            anno: Anno(None),
+                            name: "test".to_owned()
+                        },
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -254,8 +263,11 @@ mod tests {
             (
                 "",
                 (
-                    FunName {
-                        name: Atom("test".to_owned()),
+                    FunNameInner {
+                        name: Atom {
+                            anno: Anno(None),
+                            name: "test".to_owned()
+                        },
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -278,8 +290,11 @@ mod tests {
             (
                 "",
                 (
-                    FunName {
-                        name: Atom("test".to_owned()),
+                    FunNameInner {
+                        name: Atom {
+                            anno: Anno(None),
+                            name: "test".to_owned()
+                        },
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -300,8 +315,11 @@ mod tests {
             (
                 "",
                 (
-                    FunName {
-                        name: Atom("test".to_owned()),
+                    FunNameInner {
+                        name: Atom {
+                            anno: Anno(None),
+                            name: "test".to_owned()
+                        },
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -323,8 +341,11 @@ mod tests {
             (
                 "",
                 (
-                    FunName {
-                        name: Atom("test".to_owned()),
+                    FunNameInner {
+                        name: Atom {
+                            anno: Anno(None),
+                            name: "test".to_owned()
+                        },
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -346,8 +367,11 @@ mod tests {
             (
                 "",
                 (
-                    FunName {
-                        name: Atom("test".to_owned()),
+                    FunNameInner {
+                        name: Atom {
+                            anno: Anno(None),
+                            name: "test".to_owned()
+                        },
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -383,8 +407,11 @@ mod tests {
             (
                 "",
                 (
-                    FunName {
-                        name: Atom("test".to_owned()),
+                    FunNameInner {
+                        name: Atom {
+                            anno: Anno(None),
+                            name: "test".to_owned()
+                        },
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
@@ -405,8 +432,11 @@ mod tests {
             (
                 "",
                 (
-                    FunName {
-                        name: Atom("test".to_owned()),
+                    FunNameInner {
+                        name: Atom {
+                            anno: Anno(None),
+                            name: "test".to_owned()
+                        },
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
@@ -433,8 +463,11 @@ mod tests {
             (
                 "",
                 (
-                    FunName {
-                        name: Atom("test".to_owned()),
+                    FunNameInner {
+                        name: Atom {
+                            anno: Anno(None),
+                            name: "test".to_owned()
+                        },
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
@@ -480,8 +513,11 @@ mod tests {
             (
                 "",
                 (
-                    FunName {
-                        name: Atom("test".to_owned()),
+                    FunNameInner {
+                        name: Atom {
+                            anno: Anno(None),
+                            name: "test".to_owned()
+                        },
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(

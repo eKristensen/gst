@@ -2,22 +2,29 @@ use nom::{combinator::map, multi::many0, sequence::tuple, IResult};
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
-    ast::{Attribute, FunDef, FunName, Module},
+    ast::{Attribute, FunDef, FunDefInner, FunName, Module, ModuleInner},
     expr::exprs,
     helpers::{comma_sep_list, opt_annotation, ws},
     lex::{fname, lit},
     terminals::{atom, var},
 };
 
-pub fn fun_def(i: &str) -> IResult<&str, (FunName, FunDef), ErrorTree<&str>> {
+pub fn top_fun_def(i: &str) -> IResult<&str, (FunName, FunDef), ErrorTree<&str>> {
     let (i, head) = fname(i)?;
     let (i, _) = ws(tag("="))(i)?;
-    let (i, def) = opt_annotation(fun)(i)?;
+    let (i, def) = fun_def(i)?;
 
     Ok((i, (head, def)))
 }
 
-pub fn fun(i: &str) -> IResult<&str, FunDef, ErrorTree<&str>> {
+pub fn fun_def(i: &str) -> IResult<&str, FunDef, ErrorTree<&str>> {
+    map(opt_annotation(fun_def_inner), |(inner, anno)| FunDef {
+        anno,
+        inner,
+    })(i)
+}
+
+fn fun_def_inner(i: &str) -> IResult<&str, FunDefInner, ErrorTree<&str>> {
     let (i, _) = ws(tag("fun"))(i)?;
 
     // TODO: function arguments parsing, must be able to parse variables
@@ -25,7 +32,7 @@ pub fn fun(i: &str) -> IResult<&str, FunDef, ErrorTree<&str>> {
     let (i, _) = ws(tag("->"))(i)?;
 
     let (i, exprs) = ws(exprs)(i)?;
-    Ok((i, FunDef { args, body: exprs }))
+    Ok((i, FunDefInner { args, body: exprs }))
 }
 
 // TODO: Attributes that are not in a list is parsed as if they are, e.g.
@@ -44,11 +51,14 @@ fn attribute(i: &str) -> IResult<&str, Attribute, ErrorTree<&str>> {
 }
 
 pub fn module(i: &str) -> IResult<&str, Module, ErrorTree<&str>> {
-    opt_annotation(module_inner)(i)
+    map(opt_annotation(module_inner), |(inner, anno)| Module {
+        anno,
+        inner,
+    })(i)
 }
 
 // Top level module definition
-fn module_inner(i: &str) -> IResult<&str, Module, ErrorTree<&str>> {
+fn module_inner(i: &str) -> IResult<&str, ModuleInner, ErrorTree<&str>> {
     // TODO: Check that "tag" requires "module" and does not work with partial data such as "mod"
     // Scan module
     let (i, _) = ws(tag("module"))(i)?;
@@ -67,14 +77,14 @@ fn module_inner(i: &str) -> IResult<&str, Module, ErrorTree<&str>> {
 
     // Module Body - Function definitions
     // TODO: Somehow collect debug messages from this branch?
-    let (i, body) = many0(ws(fun_def))(i)?;
+    let (i, body) = many0(ws(top_fun_def))(i)?;
 
     // Require end keyword
     let (i, _) = ws(tag("end"))(i)?;
 
     Ok((
         i,
-        Module {
+        ModuleInner {
             name,
             exports,
             attributes,

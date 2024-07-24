@@ -9,6 +9,10 @@ List of elements to improve upon for this project sorted by category.
   - Before this can be done annotations needs to be parsed as well.
 - avoid manual OK((i, sth)) return use map instead?
 
+## Core erlang parse completeness
+
+- Segment parsing is not supported yet. Will properly need to parse before project ends.
+
 ## Code quality
 
 - better error message style:

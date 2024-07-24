@@ -4,9 +4,9 @@
 
 use std::collections::HashMap;
 
-use crate::{cerl_parser::ast::FunName, contract_cerl::types::BaseType};
+use crate::{cerl_parser::ast::FunNameInner, contract_cerl::types::BaseType};
 
-pub struct BaseSpecDef(pub HashMap<FunName, BaseSpecs>);
+pub struct BaseSpecDef(pub HashMap<FunNameInner, BaseSpecs>);
 
 pub struct BaseSpecs(pub Vec<BaseSpec>);
 

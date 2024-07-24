@@ -3,14 +3,14 @@
 use nom::{
     branch::alt,
     character::{complete::digit1, is_digit},
-    combinator::{map, map_res},
-    sequence::tuple,
+    combinator::{map, map_res, value},
+    sequence::{pair, tuple},
     IResult,
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
-    ast::{FunName, Lit},
+    ast::{FunName, FunNameInner, Lit, LitInner},
     helpers::{comma_sep_list, opt_annotation, ws},
     terminals::{atom, char_char, float, integer, string},
 };
@@ -48,54 +48,57 @@ pub fn is_ctlchar(chr: u8) -> bool {
 
 // TODO: Move to terminals?
 pub fn fname(i: &str) -> IResult<&str, FunName, ErrorTree<&str>> {
-    opt_annotation(fname_inner)(i)
+    map(opt_annotation(fname_inner), |(inner, anno)| FunName {
+        anno,
+        inner,
+    })(i)
 }
 
 // TODO: Move to terminals?
-pub fn fname_inner(i: &str) -> IResult<&str, FunName, ErrorTree<&str>> {
+pub fn fname_inner(i: &str) -> IResult<&str, FunNameInner, ErrorTree<&str>> {
     ws(map(
         tuple((
             atom,
             tag("/"), // TODO: Check whether whitespace is allowed around this tag in this context
             map_res(digit1, str::parse::<usize>),
         )),
-        |(name, _, arity)| FunName { name, arity },
+        |(name, _, arity)| FunNameInner { name, arity },
     ))(i)
 }
 
 // TODO: Common pattern for nested list, avoid manual rewrite!
-fn lit_nested_list(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
+fn lit_list(i: &str) -> IResult<&str, LitInner, ErrorTree<&str>> {
     let (i, _) = ws(tag("["))(i)?;
-    let (i, constant) = ws(lit)(i)?;
-    let head = match constant {
-        Lit::Cons(inner_list) => inner_list,
-        _ => vec![constant],
-    };
-
+    let (i, head) = ws(lit)(i)?;
     let (i, _) = ws(tag("|"))(i)?;
-    let (i, constant) = ws(lit)(i)?;
-    let tail = match constant {
-        Lit::Cons(inner_list) => inner_list,
-        _ => vec![constant],
-    };
+    let (i, tail) = ws(lit)(i)?;
     let (i, _) = ws(tag("]"))(i)?;
 
-    let cons = [&head[..], &tail[..]].concat();
-    Ok((i, crate::cerl_parser::ast::Lit::Cons(cons)))
+    Ok((
+        i,
+        crate::cerl_parser::ast::LitInner::Cons(Box::new((head, tail))),
+    ))
 }
 
 pub fn lit(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
+    map(opt_annotation(lit_inner), |(inner, anno)| Lit {
+        anno,
+        inner,
+    })(i)
+}
+
+pub fn lit_inner(i: &str) -> IResult<&str, LitInner, ErrorTree<&str>> {
     alt((
-        map(float, super::ast::Lit::Float),
-        map(integer, super::ast::Lit::Int),
-        map(atom, crate::cerl_parser::ast::Lit::Atom),
-        map(char_char, crate::cerl_parser::ast::Lit::Char),
-        map(string, crate::cerl_parser::ast::Lit::String),
-        lit_nested_list,
-        map(comma_sep_list("[", "]", lit), super::ast::Lit::Cons),
+        map(float, super::ast::LitInner::Float),
+        map(integer, super::ast::LitInner::Int),
+        map(atom, |o| crate::cerl_parser::ast::LitInner::Atom(o.name)),
+        map(char_char, crate::cerl_parser::ast::LitInner::Char),
+        map(string, crate::cerl_parser::ast::LitInner::String),
+        lit_list,
+        value(super::ast::LitInner::Nil, pair(ws(tag("[")), ws(tag("]")))),
         map(
             comma_sep_list("{", "}", lit),
-            crate::cerl_parser::ast::Lit::Tuple,
+            crate::cerl_parser::ast::LitInner::Tuple,
         ),
     ))(i)
 }
@@ -103,7 +106,7 @@ pub fn lit(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
 #[cfg(test)]
 mod tests {
     use crate::cerl_parser::{
-        ast::{Atom, Lit},
+        ast::{Anno, Lit, LitInner},
         lex::lit,
     };
 
@@ -111,7 +114,13 @@ mod tests {
     fn test_lit_atom_in_list() {
         assert_eq!(
             lit("'new', 'neg')").unwrap(),
-            (", 'neg')", Lit::Atom(Atom("new".to_owned())))
+            (
+                ", 'neg')",
+                Lit {
+                    anno: Anno(None),
+                    inner: LitInner::Atom("new".to_owned())
+                }
+            )
         );
     }
 }

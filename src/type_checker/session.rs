@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    cerl_parser::ast::{Atom, Lit, Pat, Var},
+    cerl_parser::ast::LitInner,
     contract_cerl::{
-        ast::{CClause, CExpr, CFunCall, CModule, CType},
+        ast::{CClause, CExpr, CFunCall, CModule, CPat, CType},
         types::{BaseType, Label, SessionType, SessionTypesList},
     },
     type_checker::base::expr,
@@ -18,7 +18,7 @@ pub fn gsp_new(
     call: &CFunCall,
     args: &Vec<CExpr>,
 ) -> Result<CType, String> {
-    let gsp_new = CFunCall::Call(Atom("gen_server_plus".to_owned()), Atom("new".to_owned()));
+    let gsp_new = CFunCall::Call("gen_server_plus".to_owned(), "new".to_owned());
     if *call != gsp_new {
         return Err("Not gen server plus new session constructor".to_string());
     }
@@ -60,7 +60,7 @@ pub fn gsp_sync_send(
     call: &CFunCall,
     args: &Vec<CExpr>,
 ) -> Result<CType, String> {
-    let gsp_sync_send = CFunCall::Call(Atom("gen_server_plus".to_owned()), Atom("call".to_owned()));
+    let gsp_sync_send = CFunCall::Call("gen_server_plus".to_owned(), "call".to_owned());
 
     if *call != gsp_sync_send {
         return Err("Not Gen Server Plus Call".to_string());
@@ -144,7 +144,7 @@ pub fn gsp_sync_send(
         }
         SessionType::OfferChoice(offers) => {
             // Make choice
-            let BaseType::Atom(Atom(atom_label)) = sending_val else {
+            let BaseType::Atom(atom_label) = sending_val else {
                 return Err(format!("Cannot make a choice without a label. Session type expects a choice {:?} {:?} {:?}", session_type, sending_val, args));
             };
             let try_label = Label(atom_label);
@@ -191,17 +191,16 @@ pub fn e_case_offer(
         let mut clause_envs = TypeEnvs(envs.0.clone());
 
         // Get the label for current patten
-        let [Pat::Lit(label)] = clause.pats.as_slice() else {
+        let [CPat::Lit(label)] = clause.pats.as_slice() else {
             return Err("label must be an atom #1".to_string());
         };
-        let Lit::Atom(label) = label else {
+        let LitInner::Atom(label) = label else {
             return Err("label must be an atom #2".to_string());
         };
-        let crate::cerl_parser::ast::Atom(pat_label) = label;
 
         // Look for label in session type
         // TODO: Can clone be avoided here?
-        let Some(matching_st) = offers.get(&Label(pat_label.clone())) else {
+        let Some(matching_st) = offers.get(&Label(label.clone())) else {
             return Err("No matching offer found in session!".to_string());
         };
 
@@ -243,9 +242,9 @@ pub fn diff_consumed(before_envs: &TypeEnvs, after_envs: &TypeEnvs) -> Result<()
     // Aka: Check all newly defined variables are consumed (if required).
     // Two stage: Find all to check, and then to check their value.
     let before_vars = before_envs.0.keys().cloned().collect();
-    let after_vars: HashSet<Var> = after_envs.0.keys().cloned().collect();
+    let after_vars: HashSet<String> = after_envs.0.keys().cloned().collect();
     // must_be_consumed == new variables that only exist within the enclosed let in
-    let must_be_consumed: HashSet<&Var> = after_vars.difference(&before_vars).collect();
+    let must_be_consumed: HashSet<&String> = after_vars.difference(&before_vars).collect();
     for check_var in must_be_consumed {
         match after_envs.0.get(check_var).unwrap() {
             TypeEnv::Gamma(_) => continue,
@@ -300,7 +299,7 @@ pub fn must_st_consume_expr(
 // Task: Ensure that we preserve isolation of all environments but except Delta. Remove new values and restore old values.
 // Used to e.g. ensure arguments are evaluated in an isolated environment.
 fn envs_isolation(old_envs: &TypeEnvs, new_envs: &mut TypeEnvs) {
-    let new_vars: HashSet<Var> = new_envs.0.keys().cloned().collect();
+    let new_vars: HashSet<String> = new_envs.0.keys().cloned().collect();
     // Check current env. For all that is not Delta, the definition must be the same as in before. Remove or update as needed
     for var_key in new_vars {
         let cur_val = new_envs.0.get(&var_key).unwrap();
