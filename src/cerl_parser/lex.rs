@@ -4,10 +4,12 @@ use nom::{
     branch::alt,
     character::{complete::digit1, is_digit},
     combinator::{map, map_res, value},
-    sequence::{pair, tuple},
+    sequence::{delimited, pair, tuple},
     IResult,
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
+
+use crate::cerl_parser::ast::Anno;
 
 use super::{
     ast::{FunName, FunNameInner, Lit, LitInner},
@@ -73,7 +75,6 @@ fn lit_list(i: &str) -> IResult<&str, LitInner, ErrorTree<&str>> {
     let (i, _) = ws(tag("|"))(i)?;
     let (i, tail) = ws(lit)(i)?;
     let (i, _) = ws(tag("]"))(i)?;
-
     Ok((
         i,
         crate::cerl_parser::ast::LitInner::Cons(Box::new((head, tail))),
@@ -94,6 +95,15 @@ pub fn lit_inner(i: &str) -> IResult<&str, LitInner, ErrorTree<&str>> {
         map(atom, |o| crate::cerl_parser::ast::LitInner::Atom(o.name)),
         map(char_char, crate::cerl_parser::ast::LitInner::Char),
         map(string, crate::cerl_parser::ast::LitInner::String),
+        map(delimited(ws(tag("[")), ws(lit), ws(tag("]"))), |o| {
+            LitInner::Cons(Box::new((
+                o,
+                Lit {
+                    anno: Anno(None), // TODO: Find a better way that does not require manual Anno
+                    inner: LitInner::Nil,
+                },
+            )))
+        }),
         lit_list,
         value(super::ast::LitInner::Nil, pair(ws(tag("[")), ws(tag("]")))),
         map(

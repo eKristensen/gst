@@ -7,6 +7,8 @@ mod type_checker;
 use crate::contract_cerl::compose_contract::compose_contract;
 use cerl_parser::{ast::Module, top::module};
 use contract_cerl::ast::{CModule, OptWarnings};
+use nom_supreme::error::GenericErrorTree::Alt;
+use nom_supreme::final_parser::{Location, RecreateContext};
 use nom_supreme::{error::ErrorTree, final_parser::final_parser};
 
 fn cerl_final(input: &str) -> Result<Module, ErrorTree<&str>> {
@@ -17,8 +19,34 @@ pub fn parse(src: &str) -> Result<OptWarnings<CModule>, ErrorTree<&str>> {
     let module = cerl_final(src);
     match module {
         Err(err) => {
-            dbg!(err);
-            panic!("See error debug above")
+            // https://docs.rs/nom-supreme/latest/nom_supreme/error/enum.GenericErrorTree.html
+            // dbg!(err) is a usefull marco
+            match err {
+                Alt(err_vec) => {
+                    for elm in err_vec {
+                        match elm {
+                            nom_supreme::error::GenericErrorTree::Base { location, kind } => {
+                                println!("Base error");
+                                println!("{:?}", Location::recreate_context(src, location));
+                                println!("Kind: {:?}", kind);
+                            }
+                            other => {
+                                todo!(
+                                    "Pretty error message not implemented. Raw error: {:?}",
+                                    other
+                                );
+                            }
+                        }
+                    }
+                    todo!("Should return error in a 'pretty' way");
+                }
+                other => {
+                    todo!(
+                        "Pretty error message not implemented. Raw error: {:?}",
+                        other
+                    );
+                }
+            }
         }
         Ok(module) => Ok(compose_contract(module).unwrap()),
     }

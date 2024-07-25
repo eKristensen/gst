@@ -92,3 +92,18 @@ fn module_inner(i: &str) -> IResult<&str, ModuleInner, ErrorTree<&str>> {
         },
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::cerl_parser::{
+        ast::{Anno, Atom, Attribute, Lit, LitInner},
+        top::attribute,
+    };
+
+    #[test]
+    fn test_attribute_with_list() {
+        assert_eq!(attribute("'file' =\n\t\t    %% Line 1\n\t\t    [{[116|[101|[115|[116|[115|[47|[99|[101|[114|[108|[95|[112|[97|[114|[115|[101|[114|[47|[112|[97|[115|[115|[47|[115|[105|[109|[112|[108|[101|[45|[48|[48|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],1}]\n").is_ok(),
+            true
+        );
+    }
+}

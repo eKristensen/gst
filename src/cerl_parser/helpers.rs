@@ -33,15 +33,8 @@ where
     F: Parser<&'a str, O, ErrorTree<&'a str>>,
 {
     map(
-        tuple((
-            ws(tag("(")),
-            inner,
-            ws(tag("-|")),
-            lit_inner,
-            ws(tag(")")),
-            ws(tag(")")),
-        )),
-        |(_, inner_out, _, anno, _, _)| (inner_out, Anno(Some(anno))),
+        tuple((ws(tag("(")), inner, ws(tag("-|")), lit_inner, ws(tag(")")))),
+        |(_, inner_out, _, anno, _)| (inner_out, Anno(Some(anno))),
     )
 }
 

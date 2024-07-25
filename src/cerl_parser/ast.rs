@@ -54,7 +54,7 @@ pub struct FunNameInner {
     pub arity: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Attribute {
     pub name: Atom,
     pub value: Lit,
