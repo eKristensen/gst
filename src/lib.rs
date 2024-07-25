@@ -22,15 +22,23 @@ use thiserror::Error;
     // help("try doing it better next time?")
 )]
 struct ParseError {
-    // The Source that we're gonna be printing snippets out of.
-    // This can be a String if you don't have or care about file names.
-    #[source_code]
-    src: NamedSource<String>,
     // Snippets and highlights can be included in the diagnostic!
     #[label("here")]
     bad_bit: SourceSpan,
     #[help]
     advice: Option<String>,
+}
+
+#[derive(Diagnostic, Debug, Error)]
+#[error("Parser Error. See help below.")]
+#[diagnostic()]
+struct ParseErrors {
+    // The Source that we're gonna be printing snippets out of.
+    // This can be a String if you don't have or care about file names.
+    #[source_code]
+    src: NamedSource<String>,
+    #[related]
+    related: Vec<ParseError>,
 }
 
 fn cerl_final(input: &str) -> Result<Module, ErrorTree<&str>> {
@@ -45,21 +53,16 @@ pub fn parse<'a>(filename: &str, src: &'a str) -> Result<OptWarnings<CModule>> {
             // dbg!(err) is a usefull marco
             match err {
                 Alt(err_vec) => {
+                    let mut err_msgs: Vec<ParseError> = Vec::new();
                     for elm in err_vec {
                         match elm {
                             nom_supreme::error::GenericErrorTree::Base { location, kind } => {
                                 let location = Location::recreate_context(src, location);
-                                let src = src.to_string();
-                                let len = src.len();
 
-                                Err(ParseError {
-                                    src: NamedSource::new(filename, src),
+                                err_msgs.push(ParseError {
                                     bad_bit: (location.line, location.column).into(),
                                     advice: Some(format!("{:?}", kind)),
-                                })?;
-                                println!("Error in {}", filename);
-                                //println!("{:?}", Location::recreate_context(src, location));
-                                println!("Kind: {:?}", kind);
+                                });
                             }
                             other => {
                                 todo!(
@@ -69,6 +72,12 @@ pub fn parse<'a>(filename: &str, src: &'a str) -> Result<OptWarnings<CModule>> {
                             }
                         }
                     }
+
+                    // Based on MultiError example from https://docs.rs/miette/latest/miette/index.html#example
+                    Err(ParseErrors {
+                        src: NamedSource::new(filename, src.to_string()),
+                        related: err_msgs,
+                    })?;
                     todo!("Should return error in a 'pretty' way");
                 }
                 other => {
