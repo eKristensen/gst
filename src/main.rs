@@ -6,11 +6,14 @@ use gst::{parse, type_check};
 use std::ffi::OsStr;
 use std::path::Path;
 
-fn main() {
+use miette::{NamedSource, Result};
+
+fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
 
     if args.len() != 2 {
-        return println!("Usage: cargo run [filename]");
+        println!("Usage: cargo run [filename]");
+        return Ok(());
     }
 
     let mut filename = &args[1];
@@ -48,30 +51,29 @@ fn main() {
 
     match std::fs::read_to_string(filename) {
         Ok(src) => {
-            let contract = parse(filename, &src);
+            let contract = parse(filename, &src)?;
             println!("Contract core erlang debug text: {:?}", contract);
-            if let Ok(contract) = contract {
-                if !contract.warnings.is_empty() {
-                    println!("\nCore Erlang Contract created with the following warnings:");
-                    for elm in contract.warnings {
-                        println!("Warning: {}", elm);
-                    }
-                }
-                let type_check_res = type_check(contract.res);
-                if !type_check_res.warnings.is_empty() {
-                    println!("\nType checker returned the following warnings:");
-                    for elm in type_check_res.warnings {
-                        println!("Warning: {}", elm);
-                    }
-                } else {
-                    println!("\nThere were no warnings from the type checker.")
-                }
-                if type_check_res.res {
-                    println!("\nResult: PASS\n");
-                } else {
-                    println!("\nResult: FAIL\n");
+            if !contract.warnings.is_empty() {
+                println!("\nCore Erlang Contract created with the following warnings:");
+                for elm in contract.warnings {
+                    println!("Warning: {}", elm);
                 }
             }
+            let type_check_res = type_check(contract.res);
+            if !type_check_res.warnings.is_empty() {
+                println!("\nType checker returned the following warnings:");
+                for elm in type_check_res.warnings {
+                    println!("Warning: {}", elm);
+                }
+            } else {
+                println!("\nThere were no warnings from the type checker.")
+            }
+            if type_check_res.res {
+                println!("\nResult: PASS\n");
+            } else {
+                println!("\nResult: FAIL\n");
+            };
+            return Ok(());
         } // TODO: Pretty print
         // TODO: Sensible way to get rid of panic here?
         Err(err) => panic!("Could not read file {} because {}", filename, err),
