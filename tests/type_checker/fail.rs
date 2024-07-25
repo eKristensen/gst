@@ -45,7 +45,7 @@ fn type_checker_fail_erlc_acceptance(resource: &str) {
 #[test_resources("tests/type_checker/fail/*.core")]
 fn type_checker_fail_expect_rejection(resource: &str) {
     let src = std::fs::read_to_string(resource).unwrap();
-    let module = gst::parse(&src).unwrap();
+    let module = gst::parse(resource, &src).unwrap();
     // Special case for some files
     match resource {
         "tests/type_checker/fail/client.core" => assert_eq!(module.warnings.len(), 0),

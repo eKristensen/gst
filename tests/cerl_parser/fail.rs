@@ -19,7 +19,7 @@ fn erlc_rejection(resource: &str) {
 #[test_resources("tests/cerl_parser/fail/*.core")]
 fn expect_parse_error(resource: &str) {
     match std::fs::read_to_string(resource) {
-        Ok(src) => assert!(gst::parse(&src).is_err()),
+        Ok(src) => assert!(gst::parse(resource, &src).is_err()),
         Err(err) => panic!("Could not read file {}", err),
     }
 }

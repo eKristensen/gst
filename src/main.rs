@@ -48,7 +48,7 @@ fn main() {
 
     match std::fs::read_to_string(filename) {
         Ok(src) => {
-            let contract = parse(&src);
+            let contract = parse(filename, &src);
             println!("Contract core erlang debug text: {:?}", contract);
             if let Ok(contract) = contract {
                 if !contract.warnings.is_empty() {

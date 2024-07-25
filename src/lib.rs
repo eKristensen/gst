@@ -15,7 +15,7 @@ fn cerl_final(input: &str) -> Result<Module, ErrorTree<&str>> {
     final_parser(module)(input)
 }
 
-pub fn parse(src: &str) -> Result<OptWarnings<CModule>, ErrorTree<&str>> {
+pub fn parse<'a>(filename: &str, src: &'a str) -> Result<OptWarnings<CModule>, ErrorTree<&'a str>> {
     let module = cerl_final(src);
     match module {
         Err(err) => {
@@ -26,7 +26,7 @@ pub fn parse(src: &str) -> Result<OptWarnings<CModule>, ErrorTree<&str>> {
                     for elm in err_vec {
                         match elm {
                             nom_supreme::error::GenericErrorTree::Base { location, kind } => {
-                                println!("Base error");
+                                println!("Error in {}", filename);
                                 println!("{:?}", Location::recreate_context(src, location));
                                 println!("Kind: {:?}", kind);
                             }

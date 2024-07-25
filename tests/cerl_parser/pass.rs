@@ -42,7 +42,7 @@ fn erlc_acceptance(resource: &str) {
 #[test_resources("tests/cerl_parser/pass/*.core")]
 fn can_parse(resource: &str) {
     match std::fs::read_to_string(resource) {
-        Ok(src) => assert!(gst::parse(&src).is_ok()),
+        Ok(src) => assert!(gst::parse(resource, &src).is_ok()),
         Err(err) => panic!("Could not read file {}", err),
     }
 }
