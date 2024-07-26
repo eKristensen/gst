@@ -34,7 +34,7 @@ where
 {
     map(
         tuple((ws(tag("(")), inner, ws(tag("-|")), lit_inner, ws(tag(")")))),
-        |(_, inner_out, _, anno, _)| (inner_out, Anno(Some(anno))),
+        |(_, inner_out, _, anno, _)| (inner_out, Anno::Some(anno)),
     )
 }
 
@@ -45,7 +45,7 @@ pub fn opt_annotation<'a, F, O>(
 where
     F: Parser<&'a str, O, ErrorTree<&'a str>> + Clone,
 {
-    alt((map(inner.clone(), |o| (o, Anno(None))), annotation(inner)))
+    alt((map(inner.clone(), |o| (o, Anno::None)), annotation(inner)))
 }
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#wrapper-combinators-that-eat-whitespace-before-and-after-a-parser

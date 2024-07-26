@@ -1,7 +1,8 @@
 pub mod ast;
-mod expr;
+mod constants;
+mod expressions;
+pub mod grammar;
 pub mod helpers;
 pub mod lex;
-mod pat;
-pub mod terminals;
-pub mod top;
+mod patterns;
+pub mod tokeniser;

@@ -55,10 +55,6 @@ pub struct AnnoFunName {
     pub inner: FunName,
 }
 
-// TODO: General all XxxInner should be renamed such that it is AnnoXxx and XxxInner is renamed to
-// Xxx again. The Inner rename is to get help from the compiler to migrate towards annotations
-// correctly.
-
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FunName {
     pub name: Atom, // Function name atom cannot be annotated.

@@ -8,13 +8,19 @@ use nom::{
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
-    ast::{Anno, Clause, ClauseInner, Expr, ExprInner, Exprs, FunCall, MapPair, MapPairType, Var},
+    ast::{Anno, AnnoFunName, Clause, Expr, FunCall, FunExpr, Lit, MapPair, MapPairType, Var},
     helpers::{comma_sep_list, opt_annotation, ws},
     lex::{fname, lit},
-    pat::pats,
     terminals::{atom, var},
-    top::{fun_def, top_fun_def},
 };
+
+pub fn anno_function_name(i: &str) -> IResult<&str, AnnoFunName, ErrorTree<&str>> {}
+
+pub fn fun_expr(i: &str) -> IResult<&str, FunExpr, ErrorTree<&str>> {}
+
+pub fn literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {}
+
+pub fn atomic_literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {}
 
 // TODO: Common pattern for nested list, avoid manual rewrite!
 fn expr_nested_list(i: &str) -> IResult<&str, ExprInner, ErrorTree<&str>> {
