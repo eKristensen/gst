@@ -7,9 +7,9 @@ mod type_checker;
 use crate::contract_cerl::compose_contract::compose_contract;
 use cerl_parser::{ast::Module, top::module};
 use contract_cerl::ast::{CModule, OptWarnings};
-use miette::{Diagnostic, LabeledSpan, SourceSpan};
+use miette::{Diagnostic, SourceSpan};
 use miette::{NamedSource, Result};
-use nom_supreme::error::GenericErrorTree::Alt;
+use nom_supreme::error::GenericErrorTree;
 use nom_supreme::final_parser::{Location, RecreateContext};
 use nom_supreme::{error::ErrorTree, final_parser::final_parser};
 use thiserror::Error;
@@ -52,11 +52,11 @@ pub fn parse<'a>(filename: &str, src: &'a str) -> Result<OptWarnings<CModule>> {
             // https://docs.rs/nom-supreme/latest/nom_supreme/error/enum.GenericErrorTree.html
             // dbg!(err) is a usefull marco
             match err {
-                Alt(err_vec) => {
+                GenericErrorTree::Alt(err_vec) => {
                     let mut err_msgs: Vec<ParseError> = Vec::new();
                     for elm in err_vec {
                         match elm {
-                            nom_supreme::error::GenericErrorTree::Base { location, kind } => {
+                            GenericErrorTree::Base { location, kind } => {
                                 let location = Location::recreate_context(src, location);
 
                                 err_msgs.push(ParseError {
@@ -64,9 +64,17 @@ pub fn parse<'a>(filename: &str, src: &'a str) -> Result<OptWarnings<CModule>> {
                                     advice: Some(format!("{:?}", kind)),
                                 });
                             }
+                            GenericErrorTree::Stack { base, contexts } => {
+                                //println!("Base:  {:?}", base);
+                                for (one_str, stack) in contexts {
+                                    println!("Str: {:?}", one_str);
+                                    println!("Stack: {:?}", stack);
+                                }
+                                dbg!(base);
+                            }
                             other => {
                                 todo!(
-                                    "Pretty error message not implemented. Raw error: {:?}",
+                                    "Pretty error message not implemented #2. Raw error: {:?}",
                                     other
                                 );
                             }
@@ -82,7 +90,7 @@ pub fn parse<'a>(filename: &str, src: &'a str) -> Result<OptWarnings<CModule>> {
                 }
                 other => {
                     todo!(
-                        "Pretty error message not implemented. Raw error: {:?}",
+                        "Pretty error message not implemented #1. Raw error: {:?}",
                         other
                     );
                 }

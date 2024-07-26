@@ -1,4 +1,9 @@
-use nom::{combinator::map, multi::many0, sequence::tuple, IResult};
+use nom::{
+    combinator::map,
+    multi::{many0, many1},
+    sequence::tuple,
+    IResult,
+};
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
@@ -77,7 +82,9 @@ fn module_inner(i: &str) -> IResult<&str, ModuleInner, ErrorTree<&str>> {
 
     // Module Body - Function definitions
     // TODO: Somehow collect debug messages from this branch?
-    let (i, body) = many0(ws(top_fun_def))(i)?;
+    // TODO: Change to many0 again, or do it in a way compiler errors are easier to detect.
+    // let (i, body) = many0(ws(top_fun_def))(i)?;
+    let (i, body) = many1(ws(top_fun_def))(i)?;
 
     // Require end keyword
     let (i, _) = ws(tag("end"))(i)?;
