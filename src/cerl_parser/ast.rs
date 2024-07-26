@@ -2,46 +2,57 @@
 
 use std::fmt;
 
-// "New" types
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Atom {
-    pub anno: Anno,
-    pub name: String,
-}
-
-// TODO: Rename to type AnnoAtom, and use Atom instead of String where Annotation-free Atoms should be used.
+// AST is based on: https://github.com/erlang/otp/blob/master/lib/compiler/src/core_parse.yrl
+// The goal is to parse core erlang as close as possible to the reference implementation.
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Var {
-    pub anno: Anno,
-    pub name: String,
+pub enum Anno {
+    Unknown, // Depending on parser state it may be unknown wheter there is a annotation or not.
+    None,
+    Some(Vec<Const>),
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct AnnoAtom {
+    pub anno: Anno,
+    pub name: Atom,
+}
+
+pub struct Atom(pub String);
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct AnnoVar {
+    pub anno: Anno,
+    pub name: Var,
+}
+pub struct Var(pub String);
+
+#[derive(Debug)]
 pub struct Module {
     pub anno: Anno,
-    pub inner: ModuleInner,
+    pub name: Atom,
+    pub exports: Vec<AnnoFunName>,
+    pub attributes: Vec<Attribute>,
+    pub defs: Vec<FunDef>,
 }
 
-// AST
-#[derive(Debug)]
-pub struct ModuleInner {
-    pub name: Atom,
-    pub exports: Vec<FunName>,
-    pub attributes: Vec<Attribute>,
-    pub body: Vec<(FunName, FunDef)>,
+#[derive(Debug, Clone, PartialEq)]
+pub struct Attribute {
+    pub name: AnnoAtom,
+    pub value: AnnoLit,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum FunCall {
-    PrimOp(Atom),       // Call basic erlang functions
-    Apply(Exprs),       // Inter-module call // Note: Apparently fname is used here
-    Call(Exprs, Exprs), // Cross-module call; (Module, Call name)
+    PrimOp(AnnoExpr),         // Call basic erlang functions
+    Apply(AnnoExpr),          // Inter-module call // Note: Apparently fname is used here
+    Call(AnnoExpr, AnnoExpr), // Cross-module call; (Module, Call name)
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct FunName {
+pub struct AnnoFunName {
     pub anno: Anno,
-    pub inner: FunNameInner,
+    pub inner: FunName,
 }
 
 // TODO: General all XxxInner should be renamed such that it is AnnoXxx and XxxInner is renamed to
@@ -49,27 +60,25 @@ pub struct FunName {
 // correctly.
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct FunNameInner {
-    pub name: Atom,
+pub struct FunName {
+    pub name: Atom, // Function name atom cannot be annotated.
     pub arity: usize,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Attribute {
-    pub name: Atom,
-    pub value: Lit,
+pub struct AnnoFun {
+    pub anno: Anno,
+    pub fun: FunExpr,
+}
+
+pub struct FunExpr {
+    pub vars: Vec<AnnoVar>,
+    pub body: AnnoExpr,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct FunDef {
-    pub anno: Anno,
-    pub inner: FunDefInner,
-}
-
-#[derive(Debug, Eq, Clone, PartialEq, Hash)]
-pub struct FunDefInner {
-    pub args: Vec<Var>,
-    pub body: Exprs,
+    pub name: AnnoFunName,
+    pub body: AnnoFun,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
@@ -83,31 +92,24 @@ pub struct Float {
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
-pub struct Lit {
+pub struct AnnoLit {
     pub anno: Anno,
-    pub inner: LitInner,
+    pub inner: Lit,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
-pub enum LitInner {
+pub enum Lit {
     Int(i64),
     Float(Float),
-    Atom(String), // Note: Atom cannot be annotated within a literal, therefore String.
+    Atom(Atom),
     Char(char),
-    Cons(Box<(Lit, Lit)>), // Note: Converted from head tail to vector in parser
+    Cons(Vec<Lit>),
     Tuple(Vec<Lit>),
     String(String),
-    Nil, // Nil is intentionally left out. Cons is converted to vector, thus no need for nil.
+    Nil,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Anno(pub Option<LitInner>);
-
-#[derive(Debug, Eq, Clone, PartialEq, Hash)]
-pub enum Exprs {
-    One(Box<Expr>),
-    Many(Vec<Expr>),
-}
+pub struct Const(pub Lit);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum MapPairType {
@@ -115,68 +117,107 @@ pub enum MapPairType {
     Exact,
 }
 
+pub struct AnnoMapPair {
+    pub anno: Anno,
+    pub inner: MapPair,
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MapPair {
-    pub pair_type: MapPairType,
+    pub op: MapPairType,
     pub key: Expr,
     pub value: Expr,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Expr {
+pub struct AnnoExpr {
     pub anno: Anno,
-    pub inner: ExprInner,
+    pub inner: Expr,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum ExprInner {
+pub enum Expr {
+    Exprs(Vec<AnnoExpr>), // When expressions are in a "< e >" brackets
     Var(Var),
-    Fname(FunName), // Note fname is for e.g. 'foo'/1 = fun (X) -> 1+X end.
-    Lit(Lit),
-    Fun(FunDef),
-    Cons(Vec<Exprs>),
-    Tuple(Vec<Exprs>),
-    Let(Vec<Var>, Exprs, Exprs),
-    Case(Exprs, Vec<Clause>),
-    LetRec(Vec<(FunName, FunDef)>, Exprs),
-    Call(FunCall, Vec<Exprs>), // Merge call, apply and primop to avoid duplication
-    Receive(Vec<Clause>, Exprs, Exprs),
-    Try(Exprs, Vec<Var>, Exprs, Vec<Var>, Exprs),
-    Do(Exprs, Exprs),
-    Catch(Exprs),
-    Map(Vec<MapPair>, Option<Box<Expr>>), // TODO: More transparent way to allow "update" from map or variable that contains a map
+    Fname(FunName),
+    AtomLit(Lit),
+    FunLit(FunLit),
+    FunExpr(Box<FunExpr>),
+    Cons(Vec<AnnoExpr>),
+    Tuple(Vec<AnnoExpr>),
+    Let(Vec<AnnoVar>, Box<AnnoExpr>, Box<AnnoExpr>), // Note: Let vars
+    Case(Box<AnnoExpr>, Vec<AnnoClause>),
+    LetRec(Vec<FunDef>, Box<AnnoExpr>),
+    Call(Box<FunCall>, Vec<AnnoExpr>), // Merge call, apply and primop to avoid duplication
+    Receive(Box<Receive>),
+    Try(Box<Try>),
+    Do(Box<AnnoExpr>, Box<AnnoExpr>), // Sequence
+    Catch(Box<AnnoExpr>),
+    Map(MapExpr), // TODO: More transparent way to allow "update" from map or variable that contains a map
+                  // Ready for extensions: Binary, Segments
+}
+
+pub enum MapExpr {
+    OnlyPairs(Vec<AnnoMapPair>),
+    MapVar(Vec<AnnoMapPair>, AnnoVar),
+    AnnoMapExpr(Vec<AnnoMapPair>, Box<AnnoMapExpr>),
+}
+
+pub struct AnnoMapExpr {
+    anno: Anno,
+    inner: MapExpr,
+}
+
+pub struct Try {
+    pub arg: AnnoExpr,
+    pub vars: Vec<AnnoVar>,
+    pub body: AnnoExpr,
+    pub evars: Vec<AnnoVar>, // Note: Let vars
+    pub handler: AnnoExpr,
+}
+
+pub struct Receive {
+    pub clauses: Vec<AnnoClause>,
+    pub timeout: AnnoExpr,
+    pub action: AnnoExpr,
+}
+
+pub struct FunLit {
+    pub module: Atom,
+    pub fname: FunName,
+}
+
+#[derive(Debug, Eq, Clone, PartialEq, Hash)]
+pub struct AnnoClause {
+    pub anno: Anno,
+    pub inner: Clause,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct Clause {
+    pub pats: AnnoPat,
+    pub when: AnnoExpr,
+    pub res: AnnoExpr,
+}
+
+#[derive(Debug, Eq, Clone, PartialEq, Hash)]
+pub struct AnnoPat {
     pub anno: Anno,
-    pub inner: ClauseInner,
+    pub inner: Pat,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
-pub struct ClauseInner {
-    pub pats: Vec<Pat>,
-    pub when: Exprs,
-    pub res: Exprs,
-}
-
-#[derive(Debug, Eq, Clone, PartialEq, Hash)]
-pub struct Pat {
-    pub anno: Anno,
-    pub inner: PatInner,
-}
-
-// TODO: Can this be changed so case and let use same format for assignments???
-// This structure makes code reuse much harder than it should be!
-#[derive(Debug, Eq, Clone, PartialEq, Hash)]
-pub enum PatInner {
-    Var(Var),
+pub enum Pat {
+    Var(AnnoVar),
     Lit(Lit),
-    Cons(Box<(Pat, Pat)>),
-    Tuple(Vec<Pat>),
-    Alias(Var, Box<Pat>),
+    Cons(Vec<AnnoPat>),
+    Tuple(Vec<AnnoPat>),
+    Alias(AnnoVar, Box<AnnoPat>),
+    // Ready for extension: Maps, Segments, Binary
 }
 // TODO: Generic way to handle this "option anno" print out instead of manual copy-paste.
+// TODO: Reimplement fmt display for ast
+/*
 impl fmt::Display for FunName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.anno.0 {
@@ -260,3 +301,4 @@ impl fmt::Display for LitInner {
         }
     }
 }
+*/
