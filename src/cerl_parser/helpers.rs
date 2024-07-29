@@ -9,7 +9,7 @@ use nom::{
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
-use super::{ast::Anno, lex::lit_inner};
+use super::{ast::Anno, constants::constant};
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#-ceol-style-comments
 // Comment
@@ -33,7 +33,13 @@ where
     F: Parser<&'a str, O, ErrorTree<&'a str>>,
 {
     map(
-        tuple((ws(tag("(")), inner, ws(tag("-|")), lit_inner, ws(tag(")")))),
+        tuple((
+            ws(tag("(")),
+            inner,
+            ws(tag("-|")),
+            separated_list0(ws(tag(",")), ws(constant)),
+            ws(tag(")")),
+        )),
         |(_, inner_out, _, anno, _)| (inner_out, Anno::Some(anno)),
     )
 }
@@ -74,7 +80,6 @@ where
 }
 
 // General helper for comma-separated lists
-// TODO: Maybe too general? Some lists may require a least one element... e.g. is expr "<>" allowed? is "{}" allowed?
 pub fn comma_sep_list<'a, O, F>(
     start: &'static str, // TODO: Static not great, but idk what else to do now
     end: &'static str,   // TODO: Static lifetime not great
@@ -85,7 +90,30 @@ where
 {
     delimited(
         ws(tag(start)),
-        separated_list0(tag(","), elements),
+        separated_list0(ws(tag(",")), ws(elements)),
         ws(tag(end)),
     )
+}
+
+// General helper for cons lists with different inner parsers
+// Note: [A,B] == [A|[B]] - See Core Erlang Spec v 1.0.3 section 5.4
+pub fn cons<'a, O, F>(
+    elements: F,
+) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, ErrorTree<&str>>
+where
+    F: Parser<&'a str, O, ErrorTree<&'a str>> + Clone,
+{
+    alt((
+        ws(comma_sep_list("[", "]", elements.clone())),
+        map(
+            tuple((
+                ws(tag("[")),
+                elements.clone(),
+                ws(tag("|")),
+                elements,
+                ws(tag("]")),
+            )),
+            |(_, head, _, tail, _)| vec![head, tail],
+        ),
+    ))
 }

@@ -4,7 +4,7 @@ use nom_supreme::{error::ErrorTree, tag::complete::tag};
 use super::{
     ast::{AnnoPat, AnnoVar, Pat},
     expressions::atomic_literal,
-    helpers::{comma_sep_list, opt_annotation, ws},
+    helpers::{comma_sep_list, cons, opt_annotation, ws},
     tokeniser::var,
 };
 
@@ -31,25 +31,11 @@ fn tuple_pattern(i: &str) -> IResult<&str, Vec<AnnoPat>, ErrorTree<&str>> {
     ws(comma_sep_list("{", "}", anno_pattern))(i)
 }
 
-// TODO: Make cons general and move general cons comment there.
-// Note: [A,B] == [A|[B]] - See Core Erlang Spec v 1.0.3 section 5.4
 fn cons_pattern(i: &str) -> IResult<&str, Vec<AnnoPat>, ErrorTree<&str>> {
-    alt((
-        ws(comma_sep_list("[", "]", anno_pattern)),
-        map(
-            tuple((
-                ws(tag("[")),
-                anno_pattern,
-                ws(tag("|")),
-                anno_pattern,
-                ws(tag("]")),
-            )),
-            |(_, head, _, tail, _)| vec![head, tail],
-        ),
-    ))(i)
+    cons(anno_pattern)(i)
 }
 
-fn anno_variable(i: &str) -> IResult<&str, AnnoVar, ErrorTree<&str>> {
+pub fn anno_variable(i: &str) -> IResult<&str, AnnoVar, ErrorTree<&str>> {
     map(opt_annotation(var), |(name, anno)| AnnoVar { anno, name })(i)
 }
 

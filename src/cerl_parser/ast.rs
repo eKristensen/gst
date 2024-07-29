@@ -1,6 +1,6 @@
 // Core Erlang AST as is.
 
-use std::fmt;
+//use std::fmt;
 
 // AST is based on: https://github.com/erlang/otp/blob/master/lib/compiler/src/core_parse.yrl
 // The goal is to parse core erlang as close as possible to the reference implementation.

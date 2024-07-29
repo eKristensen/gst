@@ -5,7 +5,7 @@ mod st_parser;
 mod type_checker;
 
 use crate::contract_cerl::compose_contract::compose_contract;
-use cerl_parser::{ast::Module, top::module};
+use cerl_parser::{ast::Module, grammar::module_definition};
 use contract_cerl::ast::{CModule, OptWarnings};
 use miette::{Diagnostic, SourceSpan};
 use miette::{NamedSource, Result};
@@ -42,7 +42,7 @@ struct ParseErrors {
 }
 
 fn cerl_final(input: &str) -> Result<Module, ErrorTree<&str>> {
-    final_parser(module)(input)
+    final_parser(module_definition)(input)
 }
 
 pub fn parse<'a>(filename: &str, src: &'a str) -> Result<OptWarnings<CModule>> {

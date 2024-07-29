@@ -1,6 +1,6 @@
 use nom::{
     combinator::map,
-    multi::{many0, many1},
+    multi::many1,
     sequence::{delimited, preceded, tuple},
     IResult,
 };
@@ -64,6 +64,10 @@ fn anno_literal(i: &str) -> IResult<&str, AnnoLit, ErrorTree<&str>> {
 }
 
 fn module_defs(i: &str) -> IResult<&str, Vec<FunDef>, ErrorTree<&str>> {
+    function_definitions(i)
+}
+
+pub fn function_definitions(i: &str) -> IResult<&str, FunDef, ErrorTree<&str>> {
     // TODO: For debuggin the number of functions required is set to one.
     // TODO: Change to many0 instead of many1
     many1(ws(function_definition))(i)
