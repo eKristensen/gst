@@ -22,7 +22,7 @@ fn pattern(i: &str) -> IResult<&str, Pat, ErrorTree<&str>> {
         // Ready for extension: Map pattern
         map(cons_pattern, Pat::Cons),
         // Ready for extension: Binary pattern
-        map(alias, Pat::Alias),
+        map(alias, |(var, pat)| Pat::Alias(var, pat)),
         map(anno_variable, Pat::Var),
     ))(i)
 }
@@ -42,6 +42,6 @@ pub fn anno_variable(i: &str) -> IResult<&str, AnnoVar, ErrorTree<&str>> {
 fn alias(i: &str) -> IResult<&str, (AnnoVar, Box<AnnoPat>), ErrorTree<&str>> {
     map(
         tuple((anno_variable, ws(tag("=")), anno_pattern)),
-        |(variable, _, pattern)| Pat::Alias(variable, Box::new(pattern)),
+        |(variable, _, pattern)| (variable, Box::new(pattern)),
     )(i)
 }

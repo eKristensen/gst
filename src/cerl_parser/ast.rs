@@ -18,6 +18,7 @@ pub struct AnnoAtom {
     pub name: Atom,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Atom(pub String);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -25,9 +26,11 @@ pub struct AnnoVar {
     pub anno: Anno,
     pub name: Var,
 }
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Var(pub String);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Module {
     pub anno: Anno,
     pub name: Atom,
@@ -61,11 +64,13 @@ pub struct FunName {
     pub arity: usize,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoFun {
     pub anno: Anno,
     pub fun: FunExpr,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FunExpr {
     pub vars: Vec<AnnoVar>,
     pub body: AnnoExpr,
@@ -105,6 +110,7 @@ pub enum Lit {
     Nil,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Const(pub Lit);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -113,6 +119,7 @@ pub enum MapPairType {
     Exact,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoMapPair {
     pub anno: Anno,
     pub inner: MapPair,
@@ -121,8 +128,8 @@ pub struct AnnoMapPair {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MapPair {
     pub op: MapPairType,
-    pub key: Expr,
-    pub value: Expr,
+    pub key: AnnoExpr,
+    pub value: AnnoExpr,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -153,17 +160,20 @@ pub enum Expr {
                   // Ready for extensions: Binary, Segments
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum MapExpr {
     OnlyPairs(Vec<AnnoMapPair>),
     MapVar(Vec<AnnoMapPair>, AnnoVar),
     AnnoMapExpr(Vec<AnnoMapPair>, Box<AnnoMapExpr>),
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoMapExpr {
     anno: Anno,
     inner: MapExpr,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Try {
     pub arg: AnnoExpr,
     pub vars: Vec<AnnoVar>,
@@ -172,12 +182,14 @@ pub struct Try {
     pub handler: AnnoExpr,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Receive {
     pub clauses: Vec<AnnoClause>,
     pub timeout: AnnoExpr,
     pub action: AnnoExpr,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FunLit {
     pub module: Atom,
     pub fname: FunName,
@@ -191,7 +203,7 @@ pub struct AnnoClause {
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct Clause {
-    pub pats: AnnoPat,
+    pub pats: Vec<AnnoPat>,
     pub when: AnnoExpr,
     pub res: AnnoExpr,
 }

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::{
     cerl_parser::{
         self,
-        ast::{Expr, ExprInner, Exprs, FunCall, FunDef, FunNameInner, LitInner, PatInner},
+        ast::{AnnoExpr, Clause, Expr, FunCall, FunDef, FunName, Lit, Pat},
     },
     spec_extractor::{
         ast::{BaseSpec, BaseSpecDef, BaseSpecElm},
@@ -18,7 +18,7 @@ use crate::{
 };
 
 use super::{
-    ast::{self, CClause, CExpr, CFunClause, CFunName, CModule, CPat, CType, OptWarnings},
+    ast::{self, CClause, CExpr, CFunClause, CModule, CPat, CType, OptWarnings},
     types::BaseType,
 };
 use crate::contract_cerl::ast::CFunCall;
@@ -43,22 +43,17 @@ fn make_contract(
     session_spec: SessionSpecDef,
 ) -> OptWarnings<ast::CModule> {
     let mut warnings: Vec<String> = Vec::new();
-    let mut functions: HashMap<CFunName, Vec<CFunClause>> = HashMap::new();
+    let mut functions: HashMap<FunName, Vec<CFunClause>> = HashMap::new();
     // One body for each module
-    for (fname, def) in ast.inner.body.clone() {
-        match compose_function_with_contract(&base_spec, &session_spec, &fname.inner, def) {
+    for fun_def in ast.defs {
+        let fname = fun_def.name.inner;
+        match compose_function_with_contract(&base_spec, &session_spec, &fun_def) {
             Ok(contract_clauses) => {
-                let cfname = CFunName {
-                    name: fname.inner.name.name,
-                    arity: fname.inner.arity,
-                };
-                functions.insert(cfname, contract_clauses);
+                functions.insert(fname, contract_clauses);
             }
             Err(err) => {
                 // TODO: Consider to make a strict mode that requires full annotation
-                if fname.inner.name.name == "module_info"
-                    && (fname.inner.arity == 0 || fname.inner.arity == 1)
-                {
+                if fname.name.0 == "module_info" && (fname.arity == 0 || fname.arity == 1) {
                     // Ignore 'module_info'/0 and 'module_info'/1
                     continue;
                 }
@@ -71,7 +66,7 @@ fn make_contract(
     }
     OptWarnings {
         res: CModule {
-            name: ast.inner.name.clone(),
+            name: ast.name.clone(),
             functions,
         },
         warnings,
@@ -104,29 +99,29 @@ fn merge_base_session_spec(
 fn compose_function_with_contract(
     base_spec: &BaseSpecDef,
     session_spec: &SessionSpecDef,
-    fname: &FunNameInner,
-    def: FunDef,
+    fun_def: &FunDef,
 ) -> Result<Vec<CFunClause>, String> {
     // TODO: Maybe each function should be a function on their own with a Result type so we can fail for a single function and process the next one
     //       Yes, that makes way too much sense. Gotta do that ...
+    let fname = fun_def.name.inner;
 
     // fname is the fun-name.
     // WF check makes a lot of sense here....
-    if !base_spec.0.contains_key(fname) {
+    if !base_spec.0.contains_key(&fname) {
         return Err(format!(
             "Function {} is excluded from contract erlang as it got no base spec",
             fname
         ));
     }
-    let this_base_spec = base_spec.0.get(fname).unwrap();
+    let this_base_spec = base_spec.0.get(&fname).unwrap();
 
-    if !session_spec.0.contains_key(fname) {
+    if !session_spec.0.contains_key(&fname) {
         return Err(format!(
             "Function {} is excluded from contract erlang as it got no session spec",
             fname
         ));
     }
-    let this_session_spec = session_spec.0.get(fname).unwrap();
+    let this_session_spec = session_spec.0.get(&fname).unwrap();
 
     if this_base_spec.0.len() != this_session_spec.0.len() {
         return Err(format!(
@@ -135,51 +130,50 @@ fn compose_function_with_contract(
         ));
     }
 
-    // Type for CFunClause without body and args
-    struct PartialCFunClause {
+    // Type for CFun without body and args
+    struct PartialCFun {
         spec: Vec<CType>,
         return_type: BaseType,
     }
     // Match specs first
-    let mut partial_cfun: Vec<PartialCFunClause> = Vec::new();
+    let mut partial_cfun: Vec<PartialCFun> = Vec::new();
     for (clause_base_elm, clause_session_elm) in
         this_base_spec.0.iter().zip(this_session_spec.0.iter())
     {
         // Each clause spec content
         let clause_spec = merge_base_session_spec(clause_base_elm, clause_session_elm)?;
-        partial_cfun.push(PartialCFunClause {
+        partial_cfun.push(PartialCFun {
             spec: clause_spec,
             return_type: clause_base_elm.return_type.clone(),
         })
     }
 
-    // We assume top-level Exprs follow the format of a top-level function specification at this point
-    // Top level function can both be a case or a direct expression. Direct means there is only one clause.
-    let cerl_parser::ast::Exprs::One(fun_body) = def.inner.body else {
-        return Err("Top-level fun def body are not expected to be a value list".to_string());
-    };
+    // The first expression in any function definition is a function.
+    let fun_expr = fun_def.body.fun;
 
-    // Get the list of clauses
-    let clauses = match *fun_body {
-        // TODO: This is where I actaully want to check what the annotation content is !
-        Expr {
-            anno,
-            inner: ExprInner::Case(_args_again, clauses),
-        } => {
-            println!("Annotation is {:?}", anno);
+    // A top-level function expression may contain multiplte clauses.
+    // If there are many clauses they will be contained within a normal case expression as the
+    // first expression within the function expression body.
+    // We check for this annotation. If the annotation is not present the function only has one
+    // clause.
+    let clauses = match fun_expr.body.inner {
+        Expr::Case(_top_cases_var, top_cases_clauses) => {
+            todo!("Found top-level case. This can be because there are multiplte clauess or a top-levle case. Check annotation: {:?}", fun_expr.body.anno);
 
-            // TODO: "when" (clause.when) is ignored here!!!!
-            // TODO fold/map-like instead? How to make "?" work inside map ?
             let mut clauses_res: Vec<CExpr> = Vec::new();
-            for clause in clauses {
-                let cexpr = exprs_to_cexpr(clause.inner.res)?;
+
+            // TODO: We throw away "when" right now. Include agian later. It will be needed for
+            // proper type checking later.
+            for clause in top_cases_clauses {
+                let cexpr = expr_to_cexpr(clause.inner.res.inner)?;
                 clauses_res.push(cexpr);
             }
             clauses_res
         }
+
         single_clause => match expr_to_cexpr(single_clause) {
             Ok(cexpr) => vec![cexpr],
-            _ => vec![],
+            _ => todo!("Unable to to process function expression"),
         },
     };
 
@@ -198,7 +192,7 @@ fn compose_function_with_contract(
             // TODO: Deduplicate args, but moving to function name does not seem like a good solution.
             CFunClause {
                 spec: partial_ctype_elm.spec.clone(),
-                args: def.inner.args.clone(),
+                args: fun_def.body.fun.vars.into_iter().map(|v| v.name).collect(),
                 body: this_body.clone(),
                 return_type: partial_ctype_elm.return_type.clone(),
             },
@@ -207,147 +201,126 @@ fn compose_function_with_contract(
     Ok(contract_clauses)
 }
 
-fn expr_to_cexpr(expr: cerl_parser::ast::Expr) -> Result<CExpr, String> {
-    let Expr {
-        anno: _anno,
-        inner: expr,
-    } = expr;
+// TODO: Can clause_to_cclause and expr_to_cexpr be "mered" into one name via some trait or
+// similar?
+
+fn clause_to_cclause(clause: Clause) -> Result<CClause, String> {
+    let res = expr_to_cexpr(clause.res.inner)?;
+    Ok(CClause {
+        pats: clause
+            .pats
+            .into_iter()
+            .map(|p| pat_to_cpat(p.inner))
+            .collect(),
+        res,
+    })
+}
+
+fn pat_to_cpat(pat: Pat) -> CPat {
+    match pat {
+        Pat::Var(v) => CPat::Var(v.name),
+        Pat::Lit(l) => CPat::Lit(l),
+        Pat::Cons(pat_cons) => {
+            CPat::Cons(pat_cons.into_iter().map(|p| pat_to_cpat(p.inner)).collect())
+        }
+        Pat::Tuple(pat_tuple) => CPat::Tuple(
+            pat_tuple
+                .into_iter()
+                .map(|p| pat_to_cpat(p.inner))
+                .collect(),
+        ),
+        Pat::Alias(var, pat) => CPat::Alias(var.name, Box::new(pat_to_cpat(pat.inner))),
+    }
+}
+
+fn expr_to_cexpr(expr: Expr) -> Result<CExpr, String> {
     match expr {
-        ExprInner::Var(v) => Ok(CExpr::Var(v.name)),
-        ExprInner::Lit(l) => Ok(CExpr::Lit(l.inner)),
-        ExprInner::Cons(exprs) => {
+        Expr::Var(v) => Ok(CExpr::Var(v)),
+        Expr::AtomLit(l) => Ok(CExpr::Lit(l)),
+        Expr::Cons(exprs) => {
             let mut tuple: Vec<CExpr> = Vec::new();
             for expr in exprs {
-                let cexpr = exprs_to_cexpr(expr)?;
+                let cexpr = expr_to_cexpr(expr.inner)?;
                 tuple.push(cexpr)
             }
             Ok(CExpr::Cons(tuple))
         }
-        ExprInner::Tuple(exprs) => {
-            let mut tuple: Vec<CExpr> = Vec::new();
-            for expr in exprs {
-                let cexpr = exprs_to_cexpr(expr)?;
-                tuple.push(cexpr)
-            }
-            Ok(CExpr::Tuple(tuple))
-        }
-        ExprInner::Let(v, e1, e2) => {
-            let e1 = exprs_to_cexpr(e1)?;
-            let e2 = exprs_to_cexpr(e2)?;
-            // TODO: Note: Multi-value let convert to tuple again.
-            if v.len() == 1 {
-                Ok(CExpr::Let(
-                    CPat::Var(v.first().unwrap().clone()),
-                    Box::new(e1),
-                    Box::new(e2),
-                ))
-            } else {
-                Ok(CExpr::Let(
-                    CPat::Tuple(
-                        v.iter()
-                            .map(|arg0: &cerl_parser::ast::Var| CPat::Var(arg0.clone()))
-                            .collect(),
-                    ),
-                    Box::new(e1),
-                    Box::new(e2),
-                ))
-            }
-        }
-        ExprInner::Case(e1, e2) => {
-            let base_expr = exprs_to_cexpr(e1)?;
-            let mut contract_clauses: Vec<CClause> = Vec::new();
-            for clause in e2 {
-                let res = exprs_to_cexpr(clause.inner.res)?;
-                let mut pats: Vec<CPat> = Vec::new();
-                for pat in clause.inner.pats {
-                    pats.push(pat_inner_to_cpat(pat.inner))
-                }
-                contract_clauses.push(CClause { pats, res });
-            }
-            Ok(CExpr::Case(Box::new(base_expr), contract_clauses))
-        }
-        ExprInner::Call(fun_call, args) => {
-            let fun_call = match fun_call {
-                FunCall::PrimOp(a) => CFunCall::PrimOp(a),
-                FunCall::Apply(f) => {
-                    let Exprs::One(fname_box) = f else {
-                        return Err("fname must be fname not many exprs".to_string());
-                    };
-                    let ExprInner::Fname(fname) = fname_box.inner else {
-                        return Err("fname must be fname type expr".to_string());
-                    };
-                    let cfname = CFunName {
-                        name: fname.inner.name.name,
-                        arity: fname.inner.arity,
-                    };
-                    CFunCall::Apply(cfname)
-                }
-                FunCall::Call(module_name, call_name) => {
-                    let module_name = exprs_to_cexpr(module_name)?;
-                    let CExpr::Lit(LitInner::Atom(module_name)) = module_name else {
-                        return Err("Function call name must be an atom".to_string());
-                    };
-                    let call_name = exprs_to_cexpr(call_name)?;
-                    let CExpr::Lit(LitInner::Atom(call_name)) = call_name else {
-                        return Err("Function call name must be an atom".to_string());
-                    };
-                    CFunCall::Call(module_name, call_name)
-                }
-            };
-
-            let mut args_cexpr: Vec<CExpr> = Vec::new();
-            for arg in args {
-                let cexpr = exprs_to_cexpr(arg)?;
-                args_cexpr.push(cexpr);
-            }
-
-            Ok(CExpr::Call(fun_call, args_cexpr))
-        }
-        ExprInner::Do(e1, e2) => {
-            let e1 = exprs_to_cexpr(e1)?;
-            let e2 = exprs_to_cexpr(e2)?;
-            Ok(CExpr::Do(Box::new(e1), Box::new(e2)))
-        }
-        _ => Err("Expression not supported in Contract Core Erlang used.".to_string()),
-    }
-}
-
-fn exprs_to_cexpr(exprs: cerl_parser::ast::Exprs) -> Result<CExpr, String> {
-    match exprs {
-        cerl_parser::ast::Exprs::One(expr) => expr_to_cexpr(*expr),
-        cerl_parser::ast::Exprs::Many(exprs) => {
+        Expr::Exprs(exprs) => {
             // Convert to direct value if exprs is only one long
             if exprs.len() == 1 {
-                expr_to_cexpr(exprs.first().unwrap().clone())
+                let [exprs] = exprs.as_slice();
+                expr_to_cexpr(exprs.inner)
             } else {
                 let mut tuple: Vec<CExpr> = Vec::new();
                 for expr in exprs {
-                    let cexpr = expr_to_cexpr(expr)?;
+                    let cexpr = expr_to_cexpr(expr.inner)?;
                     tuple.push(cexpr)
                 }
                 Ok(CExpr::Tuple(tuple))
             }
         }
-    }
-}
-
-fn pat_inner_to_cpat(pat: cerl_parser::ast::PatInner) -> CPat {
-    match pat {
-        PatInner::Var(v) => CPat::Var(v),
-        PatInner::Tuple(vec_pat) => {
-            let mut cpat_tuple: Vec<CPat> = Vec::new();
-            for pat in vec_pat.iter() {
-                cpat_tuple.push(pat_inner_to_cpat(pat.inner.clone()))
+        Expr::Tuple(exprs) => {
+            let mut tuple: Vec<CExpr> = Vec::new();
+            for expr in exprs {
+                let cexpr = expr_to_cexpr(expr.inner)?;
+                tuple.push(cexpr)
             }
-            CPat::Tuple(cpat_tuple)
+            Ok(CExpr::Tuple(tuple))
         }
-        PatInner::Lit(l) => CPat::Lit(l.inner),
-        PatInner::Cons(cons_box) => {
-            let (head, tail) = *cons_box;
-            let head = [pat_inner_to_cpat(head.inner)];
-            let tail = [pat_inner_to_cpat(tail.inner)];
-            CPat::Cons([head, tail].concat())
+        Expr::Let(v, e1, e2) => {
+            let e1 = expr_to_cexpr(e1.inner)?;
+            let e2 = expr_to_cexpr(e2.inner)?;
+            Ok(CExpr::Let(
+                v.into_iter().map(|v| v.name).collect(),
+                Box::new(e1),
+                Box::new(e2),
+            ))
         }
-        PatInner::Alias(v, p) => CPat::Alias(v, Box::new(pat_inner_to_cpat(p.inner))),
+        Expr::Case(e1, e2) => {
+            let base_expr = expr_to_cexpr(e1.inner)?;
+            let mut contract_clauses: Vec<CClause> = Vec::new();
+            for clause in e2 {
+                let res = clause_to_cclause(clause.inner)?;
+                contract_clauses.push(res);
+            }
+            Ok(CExpr::Case(Box::new(base_expr), contract_clauses))
+        }
+        Expr::Call(fun_call, args) => {
+            let fun_call = match *fun_call {
+                FunCall::PrimOp(AnnoExpr {
+                    anno: _anno,
+                    inner: Expr::AtomLit(Lit::Atom(a)),
+                }) => CFunCall::PrimOp(a),
+                FunCall::Apply(AnnoExpr {
+                    anno: _anno,
+                    inner: Expr::Fname(f),
+                }) => CFunCall::Apply(f),
+                FunCall::Call(
+                    AnnoExpr {
+                        anno: _anno0,
+                        inner: Expr::AtomLit(Lit::Atom(module_name)),
+                    },
+                    AnnoExpr {
+                        anno: _anno1,
+                        inner: Expr::AtomLit(Lit::Atom(call_name)),
+                    },
+                ) => CFunCall::Call(module_name, call_name),
+                _ => return Err("Function call arguments has unsupported types.".to_string()),
+            };
+
+            let mut args_cexpr: Vec<CExpr> = Vec::new();
+            for arg in args {
+                let cexpr = expr_to_cexpr(arg.inner)?;
+                args_cexpr.push(cexpr);
+            }
+
+            Ok(CExpr::Call(fun_call, args_cexpr))
+        }
+        Expr::Do(e1, e2) => {
+            let e1 = expr_to_cexpr(e1.inner)?;
+            let e2 = expr_to_cexpr(e2.inner)?;
+            Ok(CExpr::Do(Box::new(e1), Box::new(e2)))
+        }
+        _ => Err("Expression not supported in Contract Core Erlang yet.".to_string()),
     }
 }

@@ -10,11 +10,11 @@ use std::collections::HashMap;
 
 use crate::contract_cerl::types::SessionTypesList;
 
-use crate::cerl_parser::ast::FunNameInner;
+use crate::cerl_parser::ast::FunName;
 
 // TODO: Allow for more flexible spec annotations. Almost completely static specification assumed now.
 #[derive(Debug, Clone, PartialEq)]
-pub struct SessionSpecDef(pub HashMap<FunNameInner, SessionSpecs>);
+pub struct SessionSpecDef(pub HashMap<FunName, SessionSpecs>);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SessionSpecs(pub Vec<SessionSpec>);

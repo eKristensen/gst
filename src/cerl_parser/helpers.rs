@@ -117,3 +117,16 @@ where
         ),
     ))
 }
+
+// General helper for when elements may be in an angle bracket list.
+pub fn opt_angle_bracket<'a, O, F>(
+    elements: F,
+) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, ErrorTree<&str>>
+where
+    F: Parser<&'a str, O, ErrorTree<&'a str>> + Clone,
+{
+    alt((
+        map(ws(elements.clone()), |single_element| vec![single_element]),
+        ws(comma_sep_list("<", ">", elements)),
+    ))
+}

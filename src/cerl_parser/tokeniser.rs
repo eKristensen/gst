@@ -284,7 +284,7 @@ pub fn var(i: &str) -> IResult<&str, Var, ErrorTree<&str>> {
         |(o1, o2)| {
             let mut var_name = vec![o1];
             var_name.extend(o2);
-            var_name.iter().collect()
+            Var(var_name.iter().collect())
         },
     )(i)
 }
@@ -490,22 +490,31 @@ mod tests {
         assert_eq!(atom("'=:='").unwrap(), ("", Atom("=:=".to_owned())));
 
         // TODO Move "lit" tests to lex.rs ?
-        assert_eq!(literal("'foo'").unwrap(), ("", Lit::Atom("foo".to_owned())));
-        assert_eq!(literal("'Bar'").unwrap(), ("", Lit::Atom("Bar".to_owned())));
+        assert_eq!(
+            literal("'foo'").unwrap(),
+            ("", Lit::Atom(Atom("foo".to_owned())))
+        );
+        assert_eq!(
+            literal("'Bar'").unwrap(),
+            ("", Lit::Atom(Atom("Bar".to_owned())))
+        );
         assert_eq!(
             literal("'foo bar'").unwrap(),
-            ("", Lit::Atom("foo bar".to_owned()))
+            ("", Lit::Atom(Atom("foo bar".to_owned())))
         );
-        assert_eq!(literal("''").unwrap(), ("", Lit::Atom("".to_owned())));
+        assert_eq!(literal("''").unwrap(), ("", Lit::Atom(Atom("".to_owned()))));
         assert_eq!(
             literal("'%#\\010@\\n!'").unwrap(),
-            ("", Lit::Atom("%#\u{8}@\n!".to_owned()))
+            ("", Lit::Atom(Atom("%#\u{8}@\n!".to_owned())))
         );
         assert_eq!(
             literal("'_hello_world'").unwrap(),
-            ("", Lit::Atom("_hello_world".to_owned()))
+            ("", Lit::Atom(Atom("_hello_world".to_owned())))
         );
-        assert_eq!(literal("'=:='").unwrap(), ("", Lit::Atom("=:=".to_owned())));
+        assert_eq!(
+            literal("'=:='").unwrap(),
+            ("", Lit::Atom(Atom("=:=".to_owned())))
+        );
 
         // Mindless sanity check
         assert_ne!(atom("'foo'").unwrap(), ("", Atom("bar".to_owned())));
@@ -604,7 +613,7 @@ mod tests {
     fn test_lit_atom_in_list() {
         assert_eq!(
             literal("'new', 'neg')").unwrap(),
-            (", 'neg')", Lit::Atom("new".to_owned()))
+            (", 'neg')", Lit::Atom(Atom("new".to_owned())))
         );
     }
 }

@@ -15,7 +15,10 @@ use super::{
 
 pub fn module_definition(i: &str) -> IResult<&str, Module, ErrorTree<&str>> {
     map(opt_annotation(module_definition_inner), |(inner, anno)| {
-        inner.anno = anno
+        // TODO: Avoid clone places like this.
+        let mut inner = inner.clone();
+        inner.anno = anno;
+        inner
     })(i)
 }
 
@@ -67,7 +70,7 @@ fn module_defs(i: &str) -> IResult<&str, Vec<FunDef>, ErrorTree<&str>> {
     function_definitions(i)
 }
 
-pub fn function_definitions(i: &str) -> IResult<&str, FunDef, ErrorTree<&str>> {
+pub fn function_definitions(i: &str) -> IResult<&str, Vec<FunDef>, ErrorTree<&str>> {
     // TODO: For debuggin the number of functions required is set to one.
     // TODO: Change to many0 instead of many1
     many1(ws(function_definition))(i)

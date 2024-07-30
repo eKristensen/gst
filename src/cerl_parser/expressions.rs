@@ -13,9 +13,9 @@ use super::{
         FunDef, FunExpr, FunLit, Lit, MapExpr, MapPair, MapPairType, Receive, Try,
     },
     grammar::function_definitions,
-    helpers::{comma_sep_list, cons, opt_annotation, ws},
+    helpers::{comma_sep_list, cons, opt_angle_bracket, opt_annotation, ws},
     patterns::{anno_pattern, anno_variable},
-    tokeniser::{atom, fname, var},
+    tokeniser::{atom, char_char, float, fname, integer, string, var},
 };
 
 fn anno_expression(i: &str) -> IResult<&str, AnnoExpr, ErrorTree<&str>> {
@@ -41,15 +41,23 @@ fn single_expression(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
         map(var, Expr::Var),
         map(fname, Expr::Fname),
         map(fun_literal, Expr::FunLit),
-        map(fun_expr, Expr::FunExpr),
-        map(let_expr, Expr::Let),
-        map(letrec_expr, Expr::LetRec),
-        map(case_expr, Expr::Case),
-        map(receive_expr, Expr::Receive),
-        map(call_expr, Expr::Call), // Merge apply, call and primop.
-        map(try_expr, Expr::Try),
-        map(sequence, Expr::Do),
-        map(catch_expr, Expr::Catch),
+        map(fun_expr, |fun_expr| Expr::FunExpr(Box::new(fun_expr))),
+        map(let_expr, |(var, e1, e2)| {
+            Expr::Let(var, Box::new(e1), Box::new(e2))
+        }),
+        map(letrec_expr, |(defs, body)| {
+            Expr::LetRec(defs, Box::new(body))
+        }),
+        map(case_expr, |(arg, clauses)| {
+            Expr::Case(Box::new(arg), clauses)
+        }),
+        map(receive_expr, |receive_expr| {
+            Expr::Receive(Box::new(receive_expr))
+        }),
+        map(call_expr, |(name, args)| Expr::Call(Box::new(name), args)), // Merge apply, call and primop.
+        map(try_expr, |try_expr| Expr::Try(Box::new(try_expr))),
+        map(sequence, |(e1, e2)| Expr::Do(Box::new(e1), Box::new(e2))),
+        map(catch_expr, |catch_expr| Expr::Catch(Box::new(catch_expr))),
         map(map_expr, Expr::Map),
     ))(i)
 }
@@ -61,13 +69,8 @@ pub fn anno_function_name(i: &str) -> IResult<&str, AnnoFunName, ErrorTree<&str>
     })(i)
 }
 
-// TODO: Common implementation for <>  brakets. used for exprs, let vars, clause pattern, maybe
-// even normal pattern
 fn let_vars(i: &str) -> IResult<&str, Vec<AnnoVar>, ErrorTree<&str>> {
-    alt((
-        ws(anno_variable),
-        map(ws(comma_sep_list("<", ">", anno_variable)), Expr::Exprs),
-    ))(i)
+    opt_angle_bracket(anno_variable)(i)
 }
 
 fn sequence(i: &str) -> IResult<&str, (AnnoExpr, AnnoExpr), ErrorTree<&str>> {
@@ -86,9 +89,7 @@ pub fn fun_expr(i: &str) -> IResult<&str, FunExpr, ErrorTree<&str>> {
     )(i)
 }
 
-fn let_expr(
-    i: &str,
-) -> IResult<&str, (Vec<AnnoVar>, Box<AnnoExpr>, Box<AnnoExpr>), ErrorTree<&str>> {
+fn let_expr(i: &str) -> IResult<&str, (Vec<AnnoVar>, AnnoExpr, AnnoExpr), ErrorTree<&str>> {
     map(
         tuple((
             ws(tag("let")),
@@ -102,7 +103,7 @@ fn let_expr(
     )(i)
 }
 
-fn letrec_expr(i: &str) -> IResult<&str, (Vec<FunDef>, Box<AnnoExpr>), ErrorTree<&str>> {
+fn letrec_expr(i: &str) -> IResult<&str, (Vec<FunDef>, AnnoExpr), ErrorTree<&str>> {
     map(
         tuple((
             ws(tag("letrec")),
@@ -114,7 +115,7 @@ fn letrec_expr(i: &str) -> IResult<&str, (Vec<FunDef>, Box<AnnoExpr>), ErrorTree
     )(i)
 }
 
-fn case_expr(i: &str) -> IResult<&str, (Box<AnnoExpr>, Vec<AnnoClause>), ErrorTree<&str>> {
+fn case_expr(i: &str) -> IResult<&str, (AnnoExpr, Vec<AnnoClause>), ErrorTree<&str>> {
     map(
         delimited(
             ws(tag("case")),
@@ -126,7 +127,7 @@ fn case_expr(i: &str) -> IResult<&str, (Box<AnnoExpr>, Vec<AnnoClause>), ErrorTr
 }
 
 fn anno_clause(i: &str) -> IResult<&str, AnnoClause, ErrorTree<&str>> {
-    map(opt_annotation(clause), |(inner, anno)| AnnoExpr {
+    map(opt_annotation(clause), |(inner, anno)| AnnoClause {
         anno,
         inner,
     })(i)
@@ -141,19 +142,16 @@ fn clause(i: &str) -> IResult<&str, Clause, ErrorTree<&str>> {
             ws(tag("->")),
             anno_expression,
         )),
-        |(_, pats, _, when, _, res)| Clause { pats, when, res },
+        |(pats, _, when, _, res)| Clause { pats, when, res },
     )(i)
 }
 
 fn clause_pattern(i: &str) -> IResult<&str, Vec<AnnoPat>, ErrorTree<&str>> {
-    alt((
-        ws(anno_pattern),
-        map(ws(comma_sep_list("<", ">", anno_pattern)), Expr::Exprs),
-    ))(i)
+    opt_angle_bracket(anno_pattern)(i)
 }
 
 // Merge apply, call and primop as they are very similar.
-fn call_expr(i: &str) -> IResult<&str, (Box<FunCall>, Vec<AnnoExpr>), ErrorTree<&str>> {
+fn call_expr(i: &str) -> IResult<&str, (FunCall, Vec<AnnoExpr>), ErrorTree<&str>> {
     pair(
         alt((
             map(preceded(ws(tag("apply")), anno_expression), FunCall::PrimOp),
@@ -169,7 +167,7 @@ fn call_expr(i: &str) -> IResult<&str, (Box<FunCall>, Vec<AnnoExpr>), ErrorTree<
                 FunCall::PrimOp,
             ),
         )),
-        ws(comma_sep_list(tag("("), tag(")"), anno_expression)),
+        ws(comma_sep_list("(", ")", anno_expression)),
     )(i)
 }
 
@@ -217,9 +215,32 @@ fn receive_expr(i: &str) -> IResult<&str, Receive, ErrorTree<&str>> {
     )(i)
 }
 
-pub fn literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {}
+pub fn literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
+    alt((
+        atomic_literal,
+        map(tuple_literal, Lit::Tuple),
+        map(cons_literal, Lit::Cons),
+    ))(i)
+}
 
-pub fn atomic_literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {}
+pub fn atomic_literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
+    alt((
+        map(char_char, Lit::Char),
+        map(integer, Lit::Int),
+        map(float, Lit::Float),
+        map(atom, Lit::Atom),
+        map(string, Lit::String),
+        value(Lit::Nil, pair(ws(tag("[")), ws(tag("]")))),
+    ))(i)
+}
+
+fn tuple_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
+    ws(comma_sep_list("{", "}", literal))(i)
+}
+
+fn cons_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
+    cons(literal)(i)
+}
 
 fn fun_literal(i: &str) -> IResult<&str, FunLit, ErrorTree<&str>> {
     map(
@@ -228,7 +249,7 @@ fn fun_literal(i: &str) -> IResult<&str, FunLit, ErrorTree<&str>> {
     )(i)
 }
 
-fn tuple_expression(i: &str) -> IResult<&str, Vec<Expr>, ErrorTree<&str>> {
+fn tuple_expression(i: &str) -> IResult<&str, Vec<AnnoExpr>, ErrorTree<&str>> {
     ws(comma_sep_list("{", "}", anno_expression))(i)
 }
 
@@ -236,10 +257,7 @@ fn map_expr(i: &str) -> IResult<&str, MapExpr, ErrorTree<&str>> {
     delimited(
         ws(tag("~")),
         alt((
-            map(
-                comma_sep_list(tag("{"), tag("}"), anno_map_pair),
-                MapExpr::OnlyPairs,
-            ),
+            map(comma_sep_list("{", "}", anno_map_pair), MapExpr::OnlyPairs),
             // TODO: Map anno variable, map anno expr
         )),
         ws(tag("~")),
@@ -247,7 +265,7 @@ fn map_expr(i: &str) -> IResult<&str, MapExpr, ErrorTree<&str>> {
 }
 
 fn anno_map_pair(i: &str) -> IResult<&str, AnnoMapPair, ErrorTree<&str>> {
-    map(opt_annotation(map_pair), |(inner, anno)| AnnoFunName {
+    map(opt_annotation(map_pair), |(inner, anno)| AnnoMapPair {
         anno,
         inner,
     })(i)

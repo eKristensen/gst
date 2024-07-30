@@ -4,14 +4,15 @@
 
 use std::{collections::HashMap, fmt};
 
+use crate::cerl_parser::ast::Atom;
+
 // Type support is limited to the ones below.
 // TODO: Allow generic/new types.
 // TODO: Remember to test all cases
 #[derive(Debug, Clone, PartialEq, Eq)]
-// TODO: Change to BaseType::Atom(String) to be Atom(Atom) again !
 pub enum BaseType {
-    Atom(String), // Atom is named as it is a constant that can be checked statically
-    Pid,          // TODO: Add pid to paper?
+    Atom(Atom), // Atom is named as it is a constant that can be checked statically
+    Pid,        // TODO: Add pid to paper?
     Reference,
     Integer,
     Float,
