@@ -1,6 +1,6 @@
 // Core Erlang AST as is.
 
-//use std::fmt;
+use std::fmt::{Display, Formatter, Result};
 
 // AST is based on: https://github.com/erlang/otp/blob/master/lib/compiler/src/core_parse.yrl
 // The goal is to parse core erlang as close as possible to the reference implementation.
@@ -225,6 +225,29 @@ pub enum Pat {
 }
 // TODO: Generic way to handle this "option anno" print out instead of manual copy-paste.
 // TODO: Reimplement fmt display for ast
+
+// TODO: Test display: Print parsed program, parse it again and expect same result in AST.
+
+fn anno_fmt(f: &mut Formatter, anno: &Anno, inner: &impl Display) -> Result {
+    match *anno {
+        Anno::Some(anno) => write!(f, "( '{}' -| {} )", inner, anno),
+        _ => inner.fmt(f),
+    }
+}
+
+impl Display for AnnoAtom {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        anno_fmt(f, &self.anno, &self.name)
+    }
+}
+impl Display for Atom {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "'{}'", self.0)
+    }
+}
+
+impl Display for Vec<Const> {}
+
 /*
 impl fmt::Display for FunName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
