@@ -67,11 +67,11 @@ pub struct FunName {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoFun {
     pub anno: Anno,
-    pub fun: FunExpr,
+    pub fun: Fun,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct FunExpr {
+pub struct Fun {
     pub vars: Vec<AnnoVar>,
     pub body: AnnoExpr,
 }
@@ -145,7 +145,7 @@ pub enum Expr {
     Fname(FunName),
     AtomLit(Lit),
     FunLit(FunLit),
-    FunExpr(Box<FunExpr>),
+    Fun(Box<Fun>),
     Cons(Vec<AnnoExpr>),
     Tuple(Vec<AnnoExpr>),
     Let(Vec<AnnoVar>, Box<AnnoExpr>, Box<AnnoExpr>), // Note: Let vars
@@ -164,13 +164,13 @@ pub enum Expr {
 pub enum MapExpr {
     OnlyPairs(Vec<AnnoMapPair>),
     MapVar(Vec<AnnoMapPair>, AnnoVar),
-    AnnoMapExpr(Vec<AnnoMapPair>, Box<AnnoMapExpr>),
+    AnnoMap(Vec<AnnoMapPair>, Box<AnnoMap>),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct AnnoMapExpr {
-    anno: Anno,
-    inner: MapExpr,
+pub struct AnnoMap {
+    pub anno: Anno,
+    pub inner: MapExpr,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -243,7 +243,7 @@ struct AnnoClauseList<'a>(&'a Vec<AnnoClause>);
 
 fn anno_fmt(f: &mut Formatter, anno: &Anno, inner: &impl Display) -> Result {
     match &anno {
-        Anno::Some(anno) => write!(f, "( '{}' -| {} )", inner, ConstList(&anno)),
+        Anno::Some(anno) => write!(f, "( '{}' -| {} )", inner, ConstList(anno)),
         _ => inner.fmt(f),
     }
 }
@@ -254,9 +254,9 @@ fn seperated_list(f: &mut Formatter, sep: &str, list: &Vec<impl Display>) -> Res
         if first {
             first = false;
         } else {
-            write!(f, "{}", sep); // TODO: Do without {}
+            write!(f, "{}", sep)?; // TODO: Do without {}
         }
-        elm.fmt(f);
+        elm.fmt(f)?;
     }
     // TODO: Satisfy return type without empty print
     write!(f, "")
@@ -271,26 +271,26 @@ fn newline_sep(f: &mut Formatter, list: &Vec<impl Display>) -> Result {
 }
 
 fn paren_list(f: &mut Formatter, list: &Vec<impl Display>) -> Result {
-    write!(f, "( ");
-    comma_sep(f, list);
+    write!(f, "( ")?;
+    comma_sep(f, list)?;
     write!(f, " )")
 }
 
 fn square_list(f: &mut Formatter, list: &Vec<impl Display>) -> Result {
-    write!(f, "[ ");
-    comma_sep(f, list);
+    write!(f, "[ ")?;
+    comma_sep(f, list)?;
     write!(f, " ]")
 }
 
 fn curly_list(f: &mut Formatter, list: &Vec<impl Display>) -> Result {
-    write!(f, "{{ ");
-    comma_sep(f, list);
+    write!(f, "{{ ")?;
+    comma_sep(f, list)?;
     write!(f, " }}")
 }
 
 fn angle_list(f: &mut Formatter, list: &Vec<impl Display>) -> Result {
-    write!(f, "< ");
-    comma_sep(f, list);
+    write!(f, "< ")?;
+    comma_sep(f, list)?;
     write!(f, " >")
 }
 
@@ -462,7 +462,7 @@ impl Display for AnnoFun {
     }
 }
 
-impl Display for FunExpr {
+impl Display for Fun {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "fun {} -> {}", AnnoVarList(&self.vars), self.body)
     }
@@ -477,20 +477,20 @@ impl Display for AnnoExpr {
 impl Display for Expr {
     fn fmt(&self, f: &mut Formatter) -> Result {
         match &self {
-            Expr::Exprs(exprs) => angle_list(f, &exprs),
+            Expr::Exprs(exprs) => angle_list(f, exprs),
             Expr::Var(v) => v.fmt(f),
             Expr::Fname(fname) => fname.fmt(f),
             Expr::AtomLit(l) => l.fmt(f),
             Expr::FunLit(flit) => flit.fmt(f),
-            Expr::FunExpr(fexpr) => (*fexpr).fmt(f),
-            Expr::Cons(cons) => square_list(f, &cons),
-            Expr::Tuple(tuple) => curly_list(f, &tuple),
-            Expr::Let(vars, e1, e2) => write!(f, "let {} = {} in {}", LetVars(&vars), e1, e2),
+            Expr::Fun(fexpr) => (*fexpr).fmt(f),
+            Expr::Cons(cons) => square_list(f, cons),
+            Expr::Tuple(tuple) => curly_list(f, tuple),
+            Expr::Let(vars, e1, e2) => write!(f, "let {} = {} in {}", LetVars(vars), e1, e2),
             Expr::Case(arg, clauses) => {
-                write!(f, "case {} of {} end", *arg, AnnoClauseList(&clauses))
+                write!(f, "case {} of {} end", *arg, AnnoClauseList(clauses))
             }
-            Expr::LetRec(defs, body) => write!(f, "letrec {} in {}", DefList(&defs), *body),
-            Expr::Call(call, args) => write!(f, "{} {}", *call, AnnoExprList(&args)), // Merge call, apply and primop to avoid duplication
+            Expr::LetRec(defs, body) => write!(f, "letrec {} in {}", DefList(defs), *body),
+            Expr::Call(call, args) => write!(f, "{} {}", *call, AnnoExprList(args)), // Merge call, apply and primop to avoid duplication
             Expr::Receive(receive) => (*receive).fmt(f),
             Expr::Try(t) => (*t).fmt(f),
             Expr::Do(e1, e2) => write!(f, "do {} {}", *e1, *e2),
@@ -565,7 +565,7 @@ impl Display for Try {
     }
 }
 
-impl Display for AnnoMapExpr {
+impl Display for AnnoMap {
     fn fmt(&self, f: &mut Formatter) -> Result {
         anno_fmt(f, &self.anno, &self.inner)
     }
@@ -573,18 +573,18 @@ impl Display for AnnoMapExpr {
 
 impl Display for MapExpr {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "~{{");
+        write!(f, "~{{")?;
         match &self {
             MapExpr::OnlyPairs(map_pairs) => {
-                comma_sep(f, &map_pairs);
+                comma_sep(f, map_pairs)?;
             }
             MapExpr::MapVar(map_pairs, var) => {
-                comma_sep(f, &map_pairs);
-                write!(f, "|{}", var);
+                comma_sep(f, map_pairs)?;
+                write!(f, "|{}", var)?;
             }
-            MapExpr::AnnoMapExpr(map_pairs, anno_map_expr) => {
-                comma_sep(f, &map_pairs);
-                write!(f, "|{}", anno_map_expr);
+            MapExpr::AnnoMap(map_pairs, anno_map_expr) => {
+                comma_sep(f, map_pairs)?;
+                write!(f, "|{}", anno_map_expr)?;
             }
         };
         write!(f, "}}~")
@@ -623,8 +623,8 @@ impl Display for Pat {
         match &self {
             Pat::Var(v) => v.fmt(f),
             Pat::Lit(l) => l.fmt(f),
-            Pat::Cons(cons) => square_list(f, &cons),
-            Pat::Tuple(tuple) => curly_list(f, &tuple),
+            Pat::Cons(cons) => square_list(f, cons),
+            Pat::Tuple(tuple) => curly_list(f, tuple),
             Pat::Alias(var, pat) => write!(f, "{} = {}", var, pat),
         }
     }

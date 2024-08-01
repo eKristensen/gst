@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
     combinator::{map, value},
-    multi::{many0, many1},
+    multi::{many0, many1, separated_list0},
     sequence::{delimited, pair, preceded, tuple},
     IResult,
 };
@@ -9,8 +9,8 @@ use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
     ast::{
-        AnnoClause, AnnoExpr, AnnoFunName, AnnoMapPair, AnnoPat, AnnoVar, Clause, Expr, FunCall,
-        FunDef, FunExpr, FunLit, Lit, MapExpr, MapPair, MapPairType, Receive, Timeout, Try,
+        AnnoClause, AnnoExpr, AnnoFunName, AnnoMap, AnnoMapPair, AnnoPat, AnnoVar, Clause, Expr,
+        Fun, FunCall, FunDef, FunLit, Lit, MapExpr, MapPair, MapPairType, Receive, Timeout, Try,
     },
     grammar::function_definitions,
     helpers::{comma_sep_list, cons, opt_angle_bracket, opt_annotation, ws},
@@ -41,7 +41,7 @@ fn single_expression(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
         map(var, Expr::Var),
         map(fname, Expr::Fname),
         map(fun_literal, Expr::FunLit),
-        map(fun_expr, |fun_expr| Expr::FunExpr(Box::new(fun_expr))),
+        map(fun_expr, |fun_expr| Expr::Fun(Box::new(fun_expr))),
         map(let_expr, |(var, e1, e2)| {
             Expr::Let(var, Box::new(e1), Box::new(e2))
         }),
@@ -77,7 +77,7 @@ fn sequence(i: &str) -> IResult<&str, (AnnoExpr, AnnoExpr), ErrorTree<&str>> {
     preceded(ws(tag("do")), pair(anno_expression, anno_expression))(i)
 }
 
-pub fn fun_expr(i: &str) -> IResult<&str, FunExpr, ErrorTree<&str>> {
+pub fn fun_expr(i: &str) -> IResult<&str, Fun, ErrorTree<&str>> {
     map(
         tuple((
             ws(tag("fun")),
@@ -85,7 +85,7 @@ pub fn fun_expr(i: &str) -> IResult<&str, FunExpr, ErrorTree<&str>> {
             ws(tag("->")),
             anno_expression,
         )),
-        |(_, vars, _, body)| FunExpr { vars, body },
+        |(_, vars, _, body)| Fun { vars, body },
     )(i)
 }
 
@@ -154,7 +154,7 @@ fn clause_pattern(i: &str) -> IResult<&str, Vec<AnnoPat>, ErrorTree<&str>> {
 fn call_expr(i: &str) -> IResult<&str, (FunCall, Vec<AnnoExpr>), ErrorTree<&str>> {
     pair(
         alt((
-            map(preceded(ws(tag("apply")), anno_expression), FunCall::PrimOp),
+            map(preceded(ws(tag("apply")), anno_expression), FunCall::Apply),
             map(
                 preceded(
                     ws(tag("call")),
@@ -256,12 +256,42 @@ fn tuple_expression(i: &str) -> IResult<&str, Vec<AnnoExpr>, ErrorTree<&str>> {
     ws(comma_sep_list("{", "}", anno_expression))(i)
 }
 
+fn anno_map_expr(i: &str) -> IResult<&str, AnnoMap, ErrorTree<&str>> {
+    map(opt_annotation(map_expr), |(inner, anno)| AnnoMap {
+        anno,
+        inner,
+    })(i)
+}
+
 fn map_expr(i: &str) -> IResult<&str, MapExpr, ErrorTree<&str>> {
     delimited(
         ws(tag("~")),
         alt((
             map(comma_sep_list("{", "}", anno_map_pair), MapExpr::OnlyPairs),
-            // TODO: Map anno variable, map anno expr
+            map(
+                delimited(
+                    tag("{"),
+                    tuple((
+                        separated_list0(ws(tag(",")), ws(anno_map_pair)),
+                        ws(tag("|")),
+                        anno_variable,
+                    )),
+                    tag("}"),
+                ),
+                |(pairs, _, var)| MapExpr::MapVar(pairs, var),
+            ),
+            map(
+                delimited(
+                    tag("{"),
+                    tuple((
+                        separated_list0(ws(tag(",")), ws(anno_map_pair)),
+                        ws(tag("|")),
+                        anno_map_expr,
+                    )),
+                    tag("}"),
+                ),
+                |(pairs, _, e)| MapExpr::AnnoMap(pairs, Box::new(e)),
+            ),
         )),
         ws(tag("~")),
     )(i)

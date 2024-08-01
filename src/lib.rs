@@ -45,7 +45,7 @@ fn cerl_final(input: &str) -> Result<Module, ErrorTree<&str>> {
     final_parser(module_definition)(input)
 }
 
-pub fn parse<'a>(filename: &str, src: &'a str) -> Result<OptWarnings<CModule>> {
+pub fn parse(filename: &str, src: &str) -> Result<OptWarnings<CModule>> {
     let module = cerl_final(src);
     match module {
         Err(err) => {

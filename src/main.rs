@@ -6,7 +6,7 @@ use gst::{parse, type_check};
 use std::ffi::OsStr;
 use std::path::Path;
 
-use miette::{Result};
+use miette::Result;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
