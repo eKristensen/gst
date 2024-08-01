@@ -6,7 +6,7 @@ use gst::{parse, type_check};
 use std::ffi::OsStr;
 use std::path::Path;
 
-use miette::{NamedSource, Result};
+use miette::{Result};
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -73,7 +73,7 @@ fn main() -> Result<()> {
             } else {
                 println!("\nResult: FAIL\n");
             };
-            return Ok(());
+            Ok(())
         } // TODO: Pretty print
         // TODO: Sensible way to get rid of panic here?
         Err(err) => panic!("Could not read file {} because {}", filename, err),
