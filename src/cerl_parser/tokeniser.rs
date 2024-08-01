@@ -193,7 +193,7 @@ pub fn float<
 }
 
 // TODO: Deduplicate, a lot like fn atom
-fn string_quoted(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
+pub fn string(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     // fold is the equivalent of iterator::fold. It runs a parser in a loop,
     // and for each output value, calls a folding function on each output value.
     let build_string = fold_many0(
@@ -203,9 +203,9 @@ fn string_quoted(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
         Vec::new,
         // Our folding function. For each fragment, append the fragment to the
         // string.
-        |mut string, fragment| {
-            string.push(fragment);
-            string
+        |mut fold_var, fragment| {
+            fold_var.push(fragment);
+            fold_var
         },
     );
 
@@ -217,13 +217,6 @@ fn string_quoted(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
         o.iter().collect()
     })
     .parse(i)
-}
-
-pub fn string(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
-    fold_many1(string_quoted, String::new, |mut string, fragment| {
-        string.push_str(&fragment);
-        string
-    })(i)
 }
 
 pub fn char_char(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
@@ -564,7 +557,6 @@ mod tests {
             ("", "Ring\u{7}My\u{7}Bell\u{7}!".to_owned())
         );
 
-        // TODO Move "lit" tests to lex.rs ?
         assert_eq!(
             literal("\"Hello, World!\"").unwrap(),
             ("", Lit::String("Hello, World!".to_owned()))
