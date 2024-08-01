@@ -10,7 +10,7 @@ use nom_supreme::{error::ErrorTree, tag::complete::tag};
 use super::{
     ast::{
         AnnoClause, AnnoExpr, AnnoFunName, AnnoMapPair, AnnoPat, AnnoVar, Clause, Expr, FunCall,
-        FunDef, FunExpr, FunLit, Lit, MapExpr, MapPair, MapPairType, Receive, Try,
+        FunDef, FunExpr, FunLit, Lit, MapExpr, MapPair, MapPairType, Receive, Timeout, Try,
     },
     grammar::function_definitions,
     helpers::{comma_sep_list, cons, opt_angle_bracket, opt_annotation, ws},
@@ -205,13 +205,16 @@ fn receive_expr(i: &str) -> IResult<&str, Receive, ErrorTree<&str>> {
     map(
         preceded(
             ws(tag("receive")),
-            tuple((many0(anno_clause), anno_expression, anno_expression)),
+            tuple((many0(anno_clause), timeout_expr)),
         ),
-        |(clauses, timeout, action)| Receive {
-            clauses,
-            timeout,
-            action,
-        },
+        |(clauses, timeout)| Receive { clauses, timeout },
+    )(i)
+}
+
+fn timeout_expr(i: &str) -> IResult<&str, Timeout, ErrorTree<&str>> {
+    map(
+        preceded(ws(tag("after")), pair(anno_expression, anno_expression)),
+        |(guard, action)| Timeout { guard, action },
     )(i)
 }
 

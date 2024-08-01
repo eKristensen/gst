@@ -185,7 +185,12 @@ pub struct Try {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Receive {
     pub clauses: Vec<AnnoClause>,
-    pub timeout: AnnoExpr,
+    pub timeout: Timeout,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Timeout {
+    pub guard: AnnoExpr,
     pub action: AnnoExpr,
 }
 
@@ -223,15 +228,123 @@ pub enum Pat {
     Alias(AnnoVar, Box<AnnoPat>),
     // Ready for extension: Maps, Segments, Binary
 }
-// TODO: Generic way to handle this "option anno" print out instead of manual copy-paste.
-// TODO: Reimplement fmt display for ast
 
 // TODO: Test display: Print parsed program, parse it again and expect same result in AST.
 
+struct ConstList<'a>(&'a Vec<Const>);
+struct ExportList<'a>(&'a Vec<AnnoFunName>);
+struct AttributeList<'a>(&'a Vec<Attribute>);
+struct DefList<'a>(&'a Vec<FunDef>);
+struct AnnoVarList<'a>(&'a Vec<AnnoVar>);
+struct AnnoExprList<'a>(&'a Vec<AnnoExpr>);
+struct AnnoPatList<'a>(&'a Vec<AnnoPat>);
+struct LetVars<'a>(&'a Vec<AnnoVar>);
+struct AnnoClauseList<'a>(&'a Vec<AnnoClause>);
+
 fn anno_fmt(f: &mut Formatter, anno: &Anno, inner: &impl Display) -> Result {
     match *anno {
-        Anno::Some(anno) => write!(f, "( '{}' -| {} )", inner, anno),
+        Anno::Some(anno) => write!(f, "( '{}' -| {} )", inner, ConstList(&anno)),
         _ => inner.fmt(f),
+    }
+}
+
+fn seperated_list(f: &mut Formatter, sep: &str, list: &Vec<impl Display>) -> Result {
+    let mut first = true;
+    for elm in list {
+        if first {
+            first = false;
+        } else {
+            write!(f, "{}", sep); // TODO: Do without {}
+        }
+        elm.fmt(f);
+    }
+    // TODO: Satisfy return type without empty print
+    write!(f, "")
+}
+
+fn comma_sep(f: &mut Formatter, list: &Vec<impl Display>) -> Result {
+    seperated_list(f, ", ", list)
+}
+
+fn newline_sep(f: &mut Formatter, list: &Vec<impl Display>) -> Result {
+    seperated_list(f, "\n", list)
+}
+
+fn paren_list(f: &mut Formatter, list: &Vec<impl Display>) -> Result {
+    write!(f, "( ");
+    comma_sep(f, list);
+    write!(f, " )")
+}
+
+fn square_list(f: &mut Formatter, list: &Vec<impl Display>) -> Result {
+    write!(f, "[ ");
+    comma_sep(f, list);
+    write!(f, " ]")
+}
+
+fn curly_list(f: &mut Formatter, list: &Vec<impl Display>) -> Result {
+    write!(f, "{{ ");
+    comma_sep(f, list);
+    write!(f, " }}")
+}
+
+fn angle_list(f: &mut Formatter, list: &Vec<impl Display>) -> Result {
+    write!(f, "< ");
+    comma_sep(f, list);
+    write!(f, " >")
+}
+
+impl Display for ConstList<'_> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        square_list(f, self.0)
+    }
+}
+
+impl Display for ExportList<'_> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        square_list(f, self.0)
+    }
+}
+
+impl Display for AttributeList<'_> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        comma_sep(f, self.0)
+    }
+}
+
+impl Display for DefList<'_> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        newline_sep(f, self.0)
+    }
+}
+
+impl Display for AnnoClauseList<'_> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        newline_sep(f, self.0)
+    }
+}
+
+impl Display for AnnoExprList<'_> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        paren_list(f, self.0)
+    }
+}
+
+impl Display for AnnoVarList<'_> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        paren_list(f, self.0)
+    }
+}
+
+impl Display for AnnoPatList<'_> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        angle_list(f, self.0)
+    }
+}
+
+impl Display for LetVars<'_> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        angle_list(f, self.0)
     }
 }
 
@@ -240,96 +353,279 @@ impl Display for AnnoAtom {
         anno_fmt(f, &self.anno, &self.name)
     }
 }
+
+impl Display for Const {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        self.0.fmt(f)
+    }
+}
+
+impl Display for AnnoLit {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        anno_fmt(f, &self.anno, &self.inner)
+    }
+}
+
+impl Display for Lit {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        match self {
+            Lit::Int(i) => i.fmt(f),
+            Lit::Float(x) => x.fmt(f),
+            Lit::Atom(a) => a.fmt(f),
+            Lit::Char(c) => c.fmt(f),
+            Lit::String(s) => s.fmt(f),
+            Lit::Nil => write!(f, "[]"),
+            Lit::Cons(cons) => square_list(f, cons),
+            Lit::Tuple(tuple) => curly_list(f, tuple),
+        }
+    }
+}
+
+impl Display for Float {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        // TODO: Is there a better more official way to print float?
+        write!(f, "{}.{}e{}", self.base, self.decimal, self.exponent)
+    }
+}
+
+impl Display for AnnoFunName {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        anno_fmt(f, &self.anno, &self.inner)
+    }
+}
+
+impl Display for FunName {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{}/{}", self.name, self.arity)
+    }
+}
+
 impl Display for Atom {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "'{}'", self.0)
     }
 }
 
-impl Display for Vec<Const> {}
-
-/*
-impl fmt::Display for FunName {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.anno.0 {
-            None => write!(f, "'{}'", self.inner),
-            Some(anno) => write!(f, "( '{}' -| {} )", self.inner, anno),
-        }
+impl Display for AnnoVar {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        anno_fmt(f, &self.anno, &self.name)
     }
 }
 
-impl fmt::Display for FunNameInner {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}/{}", self.name, self.arity)
+impl Display for Var {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        self.0.fmt(f)
     }
 }
 
-// TODO: Generic way to handle this "option anno" print out instead of manual copy-paste.
-impl fmt::Display for Atom {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.anno.0 {
-            None => write!(f, "'{}'", self.name),
-            Some(anno) => write!(f, "( '{}' -| {} )", self.name, anno),
-        }
-    }
-}
-
-// TODO: Generic way to handle this "option anno" print out instead of manual copy-paste.
-impl fmt::Display for Var {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.anno.0 {
-            None => write!(f, "{}", self.name),
-            Some(anno) => write!(f, "( {} -| {} )", self.name, anno),
-        }
-    }
-}
-
-// TODO: Generic way to handle this "option anno" print out instead of manual copy-paste.
-impl fmt::Display for Lit {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.anno.0 {
-            None => write!(f, "{}", self.inner),
-            Some(anno) => write!(f, "( {} -| {} )", self.inner, anno),
-        }
-    }
-}
-
-impl fmt::Display for Float {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // TODO: Is there a better more official way to print float?
-        write!(f, "{}.{}e{}", self.base, self.decimal, self.exponent)
-    }
-}
-
-impl fmt::Display for LitInner {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            LitInner::Int(i) => write!(f, "{}", i),
-            LitInner::Float(x) => write!(f, "{}", x),
-            LitInner::Atom(s) => write!(f, "'{}'", s),
-            LitInner::Char(c) => write!(f, "{}", c),
-            LitInner::String(s) => write!(f, "{}", s),
-            LitInner::Nil => write!(f, "[]"),
-            LitInner::Cons(head_tail_box) => {
-                let (head, tail) = head_tail_box.as_ref();
-                write!(f, "[{}|{}]", head, tail)
+impl Display for Module {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        // Split if any annotation
+        match self.anno {
+            Anno::Some(anno) => {
+                // TODO: Consider to restructure AST to have AnnoModule so this can be avoided
+                // Remove annotation from module and print it around the current module
+                let mut inner = self.clone();
+                inner.anno = Anno::None;
+                anno_fmt(f, &self.anno, &inner)
             }
-            LitInner::Tuple(tl) => {
-                write!(f, "{{");
-                let mut first = true;
-                // TODO: Avoid manuel repeat of this loop.
-                for elm in tl {
-                    if first {
-                        first = false;
-                    } else {
-                        write!(f, " ,");
-                    }
-                    write!(f, "{}", elm);
-                }
-
-                write!(f, "}}")
+            _ => {
+                // If no annotation then print the module
+                write!(
+                    f,
+                    "module {} {} attributes {} {} end",
+                    self.name,
+                    ExportList(&self.exports),
+                    AttributeList(&self.attributes),
+                    DefList(&self.defs)
+                )
             }
         }
     }
 }
-*/
+
+impl Display for Attribute {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{} = {}", self.name, self.value)
+    }
+}
+
+impl Display for FunDef {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{} = {}", self.name, self.body)
+    }
+}
+
+impl Display for AnnoFun {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        anno_fmt(f, &self.anno, &self.fun)
+    }
+}
+
+impl Display for FunExpr {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "fun {} -> {}", AnnoVarList(&self.vars), self.body)
+    }
+}
+
+impl Display for AnnoExpr {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        anno_fmt(f, &self.anno, &self.inner)
+    }
+}
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        match *self {
+            Expr::Exprs(exprs) => angle_list(f, &exprs),
+            Expr::Var(v) => v.fmt(f),
+            Expr::Fname(fname) => fname.fmt(f),
+            Expr::AtomLit(l) => l.fmt(f),
+            Expr::FunLit(flit) => flit.fmt(f),
+            Expr::FunExpr(fexpr) => (*fexpr).fmt(f),
+            Expr::Cons(cons) => square_list(f, &cons),
+            Expr::Tuple(tuple) => curly_list(f, &tuple),
+            Expr::Let(vars, e1, e2) => write!(f, "let {} = {} in {}", LetVars(&vars), e1, e2),
+            Expr::Case(arg, clauses) => {
+                write!(f, "case {} of {} end", *arg, AnnoClauseList(&clauses))
+            }
+            Expr::LetRec(defs, body) => write!(f, "letrec {} in {}", DefList(&defs), *body),
+            Expr::Call(call, args) => write!(f, "{} {}", *call, AnnoExprList(&args)), // Merge call, apply and primop to avoid duplication
+            Expr::Receive(receive) => (*receive).fmt(f),
+            Expr::Try(t) => (*t).fmt(f),
+            Expr::Do(e1, e2) => write!(f, "do {} {}", *e1, *e2),
+            Expr::Catch(e) => write!(f, "catch {}", *e),
+            Expr::Map(m) => m.fmt(f),
+        }
+    }
+}
+
+impl Display for FunLit {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "fun {}:{}", self.module, self.fname)
+    }
+}
+
+impl Display for AnnoClause {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        anno_fmt(f, &self.anno, &self.inner)
+    }
+}
+
+impl Display for Clause {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(
+            f,
+            "{} when {} -> {}",
+            AnnoPatList(&self.pats),
+            self.when,
+            self.res
+        )
+    }
+}
+
+impl Display for FunCall {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        match *self {
+            FunCall::Call(module, call) => write!(f, "call {}:{}", module, call),
+            FunCall::Apply(call) => write!(f, "apply {}", call),
+            FunCall::PrimOp(call) => write!(f, "primop {}", call),
+        }
+    }
+}
+
+impl Display for Receive {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(
+            f,
+            "receive {} {}",
+            AnnoClauseList(&self.clauses),
+            self.timeout,
+        )
+    }
+}
+
+impl Display for Timeout {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "after {} -> {}", self.guard, self.action)
+    }
+}
+
+impl Display for Try {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(
+            f,
+            "try {} of {} -> {} catch {} -> {}",
+            self.arg,
+            LetVars(&self.vars),
+            self.body,
+            LetVars(&self.evars),
+            self.handler
+        )
+    }
+}
+
+impl Display for AnnoMapExpr {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        anno_fmt(f, &self.anno, &self.inner)
+    }
+}
+
+impl Display for MapExpr {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "~{{");
+        match *self {
+            MapExpr::OnlyPairs(map_pairs) => {
+                comma_sep(f, &map_pairs);
+            }
+            MapExpr::MapVar(map_pairs, var) => {
+                comma_sep(f, &map_pairs);
+                write!(f, "|{}", var);
+            }
+            MapExpr::AnnoMapExpr(map_pairs, anno_map_expr) => {
+                comma_sep(f, &map_pairs);
+                write!(f, "|{}", anno_map_expr);
+            }
+        };
+        write!(f, "}}~")
+    }
+}
+
+impl Display for AnnoMapPair {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        anno_fmt(f, &self.anno, &self.inner)
+    }
+}
+
+impl Display for MapPair {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{} {} {}", self.key, self.op, self.value)
+    }
+}
+
+impl Display for MapPairType {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        match *self {
+            MapPairType::Assoc => write!(f, "=>"),
+            MapPairType::Exact => write!(f, ":="),
+        }
+    }
+}
+
+impl Display for AnnoPat {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        anno_fmt(f, &self.anno, &self.inner)
+    }
+}
+
+impl Display for Pat {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        match *self {
+            Pat::Var(v) => v.fmt(f),
+            Pat::Lit(l) => l.fmt(f),
+            Pat::Cons(cons) => square_list(f, &cons),
+            Pat::Tuple(tuple) => curly_list(f, &tuple),
+            Pat::Alias(var, pat) => write!(f, "{} = {}", var, pat),
+        }
+    }
+}
