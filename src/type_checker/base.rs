@@ -1,10 +1,9 @@
 use crate::{
-    cerl_parser::ast::LitInner,
+    cerl_parser::ast::{Lit, Var},
     contract_cerl::{
         ast::{CClause, CExpr, CFunCall, CModule, CPat, CType},
         types::{BaseType, SessionType},
     },
-    st_parser::spec_extractor::flatten_cons,
     type_checker::{
         fun::bif_fun,
         session::{gsp_new, gsp_sync_send},
@@ -29,7 +28,14 @@ pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, S
             Ok(res) => Ok(CType::Base(BaseType::Tuple(res))),
             Err(err_val) => Err(format!("expr tuple failed because {}", err_val)),
         },
-        CExpr::Let(v, e1, e2) => e_let(module, envs, v, e1, e2),
+        CExpr::Let(v, e1, e2) => {
+            let mut cpat_v: Vec<CPat> = Vec::new(); // TODO: This conversion should be moved
+            for elm in v {
+                cpat_v.push(CPat::Var(elm.clone()));
+            }
+            let v = CPat::Tuple(cpat_v);
+            e_let(module, envs, &v, e1, e2)
+        }
         CExpr::Case(base_expr, clauses) => e_case(module, envs, base_expr, clauses),
         CExpr::Call(call, args) => e_call(module, envs, call, args),
         CExpr::Do(e1, e2) => e_do(module, envs, e1, e2),
@@ -110,11 +116,10 @@ fn e_call(
     ))
 }
 
-// TODO: Change signature to have v: &Var again
-fn e_base(envs: &TypeEnvs, v: &String) -> Result<CType, String> {
+fn e_base(envs: &TypeEnvs, v: &Var) -> Result<CType, String> {
     let res = envs.0.get(v);
     if res.is_none() {
-        return Err(format!("used var that was not defined {:?}", v));
+        return Err(format!("used var that was not defined {}", v));
     }
     match res.unwrap() {
         // TODO: How to allow both base value checked properly, and not to "return" a base type?
@@ -124,23 +129,20 @@ fn e_base(envs: &TypeEnvs, v: &String) -> Result<CType, String> {
     }
 }
 
-fn e_lit(l: &LitInner) -> CType {
+fn e_lit(l: &Lit) -> CType {
     CType::Base(e_lit_aux(l))
 }
 
-// TODO: Run flatten once instead of many times!
-fn e_lit_aux(l: &LitInner) -> BaseType {
+fn e_lit_aux(l: &Lit) -> BaseType {
     match l {
-        LitInner::Int(_) => BaseType::Integer,
-        LitInner::Float(_) => BaseType::Float,
-        LitInner::Atom(a) => BaseType::Atom(a.clone()),
-        LitInner::Char(_) => BaseType::Char,
-        LitInner::Cons(_) => BaseType::Cons(flatten_cons(l).iter().map(|o| e_lit_aux(o)).collect()),
-        LitInner::Tuple(tuple) => {
-            BaseType::Tuple(tuple.iter().map(|arg0| e_lit_aux(&arg0.inner)).collect())
-        }
-        LitInner::String(_) => BaseType::String,
-        LitInner::Nil => BaseType::Cons(vec![]),
+        Lit::Int(_) => BaseType::Integer,
+        Lit::Float(_) => BaseType::Float,
+        Lit::Atom(a) => BaseType::Atom(a.clone()),
+        Lit::Char(_) => BaseType::Char,
+        Lit::Cons(cons) => BaseType::Cons(cons.iter().map(e_lit_aux).collect()),
+        Lit::Tuple(tuple) => BaseType::Tuple(tuple.iter().map(e_lit_aux).collect()),
+        Lit::String(_) => BaseType::String,
+        Lit::Nil => BaseType::Cons(vec![]),
     }
 }
 
@@ -171,7 +173,7 @@ fn e_let(
 ) -> Result<CType, String> {
     // Clone env to compare consume later. Keep using original ref otherwise changes within are going to be lost
     let envs_copy_baseline = TypeEnvs(envs.0.clone());
-    let pat_ok = pattern_matching(module, envs, v, e1);
+    let pat_ok = pattern_matching(module, envs, &v, e1);
     if let Err(err_val) = pat_ok {
         return Err(format!("e_let failed #1 because {}", err_val));
     }
@@ -305,7 +307,7 @@ fn pattern_matching(
                 ));
             }
             // TODO: Add "remove if equal"/NOOP thing
-            envs.0.insert(v.name.clone(), ctype_to_typeenv(&t.unwrap()));
+            envs.0.insert(v.clone(), ctype_to_typeenv(&t.unwrap()));
             Ok(())
         }
         CPat::Lit(l) => {

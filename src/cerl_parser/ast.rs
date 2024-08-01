@@ -242,7 +242,7 @@ struct LetVars<'a>(&'a Vec<AnnoVar>);
 struct AnnoClauseList<'a>(&'a Vec<AnnoClause>);
 
 fn anno_fmt(f: &mut Formatter, anno: &Anno, inner: &impl Display) -> Result {
-    match *anno {
+    match &anno {
         Anno::Some(anno) => write!(f, "( '{}' -| {} )", inner, ConstList(&anno)),
         _ => inner.fmt(f),
     }
@@ -421,13 +421,13 @@ impl Display for Var {
 impl Display for Module {
     fn fmt(&self, f: &mut Formatter) -> Result {
         // Split if any annotation
-        match self.anno {
+        match &self.anno {
             Anno::Some(anno) => {
                 // TODO: Consider to restructure AST to have AnnoModule so this can be avoided
                 // Remove annotation from module and print it around the current module
                 let mut inner = self.clone();
                 inner.anno = Anno::None;
-                anno_fmt(f, &self.anno, &inner)
+                anno_fmt(f, &Anno::Some(anno.clone()), &inner)
             }
             _ => {
                 // If no annotation then print the module
@@ -476,7 +476,7 @@ impl Display for AnnoExpr {
 
 impl Display for Expr {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        match *self {
+        match &self {
             Expr::Exprs(exprs) => angle_list(f, &exprs),
             Expr::Var(v) => v.fmt(f),
             Expr::Fname(fname) => fname.fmt(f),
@@ -526,7 +526,7 @@ impl Display for Clause {
 
 impl Display for FunCall {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        match *self {
+        match &self {
             FunCall::Call(module, call) => write!(f, "call {}:{}", module, call),
             FunCall::Apply(call) => write!(f, "apply {}", call),
             FunCall::PrimOp(call) => write!(f, "primop {}", call),
@@ -574,7 +574,7 @@ impl Display for AnnoMapExpr {
 impl Display for MapExpr {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "~{{");
-        match *self {
+        match &self {
             MapExpr::OnlyPairs(map_pairs) => {
                 comma_sep(f, &map_pairs);
             }
@@ -620,7 +620,7 @@ impl Display for AnnoPat {
 
 impl Display for Pat {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        match *self {
+        match &self {
             Pat::Var(v) => v.fmt(f),
             Pat::Lit(l) => l.fmt(f),
             Pat::Cons(cons) => square_list(f, &cons),

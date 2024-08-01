@@ -1,6 +1,7 @@
 use crate::{
+    cerl_parser::ast::{Atom, FunName},
     contract_cerl::{
-        ast::{CExpr, CFunCall, CFunName, CModule, CType},
+        ast::{CExpr, CFunCall, CModule, CType},
         types::{BaseType, SessionType, SessionTypesList},
     },
     type_checker::env::TypeEnv,
@@ -16,9 +17,9 @@ pub fn bif_fun(
     // args: &Vec<CExpr>,
 ) -> Result<CType, String> {
     // TODO: More clever way to handle BIF
-    let bif_io_format = CFunCall::Call("io".to_owned(), "format".to_owned());
+    let bif_io_format = CFunCall::Call(Atom("io".to_owned()), Atom("format".to_owned()));
     if *call == bif_io_format {
-        return Ok(CType::Base(BaseType::Atom("ok".to_string())));
+        return Ok(CType::Base(BaseType::Atom(Atom("ok".to_string()))));
     }
 
     Err("Not bif".to_string())
@@ -44,7 +45,7 @@ pub fn e_app(
             // We currently only support calls to the same module.
             // First step: Check module name matches
             // Otherwise the same as above.
-            if module.name.name != *call_module_name {
+            if module.name != *call_module_name {
                 return Err("Only call to the same module is supported currently".to_string());
             }
 
@@ -54,7 +55,7 @@ pub fn e_app(
     };
 
     // Lookup function clauses
-    let Some(fun_clauses) = module.functions.get(&CFunName {
+    let Some(fun_clauses) = module.functions.get(&FunName {
         name: fun_name.clone(),
         arity: args.len(),
     }) else {

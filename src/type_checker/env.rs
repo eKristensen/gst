@@ -2,7 +2,10 @@
 
 use std::collections::HashMap;
 
-use crate::contract_cerl::types::{BaseType, SessionTypesList};
+use crate::{
+    cerl_parser::ast::Var,
+    contract_cerl::types::{BaseType, SessionTypesList},
+};
 
 #[derive(Debug, Clone)]
 // Typing environments
@@ -15,5 +18,4 @@ pub enum TypeEnv {
 
 #[derive(Debug)]
 // "Runtime" environment for type checker.
-// TODO: Change type to be HasnMap<Var, TypeEnv> again !!
-pub struct TypeEnvs(pub HashMap<String, TypeEnv>);
+pub struct TypeEnvs(pub HashMap<Var, TypeEnv>);
