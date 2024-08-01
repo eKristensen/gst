@@ -182,7 +182,7 @@ pub fn e_case_offer(
     // TODO: Find a way to compare it without needing to save all return values
     let mut common_return_type: Vec<CType> = Vec::new();
 
-    let mut case_start_envs = TypeEnvs(envs.0.clone());
+    let case_start_envs = TypeEnvs(envs.0.clone());
 
     // Pattern for each case must match the current session type labels.
     // We require only that the clauses available must be in the session type, not complete session type coverage (TODO TODO TODO is this sane?)
@@ -200,7 +200,8 @@ pub fn e_case_offer(
 
         // Look for label in session type
         // TODO: Can clone be avoided here?
-        let Some(matching_st) = offers.get(&Label(label.0.clone())) else {
+        // TODO: Unused variable !
+        let Some(_matching_st) = offers.get(&Label(label.0.clone())) else {
             return Err("No matching offer found in session!".to_string());
         };
 

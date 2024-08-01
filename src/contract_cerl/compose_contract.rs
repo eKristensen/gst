@@ -47,7 +47,7 @@ fn make_contract(
     // One body for each module
     for fun_def in &ast.defs {
         let fname = fun_def.name.inner.clone();
-        match compose_function_with_contract(&base_spec, &session_spec, &fun_def) {
+        match compose_function_with_contract(&base_spec, &session_spec, fun_def) {
             Ok(contract_clauses) => {
                 functions.insert(fname, contract_clauses);
             }
@@ -113,7 +113,7 @@ fn compose_function_with_contract(
             fname
         ));
     }
-    let this_base_spec = base_spec.0.get(&fname).unwrap();
+    let this_base_spec = base_spec.0.get(fname).unwrap();
 
     if !session_spec.0.contains_key(fname) {
         return Err(format!(
@@ -281,7 +281,7 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
             let e1 = expr_to_cexpr(&e1.inner)?;
             let e2 = expr_to_cexpr(&e2.inner)?;
             Ok(CExpr::Let(
-                v.into_iter().map(|v| v.name.clone()).collect(),
+                v.iter().map(|v| v.name.clone()).collect(),
                 Box::new(e1),
                 Box::new(e2),
             ))
