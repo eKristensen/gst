@@ -229,8 +229,8 @@ pub fn literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
 pub fn atomic_literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
     alt((
         map(char_char, Lit::Char),
-        map(integer, Lit::Int),
         map(float, Lit::Float),
+        map(integer, Lit::Int),
         map(atom, Lit::Atom),
         map(string, Lit::String),
         value(Lit::Nil, pair(ws(tag("[")), ws(tag("]")))),
