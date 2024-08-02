@@ -123,7 +123,7 @@ fn get_absform_clause(spec: &Lit) -> Result<(Lit, Lit), String> {
     };
 
     let &[Lit::Atom(tag), _, Lit::Atom(tag2), Lit::Cons(io)] = &spec.as_slice() else {
-        return Err("get_absform_types: Wrong length tuple.".to_string());
+        return Err("get_absform_clause: Wrong length tuple.".to_string());
     };
     if *tag != Atom("type".to_owned()) || *tag2 != Atom("fun".to_owned()) {
         return Err("get_absform_clause wrong tags in tuple".to_string());
@@ -147,7 +147,8 @@ fn get_absform_types(spec_in: &Lit) -> Result<Vec<BaseSpecElm>, String> {
     let &[Lit::Atom(tag), _, Lit::Atom(tag2), Lit::Cons(types_list)] = &spec.as_slice() else {
         return Err("get_absform_types: Wrong length tuple.".to_string());
     };
-    if *tag != Atom("type".to_owned()) || *tag2 != Atom("product".to_owned()) {
+    println!("Debug how it looks here: {}", spec_in);
+    if *tag == Atom("type".to_owned()) && *tag2 != Atom("product".to_owned()) {
         // Not product type assume a it is a ordinary type instead
         let single_type = get_absform_type(spec_in)?;
         return Ok(vec![single_type]);
@@ -166,23 +167,33 @@ fn get_absform_types(spec_in: &Lit) -> Result<Vec<BaseSpecElm>, String> {
 fn get_absform_type(spec: &Lit) -> Result<BaseSpecElm, String> {
     // Expecting a tuple
     let Lit::Tuple(spec) = spec else {
-        return Err("get_absform_type expected tuple".to_string());
+        return Err(format!("get_absform_type expected tuple but got {}", spec));
     };
+
+    if spec.is_empty() {
+        return Err("get_absform_type cannot work with empty type tuple".to_string());
+    }
 
     // Type matching
     // TODO: Not ignore Anno
     match &spec.as_slice() {
+        &[Lit::Atom(tag), _, Lit::Atom(tag2), Lit::Nil] => {
+            match (tag.0.as_str(), tag2.0.as_str()) {
+                ("user_type", "new") => Ok(BaseSpecElm::New),
+                ("user_type", "consume") => Ok(BaseSpecElm::Consume),
+                ("type", "pid") => Ok(BaseSpecElm::Base(BaseType::Pid)),
+                ("type", "reference") => Ok(BaseSpecElm::Base(BaseType::Reference)),
+                ("type", "integer") => Ok(BaseSpecElm::Base(BaseType::Integer)),
+                ("type", "float") => Ok(BaseSpecElm::Base(BaseType::Float)),
+                ("type", "boolean") => Ok(BaseSpecElm::Base(BaseType::Boolean)),
+                ("type", "list") => Ok(BaseSpecElm::Base(BaseType::List)),
+                ("type", "string") => Ok(BaseSpecElm::Base(BaseType::String)),
+                _ => Err("Could not match any type".to_string()),
+            }
+        }
+
         &[Lit::Atom(tag), _, Lit::Atom(tag2), Lit::Cons(args)] => {
             match (tag.0.as_str(), tag2.0.as_str(), args.as_slice()) {
-                ("user_type", "new", &[]) => Ok(BaseSpecElm::New),
-                ("user_type", "consume", &[]) => Ok(BaseSpecElm::Consume),
-                ("type", "pid", &[]) => Ok(BaseSpecElm::Base(BaseType::Pid)),
-                ("type", "reference", &[]) => Ok(BaseSpecElm::Base(BaseType::Reference)),
-                ("type", "integer", &[]) => Ok(BaseSpecElm::Base(BaseType::Integer)),
-                ("type", "float", &[]) => Ok(BaseSpecElm::Base(BaseType::Float)),
-                ("type", "boolean", &[]) => Ok(BaseSpecElm::Base(BaseType::Boolean)),
-                ("type", "list", &[]) => Ok(BaseSpecElm::Base(BaseType::List)),
-                ("type", "string", &[]) => Ok(BaseSpecElm::Base(BaseType::String)),
                 ("type", type_name, type_args) => Err(format!(
                     "Unknown type {:?} with args {:?}",
                     type_name, type_args
@@ -208,7 +219,7 @@ fn get_absform_type(spec: &Lit) -> Result<BaseSpecElm, String> {
         }
         &[Lit::Atom(tag), _, Lit::Atom(tag2)] => match (tag.0.as_str(), tag2) {
             ("atom", atom_name) => Ok(BaseSpecElm::Base(BaseType::Atom(atom_name.clone()))),
-            _ => Err("Expected atom literal".to_string()),
+            _ => Err(format!("Expected atom literal but got {:?}", spec)),
         },
         x => Err(format!("Unexpected type format: {:?}", x)),
     }

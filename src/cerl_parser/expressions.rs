@@ -45,11 +45,12 @@ fn single_expression(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
         map(var, Expr::Var),
         map(fun_literal, Expr::FunLit),
         map(fun_expr, |fun_expr| Expr::Fun(Box::new(fun_expr))),
+        map(letrec_expr, |(defs, body)| {
+            // letrec must have higher precedence than let to avoid "let" substring match in letrec
+            Expr::LetRec(defs, Box::new(body))
+        }),
         map(let_expr, |(var, e1, e2)| {
             Expr::Let(var, Box::new(e1), Box::new(e2))
-        }),
-        map(letrec_expr, |(defs, body)| {
-            Expr::LetRec(defs, Box::new(body))
         }),
         map(case_expr, |(arg, clauses)| {
             Expr::Case(Box::new(arg), clauses)
@@ -363,6 +364,11 @@ mod tests {
    end").is_ok())
     }
 
+    #[test]
+    fn flatten_cons() {
+        assert_eq!(literal("[1,2]").unwrap(), literal("[1|[2]]").unwrap());
+        assert_eq!(literal("[1,2,3]").unwrap(), literal("[1|[2|[3]]").unwrap());
+    }
     // Test case where the issue was the args list. Wrapping for completeness
     // TODO: Check output maybe?
     /*    #[test]
