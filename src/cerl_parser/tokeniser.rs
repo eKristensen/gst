@@ -590,6 +590,7 @@ mod tests {
             literal("\"Two\\nlines\"").unwrap(),
             ("", Lit::String("Two\nlines".to_owned()))
         );
+        assert_eq!(literal("\"\"").unwrap(), ("", Lit::String("".to_owned())));
         assert_eq!(
             literal("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\"").unwrap(),
             ("", Lit::String("Ring\u{7}My\u{7}Bell\u{7}!".to_owned()))
