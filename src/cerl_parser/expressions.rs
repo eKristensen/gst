@@ -37,12 +37,12 @@ fn expression(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
 // WSA OK
 fn single_expression(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     alt((
+        map(fname, Expr::Fname), // fname must have higher precedence than atomic_literal.
         map(atomic_literal, Expr::AtomLit),
         map(tuple_expression, Expr::Tuple),
         map(cons_expression, Expr::Cons),
         // Ready for extension: binary
         map(var, Expr::Var),
-        map(fname, Expr::Fname),
         map(fun_literal, Expr::FunLit),
         map(fun_expr, |fun_expr| Expr::Fun(Box::new(fun_expr))),
         map(let_expr, |(var, e1, e2)| {
@@ -351,7 +351,17 @@ fn cons_expression(i: &str) -> IResult<&str, Vec<AnnoExpr>, ErrorTree<&str>> {
 
 #[cfg(test)]
 mod tests {
-    //use super::*;
+    use super::*;
+
+    #[test]
+    fn precedence_testing() {
+        assert!(anno_clause("( <'false'> when 'true' -> ( apply 'recv$^0'/0 () -| ['dialyzer_ignore'] ) -| ['dialyzer_ignore'] )").is_ok());
+        assert!(expression("apply 'recv$^0'/0 ()").is_ok());
+        assert!(expression("case _3 of
+    <'true'> when 'true' -> 'true'
+    ( <'false'> when 'true' -> ( apply 'recv$^0'/0 () -| ['dialyzer_ignore'] ) -| ['dialyzer_ignore'] )
+   end").is_ok())
+    }
 
     // Test case where the issue was the args list. Wrapping for completeness
     // TODO: Check output maybe?
