@@ -1,28 +1,25 @@
 use nom::{
     combinator::map,
-    multi::many1,
+    multi::many0,
     sequence::{delimited, preceded, tuple},
     IResult,
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
-    ast::{Anno, AnnoAtom, AnnoFun, AnnoFunName, AnnoLit, Attribute, FunDef, Module},
+    ast::{AnnoAtom, AnnoFun, AnnoFunName, AnnoLit, AnnoModule, Attribute, FunDef, Module},
     expressions::{anno_function_name, fun_expr, literal},
     helpers::{comma_sep_list, opt_annotation, ws},
     tokeniser::atom,
 };
 
-pub fn module_definition(i: &str) -> IResult<&str, Module, ErrorTree<&str>> {
-    map(opt_annotation(module_definition_inner), |(inner, anno)| {
-        // TODO: Avoid clone places like this.
-        let mut inner = inner.clone();
-        inner.anno = anno;
-        inner
+pub fn anno_module_definition(i: &str) -> IResult<&str, AnnoModule, ErrorTree<&str>> {
+    map(opt_annotation(module_definition), |(inner, anno)| {
+        AnnoModule { anno, inner }
     })(i)
 }
 
-fn module_definition_inner(i: &str) -> IResult<&str, Module, ErrorTree<&str>> {
+fn module_definition(i: &str) -> IResult<&str, Module, ErrorTree<&str>> {
     map(
         delimited(
             ws(tag("module")),
@@ -35,7 +32,6 @@ fn module_definition_inner(i: &str) -> IResult<&str, Module, ErrorTree<&str>> {
             ws(tag("end")),
         ),
         |(name, exports, attributes, defs)| Module {
-            anno: Anno::Unknown,
             name,
             exports,
             attributes,
@@ -73,7 +69,7 @@ fn module_defs(i: &str) -> IResult<&str, Vec<FunDef>, ErrorTree<&str>> {
 pub fn function_definitions(i: &str) -> IResult<&str, Vec<FunDef>, ErrorTree<&str>> {
     // TODO: For debuggin the number of functions required is set to one.
     // TODO: Change to many0 instead of many1
-    many1(ws(function_definition))(i)
+    many0(ws(function_definition))(i)
 }
 
 fn function_definition(i: &str) -> IResult<&str, FunDef, ErrorTree<&str>> {

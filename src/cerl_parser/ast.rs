@@ -6,11 +6,7 @@ use std::fmt::{Display, Formatter, Result};
 // The goal is to parse core erlang as close as possible to the reference implementation.
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum Anno {
-    Unknown, // Depending on parser state it may be unknown wheter there is a annotation or not.
-    None,
-    Some(Vec<Const>),
-}
+pub struct Anno(pub Option<Vec<Const>>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoAtom {
@@ -31,8 +27,13 @@ pub struct AnnoVar {
 pub struct Var(pub String);
 
 #[derive(Debug, Clone)]
-pub struct Module {
+pub struct AnnoModule {
     pub anno: Anno,
+    pub inner: Module,
+}
+
+#[derive(Debug, Clone)]
+pub struct Module {
     pub name: Atom,
     pub exports: Vec<AnnoFunName>,
     pub attributes: Vec<Attribute>,
@@ -243,7 +244,7 @@ struct AnnoClauseList<'a>(&'a Vec<AnnoClause>);
 
 fn anno_fmt(f: &mut Formatter, anno: &Anno, inner: &impl Display) -> Result {
     match &anno {
-        Anno::Some(anno) => write!(f, "( '{}' -| {} )", inner, ConstList(anno)),
+        Anno(Some(anno)) => write!(f, "( '{}' -| {} )", inner, ConstList(anno)),
         _ => inner.fmt(f),
     }
 }
@@ -418,29 +419,22 @@ impl Display for Var {
     }
 }
 
+impl Display for AnnoModule {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        anno_fmt(f, &self.anno, &self.inner)
+    }
+}
+
 impl Display for Module {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        // Split if any annotation
-        match &self.anno {
-            Anno::Some(anno) => {
-                // TODO: Consider to restructure AST to have AnnoModule so this can be avoided
-                // Remove annotation from module and print it around the current module
-                let mut inner = self.clone();
-                inner.anno = Anno::None;
-                anno_fmt(f, &Anno::Some(anno.clone()), &inner)
-            }
-            _ => {
-                // If no annotation then print the module
-                write!(
-                    f,
-                    "module {} {} attributes {} {} end",
-                    self.name,
-                    ExportList(&self.exports),
-                    AttributeList(&self.attributes),
-                    DefList(&self.defs)
-                )
-            }
-        }
+        write!(
+            f,
+            "module {} {} attributes {} {} end",
+            self.name,
+            ExportList(&self.exports),
+            AttributeList(&self.attributes),
+            DefList(&self.defs)
+        )
     }
 }
 

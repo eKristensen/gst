@@ -5,7 +5,8 @@ mod st_parser;
 mod type_checker;
 
 use crate::contract_cerl::compose_contract::compose_contract;
-use cerl_parser::{ast::Module, grammar::module_definition};
+use cerl_parser::ast::AnnoModule;
+use cerl_parser::grammar::anno_module_definition;
 use contract_cerl::ast::{CModule, OptWarnings};
 use miette::{Diagnostic, SourceSpan};
 use miette::{NamedSource, Result};
@@ -41,8 +42,8 @@ struct ParseErrors {
     related: Vec<ParseError>,
 }
 
-fn cerl_final(input: &str) -> Result<Module, ErrorTree<&str>> {
-    final_parser(module_definition)(input)
+fn cerl_final(input: &str) -> Result<AnnoModule, ErrorTree<&str>> {
+    final_parser(anno_module_definition)(input)
 }
 
 pub fn parse(filename: &str, src: &str) -> Result<OptWarnings<CModule>> {

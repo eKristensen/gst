@@ -27,14 +27,14 @@ use crate::st_parser::ast::SessionSpecElm::ConsumeSpec;
 use crate::st_parser::ast::SessionSpecElm::NewSpec;
 
 pub fn compose_contract(
-    ast: cerl_parser::ast::Module,
+    ast: cerl_parser::ast::AnnoModule,
 ) -> Result<OptWarnings<ast::CModule>, String> {
     // Step 1: Resolve dependencies: Must get specs
-    let base_spec = base_spec_extractor(&ast)?;
-    let session_spec = session_spec_extractor(&ast)?;
+    let base_spec = base_spec_extractor(&ast.inner)?;
+    let session_spec = session_spec_extractor(&ast.inner)?;
 
     // Step 2: Convert while matching specs.
-    Ok(make_contract(&ast, base_spec, session_spec))
+    Ok(make_contract(&ast.inner, base_spec, session_spec))
 }
 
 fn make_contract(
