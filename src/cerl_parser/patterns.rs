@@ -4,10 +4,11 @@ use nom_supreme::{error::ErrorTree, tag::complete::tag};
 use super::{
     ast::{AnnoPat, AnnoVar, Pat},
     expressions::atomic_literal,
-    helpers::{comma_sep_list, cons, opt_annotation, ws},
+    helpers::{comma_sep_list, cons, opt_annotation, wsa},
     tokeniser::var,
 };
 
+// WSA OK
 pub fn anno_pattern(i: &str) -> IResult<&str, AnnoPat, ErrorTree<&str>> {
     map(opt_annotation(pattern), |(inner, anno)| AnnoPat {
         anno,
@@ -15,6 +16,7 @@ pub fn anno_pattern(i: &str) -> IResult<&str, AnnoPat, ErrorTree<&str>> {
     })(i)
 }
 
+// WSA OK
 fn pattern(i: &str) -> IResult<&str, Pat, ErrorTree<&str>> {
     alt((
         map(atomic_literal, Pat::Lit),
@@ -27,21 +29,25 @@ fn pattern(i: &str) -> IResult<&str, Pat, ErrorTree<&str>> {
     ))(i)
 }
 
+// WSA OK
 fn tuple_pattern(i: &str) -> IResult<&str, Vec<AnnoPat>, ErrorTree<&str>> {
-    ws(comma_sep_list("{", "}", anno_pattern))(i)
+    comma_sep_list("{", "}", anno_pattern)(i)
 }
 
+// WSA OK
 fn cons_pattern(i: &str) -> IResult<&str, Vec<AnnoPat>, ErrorTree<&str>> {
     cons(anno_pattern)(i)
 }
 
+// WSA OK
 pub fn anno_variable(i: &str) -> IResult<&str, AnnoVar, ErrorTree<&str>> {
     map(opt_annotation(var), |(name, anno)| AnnoVar { anno, name })(i)
 }
 
+// WSA OK
 fn alias(i: &str) -> IResult<&str, (AnnoVar, Box<AnnoPat>), ErrorTree<&str>> {
     map(
-        tuple((anno_variable, ws(tag("=")), anno_pattern)),
+        tuple((anno_variable, wsa(tag("=")), anno_pattern)),
         |(variable, _, pattern)| (variable, Box::new(pattern)),
     )(i)
 }

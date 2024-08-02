@@ -24,6 +24,16 @@ matter. Still good to remember that it exists. It could be useful.
 According to my testing version 23-26 use the same translation to .core and
 anything older is different.
 
+### Parser whitespace strategy
+
+* Remove whitespace as early as possible.
+* Remove whitespace before starting
+* Remove whitespace after each component
+* Avoid excess calls to whitespace parser.
+* Each component takes care of internal whitespace.
+
+Skipping whitespace is fast and cannot result in rollback. While fast there is no need to call it more than needed. Therefore at start and then after each compoment.
+
 ### Extending the Erlang type system
 
 Erlang does not have native session types or the ability to create a new

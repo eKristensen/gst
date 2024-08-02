@@ -13,11 +13,12 @@ use super::{
         Fun, FunCall, FunDef, FunLit, Lit, MapExpr, MapPair, MapPairType, Receive, Timeout, Try,
     },
     grammar::function_definitions,
-    helpers::{comma_sep_list, cons, opt_angle_bracket, opt_annotation, ws},
+    helpers::{comma_sep_list, cons, opt_angle_bracket, opt_annotation, wsa},
     patterns::{anno_pattern, anno_variable},
     tokeniser::{atom, char_char, float, fname, integer, string, var},
 };
 
+// WSA OK
 fn anno_expression(i: &str) -> IResult<&str, AnnoExpr, ErrorTree<&str>> {
     map(opt_annotation(expression), |(inner, anno)| AnnoExpr {
         anno,
@@ -25,13 +26,15 @@ fn anno_expression(i: &str) -> IResult<&str, AnnoExpr, ErrorTree<&str>> {
     })(i)
 }
 
+// WSA OK
 fn expression(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     alt((
-        map(ws(comma_sep_list("<", ">", anno_expression)), Expr::Exprs),
-        ws(single_expression),
+        map(comma_sep_list("<", ">", anno_expression), Expr::Exprs),
+        single_expression,
     ))(i)
 }
 
+// WSA OK
 fn single_expression(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     alt((
         map(atomic_literal, Expr::AtomLit),
@@ -62,6 +65,7 @@ fn single_expression(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     ))(i)
 }
 
+// WSA OK
 pub fn anno_function_name(i: &str) -> IResult<&str, AnnoFunName, ErrorTree<&str>> {
     map(opt_annotation(fname), |(inner, anno)| AnnoFunName {
         anno,
@@ -69,63 +73,70 @@ pub fn anno_function_name(i: &str) -> IResult<&str, AnnoFunName, ErrorTree<&str>
     })(i)
 }
 
+// WSA OK
 fn let_vars(i: &str) -> IResult<&str, Vec<AnnoVar>, ErrorTree<&str>> {
     opt_angle_bracket(anno_variable)(i)
 }
 
+// WSA OK
 fn sequence(i: &str) -> IResult<&str, (AnnoExpr, AnnoExpr), ErrorTree<&str>> {
-    preceded(ws(tag("do")), pair(anno_expression, anno_expression))(i)
+    preceded(wsa(tag("do")), pair(anno_expression, anno_expression))(i)
 }
 
+// WSA OK
 pub fn fun_expr(i: &str) -> IResult<&str, Fun, ErrorTree<&str>> {
     map(
         tuple((
-            ws(tag("fun")),
+            wsa(tag("fun")),
             comma_sep_list("(", ")", anno_variable),
-            ws(tag("->")),
+            wsa(tag("->")),
             anno_expression,
         )),
         |(_, vars, _, body)| Fun { vars, body },
     )(i)
 }
 
+// WSA OK
 fn let_expr(i: &str) -> IResult<&str, (Vec<AnnoVar>, AnnoExpr, AnnoExpr), ErrorTree<&str>> {
     map(
         tuple((
-            ws(tag("let")),
+            wsa(tag("let")),
             let_vars,
-            ws(tag("=")),
+            wsa(tag("=")),
             anno_expression,
-            ws(tag("in")),
+            wsa(tag("in")),
             anno_expression,
         )),
         |(_, vars, _, e1, _, e2)| (vars, e1, e2),
     )(i)
 }
 
+// WSA OK
 fn letrec_expr(i: &str) -> IResult<&str, (Vec<FunDef>, AnnoExpr), ErrorTree<&str>> {
     map(
         tuple((
-            ws(tag("letrec")),
+            wsa(tag("letrec")),
             function_definitions,
-            ws(tag("in")),
+            wsa(tag("in")),
             anno_expression,
         )),
         |(_, defs, _, body)| (defs, body),
     )(i)
 }
 
+// WSA OK
 fn case_expr(i: &str) -> IResult<&str, (AnnoExpr, Vec<AnnoClause>), ErrorTree<&str>> {
     map(
         delimited(
-            ws(tag("case")),
-            tuple((anno_expression, ws(tag("of")), many1(ws(anno_clause)))),
-            ws(tag("end")),
+            wsa(tag("case")),
+            tuple((anno_expression, wsa(tag("of")), many1(anno_clause))),
+            wsa(tag("end")),
         ),
         |(arg, _, clauses)| (arg, clauses),
     )(i)
 }
 
+// WSA OK
 fn anno_clause(i: &str) -> IResult<&str, AnnoClause, ErrorTree<&str>> {
     map(opt_annotation(clause), |(inner, anno)| AnnoClause {
         anno,
@@ -133,57 +144,61 @@ fn anno_clause(i: &str) -> IResult<&str, AnnoClause, ErrorTree<&str>> {
     })(i)
 }
 
+// WSA OK
 fn clause(i: &str) -> IResult<&str, Clause, ErrorTree<&str>> {
     map(
         tuple((
             clause_pattern,
-            ws(tag("when")),
+            wsa(tag("when")),
             anno_expression,
-            ws(tag("->")),
+            wsa(tag("->")),
             anno_expression,
         )),
         |(pats, _, when, _, res)| Clause { pats, when, res },
     )(i)
 }
 
+// WSA OK
 fn clause_pattern(i: &str) -> IResult<&str, Vec<AnnoPat>, ErrorTree<&str>> {
     opt_angle_bracket(anno_pattern)(i)
 }
 
 // Merge apply, call and primop as they are very similar.
+// WSA OK
 fn call_expr(i: &str) -> IResult<&str, (FunCall, Vec<AnnoExpr>), ErrorTree<&str>> {
     pair(
         alt((
-            map(preceded(ws(tag("apply")), anno_expression), FunCall::Apply),
+            map(preceded(wsa(tag("apply")), anno_expression), FunCall::Apply),
             map(
                 preceded(
-                    ws(tag("call")),
-                    tuple((anno_expression, ws(tag(":")), anno_expression)),
+                    wsa(tag("call")),
+                    tuple((anno_expression, wsa(tag(":")), anno_expression)),
                 ),
                 |(o1, _, o2)| FunCall::Call(o1, o2),
             ),
             map(
-                preceded(ws(tag("primop")), anno_expression),
+                preceded(wsa(tag("primop")), anno_expression),
                 FunCall::PrimOp,
             ),
         )),
-        ws(comma_sep_list("(", ")", anno_expression)),
+        comma_sep_list("(", ")", anno_expression),
     )(i)
 }
 
+// WSA OK
 fn try_expr(i: &str) -> IResult<&str, Try, ErrorTree<&str>> {
     map(
         preceded(
-            ws(tag("try")),
+            wsa(tag("try")),
             tuple((
                 anno_expression,
-                ws(tag("of")),
+                wsa(tag("of")),
                 let_vars,
-                ws(tag("->")),
+                wsa(tag("->")),
                 anno_expression,
-                ws(tag("catch")),
+                wsa(tag("catch")),
                 let_vars,
-                ws(tag("->")),
+                wsa(tag("->")),
                 anno_expression,
             )),
         ),
@@ -197,27 +212,31 @@ fn try_expr(i: &str) -> IResult<&str, Try, ErrorTree<&str>> {
     )(i)
 }
 
+// WSA OK
 fn catch_expr(i: &str) -> IResult<&str, AnnoExpr, ErrorTree<&str>> {
-    preceded(ws(tag("catch")), anno_expression)(i)
+    preceded(wsa(tag("catch")), anno_expression)(i)
 }
 
+// WSA OK
 fn receive_expr(i: &str) -> IResult<&str, Receive, ErrorTree<&str>> {
     map(
         preceded(
-            ws(tag("receive")),
+            wsa(tag("receive")),
             tuple((many0(anno_clause), timeout_expr)),
         ),
         |(clauses, timeout)| Receive { clauses, timeout },
     )(i)
 }
 
+// WSA OK
 fn timeout_expr(i: &str) -> IResult<&str, Timeout, ErrorTree<&str>> {
     map(
-        preceded(ws(tag("after")), pair(anno_expression, anno_expression)),
+        preceded(wsa(tag("after")), pair(anno_expression, anno_expression)),
         |(guard, action)| Timeout { guard, action },
     )(i)
 }
 
+// WSA OK
 pub fn literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
     alt((
         atomic_literal,
@@ -226,6 +245,7 @@ pub fn literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
     ))(i)
 }
 
+// WSA OK
 pub fn atomic_literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
     alt((
         map(char_char, Lit::Char),
@@ -233,29 +253,34 @@ pub fn atomic_literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
         map(integer, Lit::Int),
         map(atom, Lit::Atom),
         map(string, Lit::String),
-        value(Lit::Nil, pair(ws(tag("[")), ws(tag("]")))),
+        value(Lit::Nil, pair(wsa(tag("[")), wsa(tag("]")))),
     ))(i)
 }
 
+// WSA OK
 fn tuple_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
-    ws(comma_sep_list("{", "}", literal))(i)
+    comma_sep_list("{", "}", literal)(i)
 }
 
+// WSA OK
 fn cons_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
     cons(literal)(i)
 }
 
+// WSA OK
 fn fun_literal(i: &str) -> IResult<&str, FunLit, ErrorTree<&str>> {
     map(
-        tuple((ws(tag("fun")), atom, ws(tag(":")), fname)),
+        tuple((wsa(tag("fun")), atom, wsa(tag(":")), fname)),
         |(_, module, _, fname)| FunLit { module, fname },
     )(i)
 }
 
+// WSA OK
 fn tuple_expression(i: &str) -> IResult<&str, Vec<AnnoExpr>, ErrorTree<&str>> {
-    ws(comma_sep_list("{", "}", anno_expression))(i)
+    comma_sep_list("{", "}", anno_expression)(i)
 }
 
+// WSA OK
 fn anno_map_expr(i: &str) -> IResult<&str, AnnoMap, ErrorTree<&str>> {
     map(opt_annotation(map_expr), |(inner, anno)| AnnoMap {
         anno,
@@ -263,40 +288,40 @@ fn anno_map_expr(i: &str) -> IResult<&str, AnnoMap, ErrorTree<&str>> {
     })(i)
 }
 
+// WSA OK
 fn map_expr(i: &str) -> IResult<&str, MapExpr, ErrorTree<&str>> {
     delimited(
-        ws(tag("~")),
+        wsa(tag("~")),
         alt((
             map(comma_sep_list("{", "}", anno_map_pair), MapExpr::OnlyPairs),
-            map(
-                delimited(
-                    tag("{"),
-                    tuple((
-                        separated_list0(ws(tag(",")), ws(anno_map_pair)),
-                        ws(tag("|")),
-                        anno_variable,
-                    )),
-                    tag("}"),
-                ),
-                |(pairs, _, var)| MapExpr::MapVar(pairs, var),
-            ),
-            map(
-                delimited(
-                    tag("{"),
-                    tuple((
-                        separated_list0(ws(tag(",")), ws(anno_map_pair)),
-                        ws(tag("|")),
-                        anno_map_expr,
-                    )),
-                    tag("}"),
-                ),
-                |(pairs, _, e)| MapExpr::AnnoMap(pairs, Box::new(e)),
+            delimited(
+                wsa(tag("{")),
+                alt((
+                    map(
+                        tuple((
+                            separated_list0(wsa(tag(",")), anno_map_pair),
+                            wsa(tag("|")),
+                            anno_variable,
+                        )),
+                        |(pairs, _, var)| MapExpr::MapVar(pairs, var),
+                    ),
+                    map(
+                        tuple((
+                            separated_list0(wsa(tag(",")), anno_map_pair),
+                            wsa(tag("|")),
+                            anno_map_expr,
+                        )),
+                        |(pairs, _, e)| MapExpr::AnnoMap(pairs, Box::new(e)),
+                    ),
+                )),
+                wsa(tag("}")),
             ),
         )),
-        ws(tag("~")),
+        wsa(tag("~")),
     )(i)
 }
 
+// WSA OK
 fn anno_map_pair(i: &str) -> IResult<&str, AnnoMapPair, ErrorTree<&str>> {
     map(opt_annotation(map_pair), |(inner, anno)| AnnoMapPair {
         anno,
@@ -304,13 +329,14 @@ fn anno_map_pair(i: &str) -> IResult<&str, AnnoMapPair, ErrorTree<&str>> {
     })(i)
 }
 
+// WSA OK
 fn map_pair(i: &str) -> IResult<&str, MapPair, ErrorTree<&str>> {
     map(
         tuple((
             anno_expression,
             alt((
-                value(MapPairType::Assoc, ws(tag("=>"))),
-                value(MapPairType::Exact, ws(tag(":="))),
+                value(MapPairType::Assoc, wsa(tag("=>"))),
+                value(MapPairType::Exact, wsa(tag(":="))),
             )),
             anno_expression,
         )),
@@ -318,6 +344,7 @@ fn map_pair(i: &str) -> IResult<&str, MapPair, ErrorTree<&str>> {
     )(i)
 }
 
+// WSA OK
 fn cons_expression(i: &str) -> IResult<&str, Vec<AnnoExpr>, ErrorTree<&str>> {
     cons(anno_expression)(i)
 }

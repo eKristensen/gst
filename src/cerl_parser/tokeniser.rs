@@ -14,7 +14,7 @@ use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
     ast::{Atom, Float, FunName, Var},
-    helpers::ws,
+    helpers::{wsa, wsc},
 };
 
 #[inline]
@@ -86,6 +86,7 @@ fn ctrlchar(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
 // Inspired by :
 // - https://docs.rs/nom/latest/nom/recipes/index.html#escaped-strings
 // - https://github.com/rust-bakery/nom/blob/main/examples/string.rs
+// WSA OK
 pub fn atom(i: &str) -> IResult<&str, Atom, ErrorTree<&str>> {
     // fold is the equivalent of iterator::fold. It runs a parser in a loop,
     // and for each output value, calls a folding function on each output value.
@@ -106,30 +107,31 @@ pub fn atom(i: &str) -> IResult<&str, Atom, ErrorTree<&str>> {
     // " character, the closing delimiter " would never match. When using
     // `delimited` with a looping parser (like fold), be sure that the
     // loop won't accidentally match your closing delimiter!
-    map(delimited(char('\''), build_string, char('\'')), |o| {
+    wsa(map(delimited(char('\''), build_string, char('\'')), |o| {
         Atom(o.iter().collect())
-    })
-    .parse(i)
+    }))(i)
 }
 
+// WSA OK
 pub fn fname(i: &str) -> IResult<&str, FunName, ErrorTree<&str>> {
     map(
         tuple((
             atom,
-            tag("/"), // TODO: Check whether whitespace is allowed around this tag in this context
-            map_res(digit1, str::parse::<usize>),
+            wsa(tag("/")),
+            map_res(wsa(digit1), str::parse::<usize>),
         )),
         |(name, _, arity)| FunName { name, arity },
     )(i)
 }
 
+// WSA OK
 pub fn integer<
     'a,
     E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
 >(
     i: &'a str,
 ) -> IResult<&str, i64, E> {
-    map(
+    let (i, res) = map(
         tuple((
             // Consume + or - or nothing and save the sign
             alt((
@@ -147,7 +149,9 @@ pub fn integer<
                 -i
             }
         },
-    )(i)
+    )(i)?;
+    let (i, _) = wsc(i).unwrap(); // Safe because whitespace can never fail.
+    Ok((i, res))
 }
 
 pub fn opt_sign_digit1<
@@ -169,6 +173,7 @@ pub fn opt_sign_digit1<
 }
 
 // The build in float function in nom is not enough.
+// WSA OK
 pub fn float<
     'a,
     E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
@@ -185,6 +190,7 @@ pub fn float<
         Some((_, res)) => res,
         None => 1,
     };
+    let (i, _) = wsc(i).unwrap(); // Safe since whitespace can never fail.
     Ok((
         i,
         Float {
@@ -195,13 +201,14 @@ pub fn float<
     ))
 }
 
+// WSA OK
 pub fn string(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     // From the cerl spec versin 1.0.3 section 3:
     // > The tokenisation should concatenate all adjacent string literals (these may
     // > be separated by any numb er of whitespace characters, line terminators and
     // > comments). Thus, the text \"Hey" "Ho"" denotes the same string literal as
     // > "HeyHo". This allows strings to be split over several lines.
-    fold_many1(ws(quoted_string), String::new, |mut string, fragment| {
+    fold_many1(wsa(quoted_string), String::new, |mut string, fragment| {
         string.push_str(&fragment);
         string
     })(i)
@@ -233,8 +240,9 @@ fn quoted_string(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     .parse(i)
 }
 
+// WSA OK
 pub fn char_char(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
-    preceded(
+    wsa(preceded(
         char('$'),
         alt((
             verify(inputchar, |o| {
@@ -242,7 +250,7 @@ pub fn char_char(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
             }),
             escape,
         )),
-    )(i)
+    ))(i)
 }
 
 fn atom_char(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
@@ -276,8 +284,9 @@ fn uppercase(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
     verify(anychar, |o| is_uppercase(*o as u8))(i)
 }
 
+// WSA OK
 pub fn var(i: &str) -> IResult<&str, Var, ErrorTree<&str>> {
-    map(
+    wsa(map(
         pair(
             alt((
                 uppercase,
@@ -293,7 +302,7 @@ pub fn var(i: &str) -> IResult<&str, Var, ErrorTree<&str>> {
             var_name.extend(o2);
             Var(var_name.iter().collect())
         },
-    )(i)
+    ))(i)
 }
 
 #[cfg(test)]
