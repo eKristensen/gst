@@ -201,13 +201,10 @@ pub fn string(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     // > be separated by any numb er of whitespace characters, line terminators and
     // > comments). Thus, the text \"Hey" "Ho"" denotes the same string literal as
     // > "HeyHo". This allows strings to be split over several lines.
-    map(
-        fold_many1(ws(quoted_string), Vec::new, |mut acc, item| {
-            acc.push(item);
-            acc
-        }),
-        |o| o.concat(),
-    )(i)
+    fold_many1(ws(quoted_string), String::new, |mut string, fragment| {
+        string.push_str(&fragment);
+        string
+    })(i)
 }
 
 fn quoted_string(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
