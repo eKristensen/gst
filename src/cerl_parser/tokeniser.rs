@@ -12,7 +12,10 @@ use nom::{
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
-use super::ast::{Atom, Float, FunName, Var};
+use super::{
+    ast::{Atom, Float, FunName, Var},
+    helpers::ws,
+};
 
 #[inline]
 fn is_lowercase(chr: u8) -> bool {
@@ -192,8 +195,22 @@ pub fn float<
     ))
 }
 
-// TODO: Deduplicate, a lot like fn atom
 pub fn string(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
+    // From the cerl spec versin 1.0.3 section 3:
+    // > The tokenisation should concatenate all adjacent string literals (these may
+    // > be separated by any numb er of whitespace characters, line terminators and
+    // > comments). Thus, the text \"Hey" "Ho"" denotes the same string literal as
+    // > "HeyHo". This allows strings to be split over several lines.
+    map(
+        fold_many1(ws(quoted_string), Vec::new, |mut acc, item| {
+            acc.push(item);
+            acc
+        }),
+        |o| o.concat(),
+    )(i)
+}
+
+fn quoted_string(i: &str) -> IResult<&str, String, ErrorTree<&str>> {
     // fold is the equivalent of iterator::fold. It runs a parser in a loop,
     // and for each output value, calls a folding function on each output value.
     let build_string = fold_many0(
@@ -287,6 +304,16 @@ mod tests {
     use crate::cerl_parser::{ast::Lit, expressions::literal};
 
     use super::*;
+
+    #[test]
+    fn test_is_ctrlchar() {
+        // Sanity checks
+        assert!(!is_ctlchar(0x3F));
+        assert!(is_ctlchar(0x40));
+        assert!(is_ctlchar(0x50));
+        assert!(is_ctlchar(0x5F));
+        assert!(!is_ctlchar(0x60))
+    }
 
     #[test]
     fn test_integer_literals() {
@@ -552,6 +579,7 @@ mod tests {
             string("\"Two\\nlines\"").unwrap(),
             ("", "Two\nlines".to_owned())
         );
+        assert_eq!(string("\"\"").unwrap(), ("", "".to_owned()));
         assert_eq!(
             string("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\"").unwrap(),
             ("", "Ring\u{7}My\u{7}Bell\u{7}!".to_owned())
