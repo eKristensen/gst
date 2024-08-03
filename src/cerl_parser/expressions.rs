@@ -265,7 +265,55 @@ fn tuple_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
 
 // WSA OK
 fn cons_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
-    cons(literal)(i)
+    map(
+        preceded(wsa(tag("[")), pair(literal, tail_literal)),
+        |(head, tail)| match tail.as_slice() {
+            [Lit::Cons(tail)] => {
+                let mut res: Vec<Lit> = Vec::new();
+                res.push(head);
+                res.extend(tail.clone());
+                res
+            }
+            _ => {
+                let mut res: Vec<Lit> = Vec::new();
+                res.push(head);
+                res.extend(tail.clone());
+                res
+            }
+        },
+    )(i)
+}
+
+// TODO: Make general pattern for all cons lists: Expr, Pat
+// Idea: cona-native literal function.
+//       let general function deal with vectors
+fn tail_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
+    alt((
+        map(
+            delimited(wsa(tag("|")), literal, wsa(tag("]"))),
+            |tail| match tail {
+                Lit::Cons(tail) => tail,
+                _ => vec![tail],
+            },
+        ),
+        map(
+            preceded(wsa(tag(",")), pair(literal, tail_literal)),
+            |(head, tail)| match tail.as_slice() {
+                [Lit::Cons(tail)] => {
+                    let mut res: Vec<Lit> = Vec::new();
+                    res.push(head);
+                    res.extend(tail.clone());
+                    res
+                }
+                _ => {
+                    let mut res: Vec<Lit> = Vec::new();
+                    res.push(head);
+                    res.extend(tail.clone());
+                    res
+                }
+            },
+        ),
+    ))(i)
 }
 
 // WSA OK
