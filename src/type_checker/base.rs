@@ -28,14 +28,7 @@ pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, S
             Ok(res) => Ok(CType::Base(BaseType::Tuple(res))),
             Err(err_val) => Err(format!("expr tuple failed because {}", err_val)),
         },
-        CExpr::Let(v, e1, e2) => {
-            let mut cpat_v: Vec<CPat> = Vec::new(); // TODO: This conversion should be moved
-            for elm in v {
-                cpat_v.push(CPat::Var(elm.clone()));
-            }
-            let v = CPat::Tuple(cpat_v);
-            e_let(module, envs, &v, e1, e2)
-        }
+        CExpr::Let(v, e1, e2) => e_let(module, envs, v, e1, e2),
         CExpr::Case(base_expr, clauses) => e_case(module, envs, base_expr, clauses),
         CExpr::Call(call, args) => e_call(module, envs, call, args),
         CExpr::Do(e1, e2) => e_do(module, envs, e1, e2),
@@ -337,7 +330,10 @@ fn pattern_matching(
         CPat::Tuple(l_tuple) => {
             // What this means: Both sides must have tuple, and content must be compatible
             let CExpr::Tuple(e) = e else {
-                return Err("Tuple pattern mismatch".to_string());
+                return Err(format!(
+                    "Tuple pattern mismatch e:{:?}, l_tuple:{:?}",
+                    e, l_tuple
+                ));
             };
             for (v_elm, e_elm) in l_tuple.iter().zip(e.iter()) {
                 if let Err(err_val) = pattern_matching(module, envs, v_elm, e_elm) {

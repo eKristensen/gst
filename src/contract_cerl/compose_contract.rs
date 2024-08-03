@@ -158,17 +158,24 @@ fn compose_function_with_contract(
     // clause.
     let clauses = match &fun_expr.body.inner {
         Expr::Case(_top_cases_var, top_cases_clauses) => {
-            todo!("Found top-level case. This can be because there are multiplte clauess or a top-levle case. Check annotation: {:?}", fun_expr.body.anno);
+            match &fun_expr.body.anno.0 {
+                None => {
+                    let cexpr = expr_to_cexpr(&fun_expr.body.inner)?;
+                    vec![cexpr]
+                }
+                Some(anno) => {
+                    todo!("Found top-level case. This can be because there are multiplte clauess or a top-levle case. Check annotation: {:?}", fun_expr.body.anno);
+                    let mut clauses_res: Vec<CExpr> = Vec::new();
 
-            let mut clauses_res: Vec<CExpr> = Vec::new();
-
-            // TODO: We throw away "when" right now. Include agian later. It will be needed for
-            // proper type checking later.
-            for clause in top_cases_clauses {
-                let cexpr = expr_to_cexpr(&clause.inner.res.inner)?;
-                clauses_res.push(cexpr);
+                    // TODO: We throw away "when" right now. Include agian later. It will be needed for
+                    // proper type checking later.
+                    for clause in top_cases_clauses {
+                        let cexpr = expr_to_cexpr(&clause.inner.res.inner)?;
+                        clauses_res.push(cexpr);
+                    }
+                    clauses_res
+                }
             }
-            clauses_res
         }
 
         single_clause => match expr_to_cexpr(single_clause) {
@@ -278,13 +285,14 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
             Ok(CExpr::Tuple(tuple))
         }
         Expr::Let(v, e1, e2) => {
+            let v = match v.as_slice() {
+                [v] => CPat::Var(v.name.clone()),
+                _ => CPat::Tuple(v.iter().map(|v| CPat::Var(v.name.clone())).collect()),
+            };
             let e1 = expr_to_cexpr(&e1.inner)?;
             let e2 = expr_to_cexpr(&e2.inner)?;
-            Ok(CExpr::Let(
-                v.iter().map(|v| v.name.clone()).collect(),
-                Box::new(e1),
-                Box::new(e2),
-            ))
+
+            Ok(CExpr::Let(v, Box::new(e1), Box::new(e2)))
         }
         Expr::Case(e1, e2) => {
             let base_expr = expr_to_cexpr(&e1.inner)?;

@@ -147,7 +147,6 @@ fn get_absform_types(spec_in: &Lit) -> Result<Vec<BaseSpecElm>, String> {
     let &[Lit::Atom(tag), _, Lit::Atom(tag2), Lit::Cons(types_list)] = &spec.as_slice() else {
         return Err("get_absform_types: Wrong length tuple.".to_string());
     };
-    println!("Debug how it looks here: {}", spec_in);
     if *tag == Atom("type".to_owned()) && *tag2 != Atom("product".to_owned()) {
         // Not product type assume a it is a ordinary type instead
         let single_type = get_absform_type(spec_in)?;

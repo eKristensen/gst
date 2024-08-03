@@ -50,13 +50,13 @@ pub enum CFunCall {
 #[derive(Debug, Clone)]
 //  Simplified expression for function body
 pub enum CExpr {
-    Var(Var),                              // E_base
-    Lit(Lit),                              // E_base
-    Cons(Vec<CExpr>),                      // E_base
-    Tuple(Vec<CExpr>),                     // E_base
-    Let(Vec<Var>, Box<CExpr>, Box<CExpr>), // E_let* // TODO: Consider to use CPat for vars+e1
-    Case(Box<CExpr>, Vec<CClause>),        // E_case
-    Call(CFunCall, Vec<CExpr>),            // E_{new,send, select, app}
+    Var(Var),                          // E_base
+    Lit(Lit),                          // E_base
+    Cons(Vec<CExpr>),                  // E_base
+    Tuple(Vec<CExpr>),                 // E_base
+    Let(CPat, Box<CExpr>, Box<CExpr>), // E_let*
+    Case(Box<CExpr>, Vec<CClause>),    // E_case
+    Call(CFunCall, Vec<CExpr>),        // E_{new,send, select, app}
     Do(Box<CExpr>, Box<CExpr>),
 }
 
