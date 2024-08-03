@@ -280,44 +280,28 @@ fn cons_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
     let (i, head) = preceded(wsa(tag("[")), literal)(i)?;
     acc.push(head);
     let (i, res) = tail_literal(acc, i)?;
-    println!("finished one: {:?} remaining input {:?}", res, i);
     Ok((i, res))
 }
 
-fn tail_literal<'a>(
-    mut acc: Vec<Lit>,
-    i: &'a str,
-) -> IResult<&'a str, Vec<Lit>, ErrorTree<&'a str>> {
-    println!("Working on {}", i);
-    match wsa(tag("]"))(i.clone()) {
-        Ok((i, _)) => {
-            return Ok((i, acc));
-        }
-        Err(_) => {} // TODO: Return error for err tree?
+fn tail_literal(mut acc: Vec<Lit>, i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
+    if let Ok((i, _)) = wsa(tag("]"))(i) {
+        return Ok((i, acc));
     };
 
-    match delimited(wsa(tag("|")), literal, wsa(tag("]")))(i.clone()) {
-        Ok((i, next)) => {
-            println!("Appeding {} and ending", next);
-            match next {
-                Lit::Cons(next) => acc.extend(next),
-                _ => acc.push(next),
-            }
-            return Ok((i, acc));
+    if let Ok((i, next)) = delimited(wsa(tag("|")), literal, wsa(tag("]")))(i) {
+        match next {
+            Lit::Cons(next) => acc.extend(next),
+            _ => acc.push(next),
         }
-        Err(_) => {}
+        return Ok((i, acc));
     };
 
     match preceded(wsa(tag(",")), literal)(i) {
         Ok((i, next)) => {
-            println!("Appeding {} and next...", next);
             acc.push(next);
             tail_literal(acc, i)
         }
-        Err(_) => {
-            println!("failed when {}", i);
-            fail(i)
-        }
+        Err(_) => fail(i), // TODO: More informative err msg
     }
 }
 
@@ -421,6 +405,8 @@ mod tests {
     fn flatten_cons() {
         assert_eq!(literal("[1,2]").unwrap(), literal("[1|[2]]").unwrap());
         assert_eq!(literal("[1,2,3]").unwrap(), literal("[1|[2|[3]]]").unwrap());
+        assert_eq!(literal("[1,2,3]").unwrap(), literal("[1,2|[3]]").unwrap());
+        assert_eq!(literal("[1,2,3]").unwrap(), literal("[1|[2,3]]").unwrap());
     }
     // Test case where the issue was the args list. Wrapping for completeness
     // TODO: Check output maybe?
