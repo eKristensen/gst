@@ -264,6 +264,10 @@ fn tuple_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
 }
 
 // WSA OK
+// Cons Literal is special since it can be made into a flat list without any loss (no annotations)
+// TODO: Optimize implementaiton. A bunch of manually repeated code in here
+// Maybe a better idea is to flatten the list right away with normal cons and vector reconstruction
+// And to use the same parser.
 fn cons_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
     map(
         preceded(wsa(tag("[")), pair(literal, tail_literal)),
@@ -284,11 +288,9 @@ fn cons_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
     )(i)
 }
 
-// TODO: Make general pattern for all cons lists: Expr, Pat
-// Idea: cona-native literal function.
-//       let general function deal with vectors
 fn tail_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
     alt((
+        value(vec![], wsa(tag("]"))),
         map(
             delimited(wsa(tag("|")), literal, wsa(tag("]"))),
             |tail| match tail {
