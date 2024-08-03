@@ -1,6 +1,6 @@
 use nom::{
     branch::alt,
-    combinator::{map, value},
+    combinator::{fail, map, value},
     multi::{many0, many1, separated_list0},
     sequence::{delimited, pair, preceded, tuple},
     IResult,
@@ -268,54 +268,57 @@ fn tuple_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
 // TODO: Optimize implementaiton. A bunch of manually repeated code in here
 // Maybe a better idea is to flatten the list right away with normal cons and vector reconstruction
 // And to use the same parser.
+// TODO: New idea: Fold parser to build cons vector as values are known.
+// Instead of reverting division, then add based on the type
+// Fold = Vec, each new element added based on wheter they are Lit::Cons or not.
+// It kinda could work. It would resolve the issue of reverting changes to an existing vector from
+// the tail.
+// Fold does NOT work. What to iterate over?
+// BUT idea of accumulator is good, add it to tail function!
 fn cons_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
-    map(
-        preceded(wsa(tag("[")), pair(literal, tail_literal)),
-        |(head, tail)| match tail.as_slice() {
-            [Lit::Cons(tail)] => {
-                let mut res: Vec<Lit> = Vec::new();
-                res.push(head);
-                res.extend(tail.clone());
-                res
-            }
-            _ => {
-                let mut res: Vec<Lit> = Vec::new();
-                res.push(head);
-                res.extend(tail.clone());
-                res
-            }
-        },
-    )(i)
+    let mut acc: Vec<Lit> = Vec::new();
+    let (i, head) = preceded(wsa(tag("[")), literal)(i)?;
+    acc.push(head);
+    let (i, res) = tail_literal(acc, i)?;
+    println!("finished one: {:?} remaining input {:?}", res, i);
+    Ok((i, res))
 }
 
-fn tail_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
-    alt((
-        value(vec![], wsa(tag("]"))),
-        map(
-            delimited(wsa(tag("|")), literal, wsa(tag("]"))),
-            |tail| match tail {
-                Lit::Cons(tail) => tail,
-                _ => vec![tail],
-            },
-        ),
-        map(
-            preceded(wsa(tag(",")), pair(literal, tail_literal)),
-            |(head, tail)| match tail.as_slice() {
-                [Lit::Cons(tail)] => {
-                    let mut res: Vec<Lit> = Vec::new();
-                    res.push(head);
-                    res.extend(tail.clone());
-                    res
-                }
-                _ => {
-                    let mut res: Vec<Lit> = Vec::new();
-                    res.push(head);
-                    res.extend(tail.clone());
-                    res
-                }
-            },
-        ),
-    ))(i)
+fn tail_literal<'a>(
+    mut acc: Vec<Lit>,
+    i: &'a str,
+) -> IResult<&'a str, Vec<Lit>, ErrorTree<&'a str>> {
+    println!("Working on {}", i);
+    match wsa(tag("]"))(i.clone()) {
+        Ok((i, _)) => {
+            return Ok((i, acc));
+        }
+        Err(_) => {} // TODO: Return error for err tree?
+    };
+
+    match delimited(wsa(tag("|")), literal, wsa(tag("]")))(i.clone()) {
+        Ok((i, next)) => {
+            println!("Appeding {} and ending", next);
+            match next {
+                Lit::Cons(next) => acc.extend(next),
+                _ => acc.push(next),
+            }
+            return Ok((i, acc));
+        }
+        Err(_) => {}
+    };
+
+    match preceded(wsa(tag(",")), literal)(i) {
+        Ok((i, next)) => {
+            println!("Appeding {} and next...", next);
+            acc.push(next);
+            tail_literal(acc, i)
+        }
+        Err(_) => {
+            println!("failed when {}", i);
+            fail(i)
+        }
+    }
 }
 
 // WSA OK
@@ -417,7 +420,7 @@ mod tests {
     #[test]
     fn flatten_cons() {
         assert_eq!(literal("[1,2]").unwrap(), literal("[1|[2]]").unwrap());
-        assert_eq!(literal("[1,2,3]").unwrap(), literal("[1|[2|[3]]").unwrap());
+        assert_eq!(literal("[1,2,3]").unwrap(), literal("[1|[2|[3]]]").unwrap());
     }
     // Test case where the issue was the args list. Wrapping for completeness
     // TODO: Check output maybe?
