@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::{
     cerl_parser::{
         self,
-        ast::{AnnoExpr, Clause, Expr, FunCall, FunDef, FunName, Lit, Pat},
+        ast::{Anno, AnnoExpr, Atom, Clause, Const, Expr, FunCall, FunDef, FunName, Lit, Pat},
     },
     spec_extractor::{
         ast::{BaseSpec, BaseSpecDef, BaseSpecElm},
@@ -298,6 +298,14 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
             let base_expr = expr_to_cexpr(&e1.inner)?;
             let mut contract_clauses: Vec<CClause> = Vec::new();
             for clause in e2 {
+                if Anno(Some(vec![Const(Lit::Atom(Atom(
+                    "compiler_generated".to_string(),
+                )))]))
+                    == clause.anno
+                {
+                    println!("Warning: Skipped compiler generated case."); // TODO: Proper warning
+                    continue;
+                }
                 let res = clause_to_cclause(&clause.inner)?;
                 contract_clauses.push(res);
             }
