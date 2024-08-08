@@ -38,7 +38,11 @@ where
             wsa(tag("(")),
             inner, // inner will take care of whitespace after
             wsa(tag("-|")),
-            separated_list0(wsa(tag(",")), constant),
+            delimited(
+                wsa(tag("[")),
+                separated_list0(wsa(tag(",")), constant),
+                wsa(tag("]")),
+            ),
             wsa(tag(")")),
         )),
         |(_, inner_out, _, anno, _)| (inner_out, Anno(Some(anno))),
