@@ -1,5 +1,5 @@
 use crate::{
-    cerl_parser::ast::{Lit, Var},
+    cerl_parser::ast::{Atom, Lit, Var},
     contract_cerl::{
         ast::{CClause, CExpr, CFunCall, CModule, CPat, CType},
         types::{BaseType, SessionType},
@@ -19,7 +19,14 @@ use super::{
 pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, String> {
     match e {
         CExpr::Var(v) => e_base(envs, v),
-        CExpr::Lit(l) => Ok(e_lit(l)),
+        CExpr::Lit(l) => match l {
+            Lit::Atom(atom_val) => match atom_val.0.as_str() {
+                "true" => Ok(CType::Base(BaseType::Boolean)),
+                "false" => Ok(CType::Base(BaseType::Boolean)),
+                _ => Ok(CType::Base(BaseType::Atom(atom_val.clone()))),
+            },
+            l => Ok(e_lit(l)),
+        },
         CExpr::Cons(cons) => match expr_base_type_list(module, envs, cons) {
             Ok(res) => Ok(CType::Base(BaseType::Cons(res))),
             Err(err_val) => Err(format!("expr cons failed because {}", err_val)),
@@ -285,67 +292,20 @@ fn pattern_matching(
     v: &CPat,
     e: &CExpr,
 ) -> Result<(), String> {
-    match v {
-        CPat::Var(v) => {
-            // Get expression type
-            let t = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, e);
-            if let Err(err_val) = t {
-                return Err(format!(
-                    "pattern matching failed in var because {}",
-                    err_val
-                ));
-            }
-            // TODO: Add "remove if equal"/NOOP thing
-            envs.0.insert(v.clone(), ctype_to_typeenv(&t.unwrap()));
-            Ok(())
-        }
-        CPat::Lit(l) => {
-            // Must match on lit
-            let CExpr::Lit(e_lit) = e else {
-                return Err(
-                    "Lit on left hand side can only be unified with lit on right hand side"
-                        .to_string(),
-                );
-            };
-            // They must be equal, if not return error
-            if *l != *e_lit {
-                return Err(
-                    "pattern matching failed in Lit must be equal in pattern matching.".to_string(),
-                );
-            };
-            Ok(())
-        }
-        CPat::Cons(l_cons) => {
-            // What this means: Both sides must have cons, and content must be compatible
-            let CExpr::Cons(e) = e else {
-                return Err("Cons pattern mismatch".to_string());
-            };
-            for (v_elm, e_elm) in l_cons.iter().zip(e.iter()) {
-                if let Err(err_val) = pattern_matching(module, envs, v_elm, e_elm) {
-                    return Err(format!("Pat cons failed due to {}", err_val));
-                }
-            }
-            Ok(())
-        }
-        CPat::Tuple(l_tuple) => {
-            // What this means: Both sides must have tuple, and content must be compatible
-            let CExpr::Tuple(e) = e else {
-                return Err(format!(
-                    "Tuple pattern mismatch e:{:?}, l_tuple:{:?}",
-                    e, l_tuple
-                ));
-            };
-            for (v_elm, e_elm) in l_tuple.iter().zip(e.iter()) {
-                if let Err(err_val) = pattern_matching(module, envs, v_elm, e_elm) {
-                    return Err(format!("Pat tuple failed due to {}", err_val));
-                }
-            }
-            Ok(())
-        }
-        CPat::Alias(_, _) => todo!(
-            "How to pattern match alias? Find example where this todo is triggered and implement."
-        ),
+    // Compare by abstraction, type
+    let e = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, e)?;
+    let v = cpat_to_ctype(envs, v);
+    if e == v {
+        return Ok(());
     }
+    // Manual subtyping
+    if v == CType::Base(BaseType::Term) {
+        return Ok(());
+    }
+    Err(format!(
+        "Pattern mismatch. Pat is {:?} and cexpr is {:?} ",
+        v, e
+    ))
 }
 
 // TODO: Reuse this function. Implemented after this patter has been used a few times.. (check source code!)
@@ -356,5 +316,31 @@ fn ctype_to_typeenv(t: &CType) -> TypeEnv {
         CType::New(n) => TypeEnv::Gamma(n.clone()),
         // TODO: Note that consume var is lost here! Should Delta be updated to contain var?
         CType::Consume(c) => TypeEnv::Delta(c.clone()),
+    }
+}
+
+fn cpat_to_ctype(envs: &TypeEnvs, p: &CPat) -> CType {
+    match p {
+        CPat::Lit(lit) => match lit {
+            Lit::Atom(atom_val) => match atom_val.0.as_str() {
+                "true" => CType::Base(BaseType::Boolean),
+                "false" => CType::Base(BaseType::Boolean),
+                _ => CType::Base(BaseType::Atom(atom_val.clone())),
+            },
+            l => e_lit(l),
+        },
+        CPat::Var(v) => {
+            match envs.0.get(v) {
+                Some(v) => match v {
+                    TypeEnv::Gamma(v) => CType::New(v.clone()),
+                    TypeEnv::Delta(v) => CType::Consume(v.clone()),
+                    TypeEnv::Sigma(v) => CType::Base(v.clone()),
+                },
+                None => CType::Base(BaseType::Term), // If var is not found, allow binding the value with "any"
+            }
+        }
+        CPat::Cons(_c) => todo!(),
+        CPat::Tuple(_t) => todo!(),
+        CPat::Alias(_, _) => todo!(),
     }
 }
