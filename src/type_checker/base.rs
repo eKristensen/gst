@@ -293,18 +293,28 @@ fn pattern_matching(
     e: &CExpr,
 ) -> Result<(), String> {
     // Compare by abstraction, type
-    let e = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, e)?;
-    let v = cpat_to_ctype(envs, v);
-    if e == v {
-        return Ok(());
+    let e_ctype = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, e)?;
+    let v_ctype = cpat_to_ctype(envs, v);
+    let mut acceptable = false;
+    if e_ctype == v_ctype {
+        acceptable = true;
     }
     // Manual subtyping
-    if v == CType::Base(BaseType::Term) {
+    if v_ctype == CType::Base(BaseType::Term) {
+        acceptable = true;
+    }
+    if acceptable {
+        match v {
+            CPat::Var(v) => {
+                envs.0.insert(v.clone(), ctype_to_typeenv(&e_ctype));
+            }
+            _ => (),
+        };
         return Ok(());
     }
     Err(format!(
         "Pattern mismatch. Pat is {:?} and cexpr is {:?} ",
-        v, e
+        v_ctype, e_ctype
     ))
 }
 
