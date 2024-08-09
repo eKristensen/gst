@@ -5,7 +5,10 @@ use std::collections::HashMap;
 use crate::{
     cerl_parser::{
         self,
-        ast::{Anno, AnnoExpr, Atom, Clause, Const, Expr, FunCall, FunDef, FunName, Lit, Pat},
+        ast::{
+            Anno, AnnoExpr, AnnoPat, Atom, Clause, Const, Expr, FunCall, FunDef, FunName, Lit, Pat,
+            Var,
+        },
     },
     spec_extractor::{
         ast::{BaseSpec, BaseSpecDef, BaseSpecElm},
@@ -156,30 +159,51 @@ fn compose_function_with_contract(
     // first expression within the function expression body.
     // We check for this annotation. If the annotation is not present the function only has one
     // clause.
+    let single_clause_std_args = fun_def
+        .clone()
+        .body
+        .fun
+        .vars
+        .into_iter()
+        .map(|v| v.name)
+        .collect();
     let clauses = match &fun_expr.body.inner {
         Expr::Case(_top_cases_var, top_cases_clauses) => {
             match &fun_expr.body.anno.0 {
                 None => {
                     let cexpr = expr_to_cexpr(&fun_expr.body.inner)?;
-                    vec![cexpr]
+                    vec![(single_clause_std_args, cexpr)]
                 }
                 Some(anno) => {
-                    todo!("Found top-level case. This can be because there are multiplte clauess or a top-levle case. Check annotation: {:?}", fun_expr.body.anno);
-                    let mut clauses_res: Vec<CExpr> = Vec::new();
+                    // Top level clause is a function if the annotation contains the function name:
+                    if vec![Const(Lit::Tuple(vec![
+                        Lit::Atom(Atom("function".to_string())),
+                        Lit::Tuple(vec![
+                            Lit::Atom(fname.name.clone()),
+                            Lit::Int(fname.arity.try_into().unwrap()),
+                        ]),
+                    ]))] == *anno
+                    {
+                        let mut clauses_res: Vec<(Vec<Var>, CExpr)> = Vec::new();
 
-                    // TODO: We throw away "when" right now. Include agian later. It will be needed for
-                    // proper type checking later.
-                    for clause in top_cases_clauses {
-                        let cexpr = expr_to_cexpr(&clause.inner.res.inner)?;
-                        clauses_res.push(cexpr);
+                        // TODO: We throw away "when" right now. Include agian later. It will be needed for
+                        // proper type checking later.
+                        for clause in top_cases_clauses {
+                            let clause_args = clause_pats_to_fun_header_args(&clause.inner.pats)?;
+                            let cexpr = expr_to_cexpr(&clause.inner.res.inner)?;
+                            clauses_res.push((clause_args, cexpr));
+                        }
+                        clauses_res
+                    } else {
+                        // Normal cases if not, gotta handle annotated normal cases.
+                        todo!()
                     }
-                    clauses_res
                 }
             }
         }
 
         single_clause => match expr_to_cexpr(single_clause) {
-            Ok(cexpr) => vec![cexpr],
+            Ok(cexpr) => vec![(single_clause_std_args, cexpr)],
             _ => todo!("Unable to to process function expression"),
         },
     };
@@ -193,26 +217,30 @@ fn compose_function_with_contract(
 
     // Match ctype spec and clauses
     let mut contract_clauses: Vec<CFunClause> = Vec::new();
-    for (partial_ctype_elm, this_body) in partial_cfun.iter().zip(clauses.iter()) {
+    for (partial_ctype_elm, (this_args, this_body)) in partial_cfun.iter().zip(clauses.iter()) {
         // It should be a very simple, "just add" stuff here
         contract_clauses.push(
             // TODO: Deduplicate args, but moving to function name does not seem like a good solution.
             CFunClause {
                 spec: partial_ctype_elm.spec.clone(),
-                args: fun_def
-                    .clone()
-                    .body
-                    .fun
-                    .vars
-                    .into_iter()
-                    .map(|v| v.name)
-                    .collect(),
+                args: this_args.clone(),
                 body: this_body.clone(),
                 return_type: partial_ctype_elm.return_type.clone(),
             },
         )
     }
     Ok(contract_clauses)
+}
+
+fn clause_pats_to_fun_header_args(arg_pat: &Vec<AnnoPat>) -> Result<Vec<Var>, String> {
+    let mut res: Vec<Var> = Vec::new();
+    for elm in arg_pat {
+        match &elm.inner {
+            Pat::Var(v) => res.push(v.name.clone()),
+            _ => return Err("when case is top-level function every arg must be a var.".to_string()),
+        }
+    }
+    Ok(res)
 }
 
 // TODO: Can clause_to_cclause and expr_to_cexpr be "mered" into one name via some trait or
