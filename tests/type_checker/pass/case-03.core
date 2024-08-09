@@ -1,0 +1,54 @@
+module 'case-03' ['foo'/1,
+		  'module_info'/0,
+		  'module_info'/1]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[116|[101|[115|[116|[115|[47|[116|[121|[112|[101|[95|[99|[104|[101|[99|[107|[101|[114|[47|[112|[97|[115|[115|[47|[99|[97|[115|[101|[45|[48|[51|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],1}],
+		%% Line 4
+		'session' =
+		    %% Line 4
+		    [39|[102|[111|[111|[39|[40|[95|[41|[59|[32|[40|[95|[41]]]]]]]]]]]]],
+		%% Line 6
+		'spec' =
+		    %% Line 6
+		    [{{'foo',1},[{'type',{6,10},'fun',[{'type',{6,10},'product',[{'type',{6,11},'boolean',[]}]}|[{'type',{6,25},'boolean',[]}]]}|[{'type',{7,10},'fun',[{'type',{7,10},'product',[{'type',{7,11},'integer',[]}]}|[{'type',{7,25},'integer',[]}]]}]]}]]
+'foo'/1 =
+    %% Line 8
+    ( fun (_0) ->
+	  ( case ( _0
+		   -| [{'function',{'foo',1}}] ) of
+	      <A>
+		  when call 'erlang':'is_boolean'
+			(( _0
+			   -| [{'function',{'foo',1}}] )) ->
+		  case A of
+		    %% Line 9
+		    <'true'> when 'true' ->
+			'false'
+		    %% Line 10
+		    <'false'> when 'true' ->
+			'true'
+		    ( <_1> when 'true' ->
+			  primop 'match_fail'
+			      ({'case_clause',_1})
+		      -| ['compiler_generated'] )
+		  end
+	      %% Line 12
+	      <B> when 'true' ->
+		  B
+	    end
+	    -| [{'function',{'foo',1}}] )
+      -| [{'function',{'foo',1}}] )
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('case-03')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('case-03', ( _0
+			    -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end
