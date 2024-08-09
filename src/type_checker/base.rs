@@ -2,7 +2,7 @@ use crate::{
     cerl_parser::ast::{Atom, Lit, Var},
     contract_cerl::{
         ast::{CClause, CExpr, CFunCall, CModule, CPat, CType},
-        types::{BaseType, SessionType},
+        types::{BaseType, SessionType, SessionTypesList},
     },
     type_checker::{
         fun::bif_fun,
@@ -194,7 +194,7 @@ fn e_let(
 // Result: No need for var name in consume return type (CType) and support for ordinary branching.
 fn e_case(
     module: &CModule,
-    envs: &TypeEnvs,
+    envs: &mut TypeEnvs,
     base_expr: &CExpr,
     clauses: &Vec<CClause>,
 ) -> Result<CType, String> {
@@ -226,7 +226,20 @@ fn e_case(
         // - Can we select something here? No, again it would just be a basic let in again
         // - Can we offer something here? Yes, that is the whole point.
         if let SessionType::OfferChoice(offers) = st.0.first().unwrap() {
-            return e_case_offer(module, envs, offers, clauses);
+            let case_res = e_case_offer(module, envs, offers, clauses)?;
+            // TODO: Write down typing system "assumption"
+            // When we are here in the code, it means at least one offer has matched
+            // Therefore we should update the session for the var and remove consume, pop the first
+            // element
+            // TODO: I feel like I should have the var name already somewhere
+            match base_expr {
+                CExpr::Var(v) => {
+                    envs.0
+                        .insert(v.clone(), TypeEnv::Delta(SessionTypesList(vec![])));
+                }
+                _ => todo!("Not supported should never happen"),
+            };
+            return Ok(case_res);
         }
     } // send/receive or anything else
       // If not, then treat as normal

@@ -1,0 +1,52 @@
+module 'offer-00' ['foo'/1,
+		   'module_info'/0,
+		   'module_info'/1]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[111|[102|[102|[101|[114|[45|[48|[48|[46|[101|[114|[108]]]]]]]]]]]],1}],
+		%% Line 4
+		'type' =
+		    %% Line 4
+		    [{'new',{'type',{4,16},'tuple',[]},[]}],
+		%% Line 5
+		'type' =
+		    %% Line 5
+		    [{'consume',{'type',{5,20},'tuple',[]},[]}],
+		%% Line 7
+		'session' =
+		    %% Line 7
+		    [39|[102|[111|[111|[39|[40|[99|[111|[110|[115|[117|[109|[101|[40|[43|[123|[116|[105|[103|[101|[114|[40|[32|[101|[110|[100|[46|[41|[44|[32|[108|[105|[111|[110|[40|[32|[101|[110|[100|[46|[32|[41|[125|[46|[41|[41]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],
+		%% Line 8
+		'spec' =
+		    %% Line 8
+		    [{{'foo',1},[{'type',{8,10},'fun',[{'type',{8,10},'product',[{'user_type',{8,11},'consume',[]}]}|[{'type',{8,25},'boolean',[]}]]}]}]]
+'foo'/1 =
+    %% Line 9
+    ( fun (_0) ->
+	  case ( _0
+		 -| [{'function',{'foo',1}}] ) of
+	    %% Line 10
+	    <'tiger'> when 'true' ->
+		'false'
+	    %% Line 11
+	    <'lion'> when 'true' ->
+		'true'
+	    ( <_1> when 'true' ->
+		  primop 'match_fail'
+		      ({'case_clause',_1})
+	      -| ['compiler_generated'] )
+	  end
+      -| [{'function',{'foo',1}}] )
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('offer-00')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('offer-00', ( _0
+			     -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end
