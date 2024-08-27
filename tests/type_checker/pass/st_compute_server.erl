@@ -36,7 +36,8 @@ handle_new_session_call(add, _From, GlobalState) ->
     io:format("DEBUG: Server got add choice i new session~n"),
     {reply, ready, add, GlobalState}.
 
--spec(integer(), pid(), 'neg')
+-session("'handle_plus_call/3'(_,_)").
+-spec(integer(), pid(), 'neg', map()) -> tuple();
 % Finish related session neg
 % Preliminary Typing Idea
 % Typing: ?{SessionState,int}.!int
