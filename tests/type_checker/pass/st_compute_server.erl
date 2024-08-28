@@ -3,7 +3,10 @@
 
 %% Preliminary Typing Idea
 % elp:ignore W0013 (misspelled_attribute)
--mspec('[?neg !ready. ?int !int,?add !ready ?int !received ?int !int]').
+-mspec("&{
+        neg([sel_neg] ?integer. !integer. end.),
+        add([sel_add] ?integer. [add_1] ?integer. !integer. end.)
+       }").
 
 % By Emil Kristensen, ITU 2023-2024
 
@@ -18,49 +21,34 @@
 start_link() ->
     gen_server_plus:start_link(?MODULE, [], []).
 
--spec handle_new_session_call('neg', pid(), map()) -> tuple();
-% New session neg
-% Preliminary Typing Idea
-% Typing: ?{SessionState,neg}.!atom
-% SessionState=no_session
+% Note: Some kind of client side ordering makes sense to avoid need for "received" msg to sync data with call.
+
+% Note: TODO: Write assumptions/quicks: 'received'= Response will be sent but not as part of session type, more like a "confirmation". 'session_end' instructs gen server plus to destory the session.
+
+-spec handle_new_session_call('neg', pid(), map()) -> {'reply', 'received', {'sel_neg', {}}, map()};
+                             ('add', pid(), map()) -> {'reply', 'received', {'sel_add', {}}, map()}.
 handle_new_session_call(neg, _From, GlobalState) ->
-    io:format("DEBUG: Server got neg choice i new session~n"),
-    {reply, ready, neg, GlobalState};
+    {reply, received, {sel_neg, {}}, GlobalState};
 
--spec handle_new_session_call('add', pid(), map()) -> tuple().
-% New session add
-% Preliminary Typing Idea
-% Typing: ?{SessionState,add}.!atom
-% SessionState=no_session
 handle_new_session_call(add, _From, GlobalState) ->
-    io:format("DEBUG: Server got add choice i new session~n"),
-    {reply, ready, add, GlobalState}.
+    {reply, received, {sel_add, {}}, GlobalState}.
 
--session("'handle_plus_call/3'(_,_)").
--spec(integer(), pid(), 'neg', map()) -> tuple();
-% Finish related session neg
-% Preliminary Typing Idea
-% Typing: ?{SessionState,int}.!int
-% SessionState=neg
-handle_plus_call(V1, _From, neg, GlobalState) ->
-    io:format("DEBUG: Server got last message in neg session~n"),
-    {reply,{result,-V1},[],GlobalState}; % TODO Something to close session
+-spec handle_plus_call(integer(), pid(), {'sel_neg', {}}     , map()) -> {'reply', integer() , 'session_end'       , map()};
+                      (integer(), pid(), {'sel_add', {}}     , map()) -> {'reply', 'received', {'add_1', integer()}, map()};
+                      (integer(), pid(), {'add_1', integer()}, map()) -> {'reply', integer() , 'session_end'       , map()}.
+handle_plus_call(V1, _From, {sel_neg, {}}, GlobalState) ->
+    {reply, -V1, session_end, GlobalState}; % TODO Something to close session
 
-% Receive first value and save it in the session state
-% Preliminary Typing Idea
-% Typing: ?{SessionState,int}.!atom
-% SessionState=add
-handle_plus_call(V1, _From, add, GlobalState) ->
-    io:format("DEBUG: Server got first value in add session~n"),
-    {reply,received,{add,V1},GlobalState};
+handle_plus_call(V1, _From, {sel_add, {}}, GlobalState) ->
+    {reply, received, {add_1,V1}, GlobalState};
 
-% Receive last value and finish computation
-% Preliminary Typing Idea
-% Typing: ?{SessionState,int}.!int
-% SessionState={add,int}
-handle_plus_call(V2, _From, {add,V1}, GlobalState) ->
-    io:format("DEBUG: Server got last message in add session~n"),
-    {reply,{result,V1+V2},[],GlobalState}. % TODO Something to close session
+handle_plus_call(V2, _From, {add_1,V1}, GlobalState) ->
+    {reply, V1+V2, session_end, GlobalState}; % TODO Something to close session
+
+% Catch all
+handle_plus_call(_, _, SessionState, GlobalState) ->
+  io:format("Unknown plus call ignored. If only supported calls are made this message should never appear.~n"),
+  {noreply, SessionState, GlobalState}.
 
 handle_plus_cast(_, SessionState, GlobalState) ->
     io:format("No cast support~n"),
