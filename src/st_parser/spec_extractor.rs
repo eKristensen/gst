@@ -4,15 +4,45 @@ use std::collections::HashMap;
 
 use nom::Finish;
 
-use crate::cerl_parser::{
-    self,
-    ast::{Atom, FunName, Lit},
+use crate::{
+    cerl_parser::{
+        self,
+        ast::{Atom, FunName, Lit},
+    },
+    contract_cerl::types::SessionTypesList,
 };
 
 use super::{
     ast::{SessionSpecDef, SessionSpecs},
-    parser::st_parse,
+    parser::{st_inner, st_parse},
 };
+
+pub fn mspec_extractor(ast: &cerl_parser::ast::Module) -> Result<Option<SessionTypesList>, String> {
+    // Find mspec if any defined for module
+    for attribute in &ast.attributes {
+        let Atom(a_name) = &attribute.name.name;
+        if *a_name == "mspec" {
+            // Use st_inner to typecheck inner value
+            // Session type is wrapped within a list and then as the name of an atom
+
+            // Unwrap the char list.
+            let Lit::Cons(val_const) = &attribute.value.inner else {
+                return Err("Expected cons for mspec".to_string());
+            };
+
+            let st_string = decimal_string_decode(val_const)?;
+
+            // Convert encoded string to string. Move out to common part.
+            match st_inner(&st_string.as_str()) {
+                Ok((_, mspec)) => return Ok(Some(mspec)),
+                Err(err_val) => {
+                    return Err(format!("Failed mspec extraction. Reason: {:?}", err_val))
+                }
+            }
+        }
+    }
+    Ok(None)
+}
 
 pub fn session_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<SessionSpecDef, String> {
     // Find all session attributes
@@ -52,9 +82,20 @@ fn add_session_spec(spec: &Lit) -> Result<(FunName, SessionSpecs), String> {
         return Err("Expected cons for session spec".to_string());
     };
 
+    let st_string = decimal_string_decode(val_const)?;
+
+    // Parse session type spec string
+    let session_type_parsed: (FunName, SessionSpecs) = match st_parse(&st_string).finish() {
+        Ok((_, res)) => res,
+        Err(e) => return Err(format!("Nom could not parse session type\n\n{}", e)),
+    };
+    Ok(session_type_parsed)
+}
+
+fn decimal_string_decode(input: &Vec<Lit>) -> Result<String, String> {
     // ASCII Decimal to string conversion...
     let mut st_string: String = String::new();
-    for item in val_const {
+    for item in input {
         let Lit::Int(char_to_decode) = item else {
             return Err(format!("ASCII decimal string to string conversion only works on integer literals. Found {:?}", item));
         };
@@ -71,11 +112,5 @@ fn add_session_spec(spec: &Lit) -> Result<(FunName, SessionSpecs), String> {
             ));
         };
     }
-
-    // Parse session type spec string
-    let session_type_parsed: (FunName, SessionSpecs) = match st_parse(&st_string).finish() {
-        Ok((_, res)) => res,
-        Err(e) => return Err(format!("Nom could not parse session type\n\n{}", e)),
-    };
-    Ok(session_type_parsed)
+    return Ok(st_string);
 }

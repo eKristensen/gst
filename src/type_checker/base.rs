@@ -1,5 +1,5 @@
 use crate::{
-    cerl_parser::ast::{Atom, Lit, Var},
+    cerl_parser::ast::{Lit, Var},
     contract_cerl::{
         ast::{CClause, CExpr, CFunCall, CModule, CPat, CType},
         types::{BaseType, SessionType, SessionTypesList},

@@ -27,6 +27,7 @@ use super::types::{BaseType, SessionTypesList};
 #[derive(Debug, Clone)]
 pub struct CModule {
     pub name: Atom,
+    pub mspec: Option<SessionTypesList>, // If module implements gen_server_plus behavior save mspec here
     pub functions: HashMap<FunName, Vec<CFunClause>>,
 }
 

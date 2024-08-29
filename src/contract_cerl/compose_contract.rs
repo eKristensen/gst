@@ -16,13 +16,13 @@ use crate::{
     },
     st_parser::{
         ast::{SessionSpec, SessionSpecDef, SessionSpecElm},
-        spec_extractor::session_spec_extractor,
+        spec_extractor::{mspec_extractor, session_spec_extractor},
     },
 };
 
 use super::{
     ast::{self, CClause, CExpr, CFunClause, CModule, CPat, CType, OptWarnings},
-    types::BaseType,
+    types::{BaseType, SessionTypesList},
 };
 use crate::contract_cerl::ast::CFunCall;
 use crate::spec_extractor::ast::BaseSpecElm::Base;
@@ -35,15 +35,17 @@ pub fn compose_contract(
     // Step 1: Resolve dependencies: Must get specs
     let base_spec = base_spec_extractor(&ast.inner)?;
     let session_spec = session_spec_extractor(&ast.inner)?;
+    let mspec = mspec_extractor(&ast.inner)?;
 
     // Step 2: Convert while matching specs.
-    Ok(make_contract(&ast.inner, base_spec, session_spec))
+    Ok(make_contract(&ast.inner, base_spec, session_spec, mspec))
 }
 
 fn make_contract(
     ast: &cerl_parser::ast::Module,
     base_spec: BaseSpecDef,
     session_spec: SessionSpecDef,
+    mspec: Option<SessionTypesList>,
 ) -> OptWarnings<ast::CModule> {
     let mut warnings: Vec<String> = Vec::new();
     let mut functions: HashMap<FunName, Vec<CFunClause>> = HashMap::new();
@@ -70,6 +72,7 @@ fn make_contract(
     OptWarnings {
         res: CModule {
             name: ast.name.clone(),
+            mspec,
             functions,
         },
         warnings,

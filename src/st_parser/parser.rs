@@ -74,7 +74,7 @@ fn consume_spec(i: &str) -> IResult<&str, SessionSpecElm, ErrorTree<&str>> {
     )(i)
 }
 
-fn st_inner(i: &str) -> IResult<&str, SessionTypesList, ErrorTree<&str>> {
+pub fn st_inner(i: &str) -> IResult<&str, SessionTypesList, ErrorTree<&str>> {
     map(
         pair(
             separated_list1(

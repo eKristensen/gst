@@ -42,8 +42,9 @@ pub enum SessionType {
     // Why list? Easier to work with in Rust to avoid Boxing.
     MakeChoice(HashMap<Label, SessionTypesList>),
     OfferChoice(HashMap<Label, SessionTypesList>),
-    End, // End is never consumed
-         // TODO: Missing variable and recursion. How do they work?
+    State(String), // for mspec to support gen server plus as a state machine.
+    End,           // End is never consumed
+                   // TODO: Missing variable and recursion. How do they work?
 }
 
 // TODO: Reimplement new Display functions for the types above for pretty printing.

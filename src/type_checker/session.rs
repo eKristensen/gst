@@ -159,6 +159,9 @@ pub fn gsp_sync_send(
             }
         }
         SessionType::End => Err("Session type is End, but we are about to use it".to_string()),
+        SessionType::State(_) => {
+            Err("State annotation is not allowed in -session, only -mspec".to_string())
+        }
     }
 
     // Call by value, We need to argument type. Execution environment? Should I consider it isolated? I suppose?

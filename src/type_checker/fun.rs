@@ -222,6 +222,7 @@ fn is_st_subtype_aux(t1: &[SessionType], t2: &[SessionType]) -> bool {
             false
         }
         SessionType::End => false,
+        SessionType::State(_) => todo!("State is not allowed in -session. Properly handle error message or redesign to not need it.")
     }
 }
 
