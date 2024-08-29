@@ -7,6 +7,7 @@
         neg(['sel_neg']. ?integer. !integer. end.),
         add(['sel_add']. ?integer. ['add_1']. ?integer. !integer. end.)
        }.").
+% TODO: Maybe using [] for state labels is a bad idea. Same symbol as used with lists...
 
 % By Emil Kristensen, ITU 2023-2024
 

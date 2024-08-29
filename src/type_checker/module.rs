@@ -1,6 +1,12 @@
 use std::collections::HashMap;
 
-use crate::contract_cerl::ast::{CModule, CType, OptWarnings};
+use crate::{
+    cerl_parser::ast::Atom,
+    contract_cerl::{
+        ast::{CModule, CType, OptWarnings},
+        types::SessionTypesList,
+    },
+};
 
 use super::{base::expr, env::TypeEnvs, init::init_env, session::finished};
 
@@ -17,6 +23,36 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
     let mut warnings: Vec<String> = Vec::new();
     // Overall acceptance. Assume all is OK until proven otherwise
     let mut overall_acceptance = true;
+
+    // TODO: Consistency sanity check: If mspec also expect behavior('gen_server_plus')
+    // If mspec is defined check module mspec first
+    if let Some(mspec) = module.mspec {
+        // Approach: Something ala: Generate input to run checker
+        //
+        // Split the mspec into parts, kinda like a code generator, except that it is only cares
+        // about checking the -spec. Is that okay ?
+        // TODO: Should mspec check the content of each handle call also? Or is it enough to just
+        // check the spec and rely on e.g. dialyzer to ensure the function body is ok?
+        //
+        // Data could be a map: (State, Input, Output) => Seen (yes/no)
+        // All must have been seen by end, and no duplicates.
+        // Extras are accepted for now. Intention is to be less invasive TODO: Good or bad idea?
+        //
+        // Construct via recrsive function on the SessionTypesList
+        let mut handle_map: HashMap<(Atom, SessionTypesList, SessionTypesList), bool> =
+            HashMap::new();
+        // TODO: Assumption: The label "__START__" is used internally
+        mspec_handle_extractor(&handle_map, &Atom("__START__".to_string()), &mspec);
+
+        //
+        //
+        // For all handle call matche with the input above
+        //
+        // Ensure that all parts of the session type has one and only one implementation. If there
+        // are none or more than one implementation be sure to fail the module wrt to the mspec
+        // type checking.
+    }
+
     // each function get a fresh env
     for (fun_name, clauses) in &module.functions {
         // Check each function clause
@@ -73,5 +109,23 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
     OptWarnings {
         res: overall_acceptance,
         warnings,
+    }
+}
+
+fn mspec_handle_extractor(
+    map: &mut HashMap<(Atom, SessionTypesList, SessionTypesList), bool>,
+    state: Atom,
+    input: &SessionTypesList,
+) {
+    // To extract I need a label and to include all until next label.
+    // TODO: Fixed pattern assumed now: When receive then follow by send
+    // When choise, follow by send "received"
+    // it is always possible to end session in addition to sending Data
+    // Next label should be given for checking
+    // This system is a bit restrictive but at least a start.
+
+    match input.0.as_slice() {
+        // pattern match mspec extraction
+        
     }
 }
