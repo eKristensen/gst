@@ -33,7 +33,7 @@ pub fn mspec_extractor(ast: &cerl_parser::ast::Module) -> Result<Option<SessionT
             let st_string = decimal_string_decode(val_const)?;
 
             // Convert encoded string to string. Move out to common part.
-            match st_inner(&st_string.as_str()) {
+            match st_inner(st_string.as_str()) {
                 Ok((_, mspec)) => return Ok(Some(mspec)),
                 Err(err_val) => {
                     return Err(format!("Failed mspec extraction. Reason: {:?}", err_val))
@@ -112,5 +112,5 @@ fn decimal_string_decode(input: &Vec<Lit>) -> Result<String, String> {
             ));
         };
     }
-    return Ok(st_string);
+    Ok(st_string)
 }

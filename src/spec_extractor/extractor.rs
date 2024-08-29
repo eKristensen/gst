@@ -48,7 +48,7 @@ fn add_base_spec(spec: &Lit) -> Result<(FunName, BaseSpecs), String> {
     let mut base_specs: BaseSpecs = BaseSpecs(Vec::new());
     for absform_clause in absform_clauses {
         let (input, output) = get_absform_clause(absform_clause)?;
-        let input = get_absform_types(&input)?;
+        let input = get_absform_product_type(&input)?;
         let BaseSpecElm::Base(output) = get_absform_type(&output)? else {
             return Err("add_base_spec: Output type must be a base type".to_string());
         };
@@ -137,7 +137,7 @@ fn get_absform_clause(spec: &Lit) -> Result<(Lit, Lit), String> {
     Ok((io[0].clone(), io[1].clone()))
 }
 
-fn get_absform_types(spec_in: &Lit) -> Result<Vec<BaseSpecElm>, String> {
+fn get_absform_product_type(spec_in: &Lit) -> Result<Vec<BaseSpecElm>, String> {
     // Product type is a special kind of type that can nest other types.
     let Lit::Tuple(spec) = spec_in else {
         return Err("get_absform_product_type can only be in a tuple.".to_string());
@@ -187,12 +187,25 @@ fn get_absform_type(spec: &Lit) -> Result<BaseSpecElm, String> {
                 ("type", "boolean") => Ok(BaseSpecElm::Base(BaseType::Boolean)),
                 ("type", "list") => Ok(BaseSpecElm::Base(BaseType::List)),
                 ("type", "string") => Ok(BaseSpecElm::Base(BaseType::String)),
-                _ => Err("Could not match any type".to_string()),
+                ("type", "tuple") => Ok(BaseSpecElm::Base(BaseType::Tuple(vec![]))),
+                e => Err(format!("Could not match any type #1. Found {:?}", e)),
             }
         }
 
         &[Lit::Atom(tag), _, Lit::Atom(tag2), Lit::Cons(args)] => {
             match (tag.0.as_str(), tag2.0.as_str(), args.as_slice()) {
+                ("type", "tuple", args) => {
+                    let mut tuple_content: Vec<BaseType> = Vec::new();
+                    for arg in args {
+                        let arg = get_absform_type(arg)?;
+                        let BaseSpecElm::Base(arg) = arg else {
+                            // TODO: Do we want to support session type defintions within tuples ?
+                            return Err("session type not supported within a tuple.".to_string());
+                        };
+                        tuple_content.push(arg);
+                    }
+                    Ok(BaseSpecElm::Base(BaseType::Tuple(tuple_content)))
+                }
                 ("type", type_name, type_args) => Err(format!(
                     "Unknown type {:?} with args {:?}",
                     type_name, type_args
@@ -201,7 +214,7 @@ fn get_absform_type(spec: &Lit) -> Result<BaseSpecElm, String> {
                     "Unknown user_type {:?} with args {:?}",
                     type_name, type_args
                 )),
-                _ => Err("Could not match any type".to_string()),
+                e => Err(format!("Could not match any type #2. Found {:?}", e)),
             }
         }
         &[Lit::Atom(tag), _, Lit::Atom(tag2), Lit::Atom(tag3)] => {

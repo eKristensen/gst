@@ -15,6 +15,7 @@ pub struct BaseSpec {
     pub return_type: BaseType,
 }
 
+#[derive(Debug)]
 pub enum BaseSpecElm {
     Base(BaseType),
     New,

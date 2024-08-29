@@ -85,6 +85,7 @@ pub fn st_inner(i: &str) -> IResult<&str, SessionTypesList, ErrorTree<&str>> {
                     st_make_choice,
                     st_offer_choice,
                     value(SessionType::End, tag("end")),
+                    mspec_state,
                 )),
             ), // TODO: Add branch and choice
             tag("."),
@@ -168,6 +169,13 @@ fn inner_choice(i: &str) -> IResult<&str, (Label, SessionTypesList), ErrorTree<&
     map(
         pair(alpha1, delimited(ws(tag("(")), st_inner, ws(tag(")")))),
         |(o1, o2)| (Label(o1.to_string()), o2),
+    )(i)
+}
+
+fn mspec_state(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
+    map(
+        delimited(ws(tag("[")), atom, ws(tag("]"))),
+        SessionType::State,
     )(i)
 }
 
