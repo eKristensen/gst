@@ -95,7 +95,7 @@ fn e_call(
     }
 
     // Try build-in functions (bif)
-    let bif_res = bif_fun(call);
+    let bif_res = bif_fun(module, envs, call, args);
     if let Ok(res_ok) = bif_res {
         return Ok(res_ok);
     }

@@ -1,4 +1,5 @@
 use crate::contract_cerl::ast::CPat;
+use crate::contract_cerl::types::BaseType;
 use crate::{cerl_parser::ast::Var, contract_cerl::ast::CType};
 
 use super::env::TypeEnvs;
@@ -26,6 +27,14 @@ pub fn init_env(
         // level as a fallback.
         let var = match var {
             CPat::Var(var) => var,
+            CPat::Tuple(t) => {
+                // Try to bind sub elements
+                println!("sub bind: {:?} {:?}", t, elm_ctype);
+                // Interesting case:
+                // sub bind: [Lit(Atom(Atom("add_1"))), Var(Var("V1"))] Base(Tuple([Atom(Atom("add_1")), Integer]))
+                pat_init_envs(envs, t, elm_ctype);
+                elm_fallback
+            }
             _ => elm_fallback,
         };
         let insert_res = match elm_ctype {
@@ -47,4 +56,30 @@ pub fn init_env(
         }
     }
     Ok(())
+}
+
+// TODO: More generic than just tuples...
+// TODO: This function needs to be recursive somehow. Maybe be inspired by type checker pattern
+// matching?
+fn pat_init_envs(envs: &mut TypeEnvs, right: &[CPat], left: &CType) {
+    // Unpack assuming tuple
+    let CType::Base(left) = left else { return () };
+    let BaseType::Tuple(left) = left else {
+        return ();
+    };
+    for (elm_left, elm_right) in right.iter().zip(left.iter()) {
+        match (elm_left, elm_right) {
+            (CPat::Var(var), elm_right) => {
+                let insert_res = envs
+                    .0
+                    .insert(var.clone(), Sigma(elm_right.clone()))
+                    .is_none();
+
+                if !insert_res {
+                    todo!("Duplicate var in args, should not be possible!!!");
+                }
+            }
+            _ => continue,
+        }
+    }
 }

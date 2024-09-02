@@ -11,18 +11,49 @@ use super::{env::TypeEnvs, session::must_st_consume_expr};
 
 // Handle build in functions
 pub fn bif_fun(
-    // module: &CModule,
-    // envs: &mut TypeEnvs,
+    module: &CModule,
+    envs: &mut TypeEnvs,
     call: &CFunCall,
-    // args: &Vec<CExpr>,
+    args: &Vec<CExpr>,
 ) -> Result<CType, String> {
-    // TODO: More clever way to handle BIF
-    let bif_io_format = CFunCall::Call(Atom("io".to_owned()), Atom("format".to_owned()));
-    if *call == bif_io_format {
-        return Ok(CType::Base(BaseType::Atom(Atom("ok".to_string()))));
+    let CFunCall::Call(fun_mod, fun_name) = call else {
+        return Err("Unknown format bif or not bif".to_string());
+    };
+    match (fun_mod.0.as_str(), fun_name.0.as_str()) {
+        ("io", "format") => Ok(CType::Base(BaseType::Atom(Atom("ok".to_string())))),
+        ("erlang", "-") => {
+            // TODO: Add support for other types and binary. Only unary minus supported now
+            if args.len() != 1 {
+                return Err("Wrong or unknown use of erlang:-".to_string());
+            }
+            let val_in = args.first().unwrap();
+            let type_in = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, val_in)?;
+            if CType::Base(BaseType::Integer) == type_in {
+                Ok(CType::Base(BaseType::Integer))
+            } else {
+                Err("Expected integer for erlang:- function.".to_string())
+            }
+        }
+        ("erlang", "+") => {
+            if args.len() != 2 {
+                return Err("Wrong or unknown use of erlang:+".to_string());
+            }
+            let [val_1, val_2] = args.as_slice() else {
+                return Err("Expected two args for erlang:+".to_string());
+            };
+            println!("Am here: {:?} {:?}", val_1, envs);
+            let type_1_in = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, val_1)?;
+            println!("Am here 2");
+            let type_2_in = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, val_2)?;
+            println!("Am here 3");
+            if CType::Base(BaseType::Integer) == type_1_in && type_1_in == type_2_in {
+                Ok(CType::Base(BaseType::Integer))
+            } else {
+                Err("Expected integer for erlang:+ function.".to_string())
+            }
+        }
+        _ => Err("Unknown bif or not bif".to_string()),
     }
-
-    Err("Not bif".to_string())
 }
 
 // e_app
