@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    cerl_parser::ast::Atom,
+    cerl_parser::ast::{Atom, FunName, Lit},
     contract_cerl::{
-        ast::{CModule, CType, OptWarnings},
+        ast::{CFunClause, CModule, CType, OptWarnings},
         types::{BaseType, SessionType},
     },
 };
@@ -67,6 +67,163 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
         // Ensure that all parts of the session type has one and only one implementation. If there
         // are none or more than one implementation be sure to fail the module wrt to the mspec
         // type checking.
+        // Accept extra handle calls for now. TODO: Maybe this is a bad idea as they could
+        //                                          interfere with the communication.
+        if let Some(new_session_clauses) = module.functions.get(&FunName {
+            name: Atom("handle_new_session_call".to_string()),
+            arity: 3,
+        }) {
+            for new_session_clause in new_session_clauses {
+                println!(
+                    "Clause spec to check: {:?} {:?}",
+                    new_session_clause.spec, new_session_clause.return_type
+                );
+                let [val_in, _, _] = new_session_clause.spec.as_slice() else {
+                    println!("Debug #1");
+                    continue;
+                };
+                // TODO: Here we assume base type for value in. Always true?
+                let CType::Base(val_in) = val_in else {
+                    println!("Debug #2");
+                    continue;
+                };
+                let BaseType::Tuple(return_type_tuple) = &new_session_clause.return_type else {
+                    println!("Debug #3");
+                    continue;
+                };
+                let [handle_action, val_out, state_out, _global_state] =
+                    return_type_tuple.as_slice()
+                else {
+                    println!("Debug #4");
+                    continue;
+                };
+                if handle_action != &BaseType::Atom(Atom("reply".to_string())) {
+                    println!("Debug #5");
+                    continue;
+                }
+                let BaseType::Tuple(state_out) = state_out else {
+                    println!("Debug #7");
+                    continue;
+                };
+                let [state_out, _] = state_out.as_slice() else {
+                    println!("Debug #8");
+                    continue;
+                };
+                let BaseType::Atom(state_out) = state_out else {
+                    println!("Debug #6: {:?}", state_out);
+                    continue;
+                };
+                let find_mspec = MSpec {
+                    state_in: Atom("__START__".to_string()),
+                    state_out: state_out.clone(),
+                    val_in: val_in.clone(),
+                    val_out: val_out.clone(),
+                };
+                match handle_map.0.get(&find_mspec) {
+                    Some(res) => {
+                        if !res {
+                            handle_map.0.insert(find_mspec, !res);
+                        } else {
+                            todo!("mspec failed, find proper err msg");
+                        }
+                    }
+                    None => continue,
+                };
+            }
+        }
+
+        if let Some(plus_calls) = module.functions.get(&FunName {
+            name: Atom("handle_plus_call".to_string()),
+            arity: 4,
+        }) {
+            for plus_clause in plus_calls {
+                println!(
+                    "Clause spec to check: {:?} {:?}",
+                    plus_clause.spec, plus_clause.return_type
+                );
+                let [val_in, _, state_in, _] = plus_clause.spec.as_slice() else {
+                    println!("Debug #1");
+                    continue;
+                };
+                // TODO: Here we assume base type for value in. Always true?
+                let CType::Base(val_in) = val_in else {
+                    println!("Debug #2");
+                    continue;
+                };
+                let CType::Base(state_in) = state_in else {
+                    println!("Debug #12");
+                    continue;
+                };
+                let BaseType::Tuple(state_in) = state_in else {
+                    println!("Debug #9");
+                    continue;
+                };
+                let [state_in, _] = state_in.as_slice() else {
+                    println!("Debug #10");
+                    continue;
+                };
+                let BaseType::Atom(state_in) = state_in else {
+                    println!("Debug #11: {:?}", state_in);
+                    continue;
+                };
+                let BaseType::Tuple(return_type_tuple) = &plus_clause.return_type else {
+                    println!("Debug #3");
+                    continue;
+                };
+                let [handle_action, val_out, state_out, _global_state] =
+                    return_type_tuple.as_slice()
+                else {
+                    println!("Debug #4");
+                    continue;
+                };
+                if handle_action != &BaseType::Atom(Atom("reply".to_string())) {
+                    println!("Debug #5");
+                    continue;
+                }
+                let BaseType::Tuple(state_out) = state_out else {
+                    println!("Debug #7");
+                    continue;
+                };
+                let [state_out, _] = state_out.as_slice() else {
+                    println!("Debug #8");
+                    continue;
+                };
+                let BaseType::Atom(state_out) = state_out else {
+                    println!("Debug #6: {:?}", state_out);
+                    continue;
+                };
+                let find_mspec = MSpec {
+                    state_in: state_in.clone(),
+                    state_out: state_out.clone(),
+                    val_in: val_in.clone(),
+                    val_out: val_out.clone(),
+                };
+                println!("mspec handle to find: {:?}", find_mspec);
+                match handle_map.0.get(&find_mspec) {
+                    Some(res) => {
+                        if !res {
+                            handle_map.0.insert(find_mspec, !res);
+                        } else {
+                            todo!("mspec failed, find proper err msg");
+                        }
+                    }
+                    None => continue,
+                };
+            }
+        }
+
+        println!(
+            "==DEBUG: mspec extractor res after new session: {:?}",
+            handle_map
+        );
+
+        for (_, val) in handle_map.0 {
+            // If any session element is not implemented, fail now!
+            // TODO: Should be opt return warning stuff like the rest
+            if !val {
+                todo!("mspec failed. Handle properly.");
+            }
+        }
     }
 
     // each function get a fresh env

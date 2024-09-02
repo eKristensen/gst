@@ -11,6 +11,7 @@
 
 % TODO: Required because static type checker require full annotation. Make it work without
 -session("'handle_new_session_call'(_,_,_);(_,_,_);(_,_,_)").
+-session("'handle_plus_call'(_,_,_,_);(_,_,_,_);(_,_,_,_);(_,_,_,_)").
 
 % By Emil Kristensen, ITU 2023-2024
 
@@ -42,17 +43,18 @@ handle_new_session_call(add, _From, GlobalState) ->
 handle_new_session_call(_,_,GlobalState) ->
     {noreply, GlobalState}.
 
--spec handle_plus_call(integer(), pid(), {'sel_neg', {}}     , map()) -> {'reply', integer() , 'session_end'       , map()};
+-spec handle_plus_call(integer(), pid(), {'sel_neg', {}}     , map()) -> {'reply', integer() , {'session_end', {}} , map()};
                       (integer(), pid(), {'sel_add', {}}     , map()) -> {'reply', 'received', {'add_1', integer()}, map()};
-                      (integer(), pid(), {'add_1', integer()}, map()) -> {'reply', integer() , 'session_end'       , map()}.
+                      (integer(), pid(), {'add_1', integer()}, map()) -> {'reply', integer() , {'session_end', {}} , map()};
+                      (any(), any(), any(), any()) -> {'noreply', any(), any()}.
 handle_plus_call(V1, _From, {sel_neg, {}}, GlobalState) ->
-    {reply, -V1, session_end, GlobalState}; % TODO Something to close session
+    {reply, -V1, {session_end, {}}, GlobalState}; % TODO Something to close session
 
 handle_plus_call(V1, _From, {sel_add, {}}, GlobalState) ->
     {reply, received, {add_1,V1}, GlobalState};
 
 handle_plus_call(V2, _From, {add_1,V1}, GlobalState) ->
-    {reply, V1+V2, session_end, GlobalState}; % TODO Something to close session
+    {reply, V1+V2, {session_end, {}}, GlobalState}; % TODO Something to close session
 
 % Catch all
 handle_plus_call(_, _, SessionState, GlobalState) ->

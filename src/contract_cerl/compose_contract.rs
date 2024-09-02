@@ -251,20 +251,32 @@ fn compose_function_with_contract(
 fn clause_pats_to_fun_header_args(arg_pat: &Vec<AnnoPat>) -> Result<Vec<CPat>, String> {
     let mut res: Vec<CPat> = Vec::new();
     for elm in arg_pat {
-        match &elm.inner {
-            Pat::Var(v) => res.push(CPat::Var(v.name.clone())),
-            Pat::Lit(l) => res.push(CPat::Lit(l.clone())),
-            x => {
-                return Err(format!(
-                    "when case is top-level function every arg must be a var. Found {}",
-                    x,
-                ))
-            }
-        }
+        let elm_res = clause_pats_to_fun_header_arg(&elm.inner)?;
+        res.push(elm_res);
     }
     Ok(res)
 }
 
+fn clause_pats_to_fun_header_arg(arg_pat: &Pat) -> Result<CPat, String> {
+    match arg_pat {
+        Pat::Var(v) => Ok(CPat::Var(v.name.clone())),
+        Pat::Lit(l) => Ok(CPat::Lit(l.clone())),
+        Pat::Tuple(t) => {
+            let mut tuple_content: Vec<CPat> = Vec::new();
+            for elm in t {
+                let res = clause_pats_to_fun_header_arg(&elm.inner)?;
+                tuple_content.push(res);
+            }
+            Ok(CPat::Tuple(tuple_content))
+        }
+        x => {
+            return Err(format!(
+                "when case is top-level function every arg must be a var. Found {}",
+                x,
+            ))
+        }
+    }
+}
 // TODO: Can clause_to_cclause and expr_to_cexpr be "mered" into one name via some trait or
 // similar?
 
