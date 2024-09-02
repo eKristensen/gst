@@ -4,16 +4,16 @@ use crate::{
     cerl_parser::ast::Atom,
     contract_cerl::{
         ast::{CModule, CType, OptWarnings},
-        types::{BaseType, SessionType, SessionTypesList},
+        types::{BaseType, SessionType},
     },
 };
 
 use super::{base::expr, env::TypeEnvs, init::init_env, session::finished};
 
-#[derive(Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 struct MSpecEnv(HashMap<MSpec, bool>);
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Debug, Eq, Hash, PartialEq)]
 struct MSpec {
     state_in: Atom,
     state_out: Atom,
@@ -53,7 +53,12 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
         // Construct via recrsive function on the SessionTypesList
         let mut handle_map = MSpecEnv(HashMap::new());
         // TODO: Assumption: The label "__START__" is used internally
-        mspec_handle_extractor(&mut handle_map, Atom("__START__".to_string()), mspec);
+        mspec_handle_extractor(
+            &mut handle_map,
+            &Atom("__START__".to_string()),
+            mspec.0.as_slice(),
+        );
+        println!("==DEBUG: mspec extractor res: {:?}", handle_map);
 
         //
         //
@@ -71,8 +76,12 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
             // Define envs hashmap for this clause
             let mut envs: TypeEnvs = TypeEnvs(HashMap::new());
 
+            let Some(fallback) = module.fallback_args.get(fun_name) else {
+                todo!("No fallback argument found.");
+            };
+
             // Init env based on function header
-            let init_ok = init_env(&mut envs, &clause.args, &clause.spec);
+            let init_ok = init_env(&mut envs, &clause.args, &clause.spec, &fallback);
             if init_ok.is_err() {
                 warnings.push(format!(
                     "Init env failed for {} due to {}",
@@ -123,7 +132,7 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
     }
 }
 
-fn mspec_handle_extractor(map: &mut MSpecEnv, state: Atom, input: &SessionTypesList) {
+fn mspec_handle_extractor(map: &mut MSpecEnv, state_in: &Atom, input: &[SessionType]) {
     // To extract I need a label and to include all until next label.
     // TODO: Fixed pattern assumed now: When receive then follow by send
     // When choise, follow by send "received"
@@ -131,12 +140,12 @@ fn mspec_handle_extractor(map: &mut MSpecEnv, state: Atom, input: &SessionTypesL
     // Next label should be given for checking
     // This system is a bit restrictive but at least a start.
 
-    match input.0.as_slice() {
+    match input {
         // pattern match mspec extraction
         [SessionType::Receive(recv), SessionType::Send(send), SessionType::End] => {
             map.0.insert(
                 MSpec {
-                    state_in: state,
+                    state_in: state_in.clone(),
                     state_out: Atom("session_end".to_string()),
                     val_in: recv.clone(),
                     val_out: send.clone(),
@@ -144,6 +153,77 @@ fn mspec_handle_extractor(map: &mut MSpecEnv, state: Atom, input: &SessionTypesL
                 false,
             );
         }
-        _ => todo!("Not supported mspec. Failed in mspec handle extraction."),
+        [SessionType::Receive(recv), SessionType::Send(send), SessionType::State(state_out), remainder @ ..] =>
+        {
+            if remainder.is_empty() {
+                todo!("Proper error for when state in mspec session type set right before end of session type")
+            }
+            map.0.insert(
+                MSpec {
+                    state_in: state_in.clone(),
+                    state_out: Atom("session_end".to_string()),
+                    val_in: recv.clone(),
+                    val_out: send.clone(),
+                },
+                false,
+            );
+            mspec_handle_extractor(map, state_out, remainder)
+        }
+        [SessionType::Receive(recv), SessionType::End] => {
+            map.0.insert(
+                MSpec {
+                    state_in: state_in.clone(),
+                    state_out: Atom("session_end".to_string()),
+                    val_in: recv.clone(),
+                    val_out: BaseType::Atom(Atom("received".to_string())), // TODO: Should implicit
+                                                                           // value here be explicit?
+                },
+                false,
+            );
+        }
+        [SessionType::Receive(recv), SessionType::State(state_out), remainder @ ..] => {
+            if remainder.is_empty() {
+                todo!("Proper error for when state in mspec session type set right before end of session type")
+            }
+            map.0.insert(
+                MSpec {
+                    state_in: state_in.clone(),
+                    state_out: state_out.clone(),
+                    val_in: recv.clone(),
+                    val_out: BaseType::Atom(Atom("received".to_string())), // TODO: Should implicit
+                                                                           // value here be explicit?
+                },
+                false,
+            );
+            mspec_handle_extractor(map, state_out, remainder)
+        }
+        [SessionType::OfferChoice(offers)] => {
+            for (label, inner) in offers {
+                // TODO: To offer label is converted into to receive label and send back received.
+                // The residual session type is checked recursively.
+                if inner.0.len() < 2 {
+                    todo!("Proper error when session type within a offer is too short to form a checkable session type.");
+                }
+                match inner.0.as_slice() {
+                    [SessionType::State(state_out), remainder @ ..] => {
+                        map.0.insert(
+                            MSpec {
+                                state_in: state_in.clone(),
+                                state_out: state_out.clone(),
+                                val_in: BaseType::Atom(Atom(label.0.clone())),
+                                val_out: BaseType::Atom(Atom("received".to_string())),
+                            },
+                            false,
+                        );
+                        mspec_handle_extractor(map, state_out, remainder)
+                    }
+                    _ => todo!("Could not check offer choice in mspec"),
+                }
+            }
+        }
+        x => todo!(
+            "Not supported mspec. Failed in mspec handle extraction: {:?}",
+            x
+        ),
     }
 }

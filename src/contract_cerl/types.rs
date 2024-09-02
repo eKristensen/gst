@@ -21,7 +21,7 @@ pub enum BaseType {
     Tuple(Vec<BaseType>),
     Char,
     String,
-    Term, // Aka "any"
+    Any,  // Aka "term"
     List, // TODO: Differentiate between list types and include maybe improper and improper lists.
     Map,  // TODO: Differentiate between different kinds of maps.
 }

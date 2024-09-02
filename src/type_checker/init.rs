@@ -1,3 +1,4 @@
+use crate::contract_cerl::ast::CPat;
 use crate::{cerl_parser::ast::Var, contract_cerl::ast::CType};
 
 use super::env::TypeEnvs;
@@ -5,7 +6,12 @@ use crate::type_checker::env::TypeEnv::Delta;
 use crate::type_checker::env::TypeEnv::Gamma;
 use crate::type_checker::env::TypeEnv::Sigma;
 
-pub fn init_env(envs: &mut TypeEnvs, args: &[Var], spec: &[CType]) -> Result<(), String> {
+pub fn init_env(
+    envs: &mut TypeEnvs,
+    args: &[CPat],
+    spec: &[CType],
+    fallback: &[Var],
+) -> Result<(), String> {
     // TODO: For all places .zip is used, length should be checked.
     // Rust makes no errors, just stops when size is mismatched, see
     // https://stackoverflow.com/questions/57345197/
@@ -15,7 +21,13 @@ pub fn init_env(envs: &mut TypeEnvs, args: &[Var], spec: &[CType]) -> Result<(),
         // Panic is better than silent acceptance
         return Err("args and spec do not have the same length".to_string());
     }
-    for (var, elm_ctype) in args.iter().zip(spec.iter()) {
+    for (var, (elm_ctype, elm_fallback)) in args.iter().zip(spec.iter().zip(fallback.iter())) {
+        // TODO: Not binding to top-level binder might be a problem... But not so far. Bind to top
+        // level as a fallback.
+        let var = match var {
+            CPat::Var(var) => var,
+            _ => elm_fallback,
+        };
         let insert_res = match elm_ctype {
             CType::Base(base_type) => envs
                 .0

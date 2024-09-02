@@ -49,12 +49,14 @@ fn make_contract(
 ) -> OptWarnings<ast::CModule> {
     let mut warnings: Vec<String> = Vec::new();
     let mut functions: HashMap<FunName, Vec<CFunClause>> = HashMap::new();
+    let mut fallback_args: HashMap<FunName, Vec<Var>> = HashMap::new();
     // One body for each module
     for fun_def in &ast.defs {
         let fname = fun_def.name.inner.clone();
         match compose_function_with_contract(&base_spec, &session_spec, fun_def) {
-            Ok(contract_clauses) => {
-                functions.insert(fname, contract_clauses);
+            Ok((fun_fallback_args, contract_clauses)) => {
+                functions.insert(fname.clone(), contract_clauses);
+                fallback_args.insert(fname, fun_fallback_args);
             }
             Err(err) => {
                 // TODO: Consider to make a strict mode that requires full annotation
@@ -74,6 +76,7 @@ fn make_contract(
             name: ast.name.clone(),
             mspec,
             functions,
+            fallback_args,
         },
         warnings,
     }
@@ -106,7 +109,7 @@ fn compose_function_with_contract(
     base_spec: &BaseSpecDef,
     session_spec: &SessionSpecDef,
     fun_def: &FunDef,
-) -> Result<Vec<CFunClause>, String> {
+) -> Result<(Vec<Var>, Vec<CFunClause>), String> {
     // TODO: Maybe each function should be a function on their own with a Result type so we can fail for a single function and process the next one
     //       Yes, that makes way too much sense. Gotta do that ...
     let fname = &fun_def.name.inner;
@@ -157,6 +160,16 @@ fn compose_function_with_contract(
     // The first expression in any function definition is a function.
     let fun_expr = &fun_def.body.fun;
 
+    // If a function clause use a literal, then we need to use the top level binder instead.
+    let fallback_binders_top = fun_def
+        .clone()
+        .body
+        .fun
+        .vars
+        .into_iter()
+        .map(|v| v.name)
+        .collect();
+
     // A top-level function expression may contain multiplte clauses.
     // If there are many clauses they will be contained within a normal case expression as the
     // first expression within the function expression body.
@@ -168,7 +181,7 @@ fn compose_function_with_contract(
         .fun
         .vars
         .into_iter()
-        .map(|v| v.name)
+        .map(|v| CPat::Var(v.name))
         .collect();
     let clauses = match &fun_expr.body.inner {
         Expr::Case(_top_cases_var, top_cases_clauses) => {
@@ -187,7 +200,7 @@ fn compose_function_with_contract(
                         ]),
                     ]))] == *anno
                     {
-                        let mut clauses_res: Vec<(Vec<Var>, CExpr)> = Vec::new();
+                        let mut clauses_res: Vec<(Vec<CPat>, CExpr)> = Vec::new();
 
                         // TODO: We throw away "when" right now. Include agian later. It will be needed for
                         // proper type checking later.
@@ -232,15 +245,21 @@ fn compose_function_with_contract(
             },
         )
     }
-    Ok(contract_clauses)
+    Ok((fallback_binders_top, contract_clauses))
 }
 
-fn clause_pats_to_fun_header_args(arg_pat: &Vec<AnnoPat>) -> Result<Vec<Var>, String> {
-    let mut res: Vec<Var> = Vec::new();
+fn clause_pats_to_fun_header_args(arg_pat: &Vec<AnnoPat>) -> Result<Vec<CPat>, String> {
+    let mut res: Vec<CPat> = Vec::new();
     for elm in arg_pat {
         match &elm.inner {
-            Pat::Var(v) => res.push(v.name.clone()),
-            _ => return Err("when case is top-level function every arg must be a var.".to_string()),
+            Pat::Var(v) => res.push(CPat::Var(v.name.clone())),
+            Pat::Lit(l) => res.push(CPat::Lit(l.clone())),
+            x => {
+                return Err(format!(
+                    "when case is top-level function every arg must be a var. Found {}",
+                    x,
+                ))
+            }
         }
     }
     Ok(res)

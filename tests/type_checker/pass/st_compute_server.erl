@@ -3,11 +3,14 @@
 
 %% Preliminary Typing Idea
 % elp:ignore W0013 (misspelled_attribute)
--mspec("&{
+-mspec("+{
         neg(['sel_neg']. ?integer. !integer. end.),
         add(['sel_add']. ?integer. ['add_1']. ?integer. !integer. end.)
        }.").
 % TODO: Maybe using [] for state labels is a bad idea. Same symbol as used with lists...
+
+% TODO: Required because static type checker require full annotation. Make it work without
+-session("'handle_new_session_call'(_,_,_);(_,_,_);(_,_,_)").
 
 % By Emil Kristensen, ITU 2023-2024
 
@@ -27,12 +30,17 @@ start_link() ->
 % Note: TODO: Write assumptions/quicks: 'received'= Response will be sent but not as part of session type, more like a "confirmation". 'session_end' instructs gen server plus to destory the session.
 
 -spec handle_new_session_call('neg', pid(), map()) -> {'reply', 'received', {'sel_neg', {}}, map()};
-                             ('add', pid(), map()) -> {'reply', 'received', {'sel_add', {}}, map()}.
+                             ('add', pid(), map()) -> {'reply', 'received', {'sel_add', {}}, map()};
+                             (any(), any(), any()) -> {'noreply', any()}.
 handle_new_session_call(neg, _From, GlobalState) ->
     {reply, received, {sel_neg, {}}, GlobalState};
 
 handle_new_session_call(add, _From, GlobalState) ->
-    {reply, received, {sel_add, {}}, GlobalState}.
+    {reply, received, {sel_add, {}}, GlobalState};
+
+% TODO: Only needed to avoid compiler generated catch all. Support compiler generated code in type checker
+handle_new_session_call(_,_,GlobalState) ->
+    {noreply, GlobalState}.
 
 -spec handle_plus_call(integer(), pid(), {'sel_neg', {}}     , map()) -> {'reply', integer() , 'session_end'       , map()};
                       (integer(), pid(), {'sel_add', {}}     , map()) -> {'reply', 'received', {'add_1', integer()}, map()};

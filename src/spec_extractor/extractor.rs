@@ -188,6 +188,7 @@ fn get_absform_type(spec: &Lit) -> Result<BaseSpecElm, String> {
                 ("type", "list") => Ok(BaseSpecElm::Base(BaseType::List)),
                 ("type", "string") => Ok(BaseSpecElm::Base(BaseType::String)),
                 ("type", "tuple") => Ok(BaseSpecElm::Base(BaseType::Tuple(vec![]))),
+                ("type", "any") => Ok(BaseSpecElm::Base(BaseType::Any)),
                 e => Err(format!("Could not match any type #1. Found {:?}", e)),
             }
         }
@@ -221,7 +222,7 @@ fn get_absform_type(spec: &Lit) -> Result<BaseSpecElm, String> {
             match (tag.0.as_str(), tag2.0.as_str(), tag3.0.as_str()) {
                 ("type", "map", "any") => Ok(BaseSpecElm::Base(BaseType::Map)),
                 ("type", "tuple", "any") => {
-                    Ok(BaseSpecElm::Base(BaseType::Tuple(vec![BaseType::Term])))
+                    Ok(BaseSpecElm::Base(BaseType::Tuple(vec![BaseType::Any])))
                 }
                 x => Err(format!(
                     "Unknown type where map or tuple was expected: {:?}",

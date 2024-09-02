@@ -313,7 +313,7 @@ fn pattern_matching(
         acceptable = true;
     }
     // Manual subtyping
-    if v_ctype == CType::Base(BaseType::Term) {
+    if v_ctype == CType::Base(BaseType::Any) {
         acceptable = true;
     }
     if acceptable {
@@ -359,7 +359,7 @@ fn cpat_to_ctype(envs: &TypeEnvs, p: &CPat) -> CType {
                     TypeEnv::Delta(v) => CType::Consume(v.clone()),
                     TypeEnv::Sigma(v) => CType::Base(v.clone()),
                 },
-                None => CType::Base(BaseType::Term), // If var is not found, allow binding the value with "any"
+                None => CType::Base(BaseType::Any), // If var is not found, allow binding the value with "any"
             }
         }
         CPat::Cons(_c) => todo!(),

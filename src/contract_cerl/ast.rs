@@ -29,6 +29,8 @@ pub struct CModule {
     pub name: Atom,
     pub mspec: Option<SessionTypesList>, // If module implements gen_server_plus behavior save mspec here
     pub functions: HashMap<FunName, Vec<CFunClause>>,
+    pub fallback_args: HashMap<FunName, Vec<Var>>, // If clause has literal, we need to bind it to
+                                                   // the top level var name.
 }
 
 // Problem above: There is a CExpr for each spec, many clauses. How to keep it?
@@ -36,7 +38,7 @@ pub struct CModule {
 #[derive(Debug, Clone)]
 pub struct CFunClause {
     pub spec: Vec<CType>, // Spec acts as the functions "pattern", what type the arguments can be.
-    pub args: Vec<Var>,   // Save argument names to make sense of function body.
+    pub args: Vec<CPat>,  // Save argument names to make sense of function body.
     pub body: CExpr,
     pub return_type: BaseType,
 }
