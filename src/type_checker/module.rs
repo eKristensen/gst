@@ -4,11 +4,22 @@ use crate::{
     cerl_parser::ast::Atom,
     contract_cerl::{
         ast::{CModule, CType, OptWarnings},
-        types::SessionTypesList,
+        types::{BaseType, SessionType, SessionTypesList},
     },
 };
 
 use super::{base::expr, env::TypeEnvs, init::init_env, session::finished};
+
+#[derive(Eq, PartialEq)]
+struct MSpecEnv(HashMap<MSpec, bool>);
+
+#[derive(Eq, Hash, PartialEq)]
+struct MSpec {
+    state_in: Atom,
+    state_out: Atom,
+    val_in: BaseType,
+    val_out: BaseType,
+}
 
 // Entry point for type checking.
 // One module in, no environment required
@@ -26,7 +37,8 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
 
     // TODO: Consistency sanity check: If mspec also expect behavior('gen_server_plus')
     // If mspec is defined check module mspec first
-    if let Some(mspec) = module.mspec {
+    println!("mspec: {:?}", module.mspec);
+    if let Some(mspec) = &module.mspec {
         // Approach: Something ala: Generate input to run checker
         //
         // Split the mspec into parts, kinda like a code generator, except that it is only cares
@@ -39,10 +51,9 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
         // Extras are accepted for now. Intention is to be less invasive TODO: Good or bad idea?
         //
         // Construct via recrsive function on the SessionTypesList
-        let mut handle_map: HashMap<(Atom, SessionTypesList, SessionTypesList), bool> =
-            HashMap::new();
+        let mut handle_map = MSpecEnv(HashMap::new());
         // TODO: Assumption: The label "__START__" is used internally
-        mspec_handle_extractor(&handle_map, &Atom("__START__".to_string()), &mspec);
+        mspec_handle_extractor(&mut handle_map, Atom("__START__".to_string()), mspec);
 
         //
         //
@@ -112,11 +123,7 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
     }
 }
 
-fn mspec_handle_extractor(
-    map: &mut HashMap<(Atom, SessionTypesList, SessionTypesList), bool>,
-    state: Atom,
-    input: &SessionTypesList,
-) {
+fn mspec_handle_extractor(map: &mut MSpecEnv, state: Atom, input: &SessionTypesList) {
     // To extract I need a label and to include all until next label.
     // TODO: Fixed pattern assumed now: When receive then follow by send
     // When choise, follow by send "received"
@@ -126,6 +133,17 @@ fn mspec_handle_extractor(
 
     match input.0.as_slice() {
         // pattern match mspec extraction
-        
+        [SessionType::Receive(recv), SessionType::Send(send), SessionType::End] => {
+            map.0.insert(
+                MSpec {
+                    state_in: state,
+                    state_out: Atom("session_end".to_string()),
+                    val_in: recv.clone(),
+                    val_out: send.clone(),
+                },
+                false,
+            );
+        }
+        _ => todo!("Not supported mspec. Failed in mspec handle extraction."),
     }
 }

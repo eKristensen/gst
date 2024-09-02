@@ -9,7 +9,7 @@ use crate::cerl_parser::ast::Atom;
 // Type support is limited to the ones below.
 // TODO: Allow generic/new types.
 // TODO: Remember to test all cases
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BaseType {
     Atom(Atom), // Atom is named as it is a constant that can be checked statically
     Pid,        // TODO: Add pid to paper?
