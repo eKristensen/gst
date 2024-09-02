@@ -52,6 +52,10 @@ pub fn bif_fun(
                 Err("Expected integer for erlang:+ function.".to_string())
             }
         }
+        ("gen_server_plus", "start_link") => {
+            println!("Text-only warning: TODO: Proper return type when custom types are supported for gen_server_plus:start_link.");
+            Ok(CType::Base(BaseType::Any))
+        }
         _ => Err("Unknown bif or not bif".to_string()),
     }
 }

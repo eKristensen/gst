@@ -144,8 +144,16 @@ fn get_absform_product_type(spec_in: &Lit) -> Result<Vec<BaseSpecElm>, String> {
     };
 
     // TODO: Not ignore Anno/check content of annotation
-    let &[Lit::Atom(tag), _, Lit::Atom(tag2), Lit::Cons(types_list)] = &spec.as_slice() else {
-        return Err("get_absform_types: Wrong length tuple.".to_string());
+    let &[Lit::Atom(tag), _, Lit::Atom(tag2), types_list] = &spec.as_slice() else {
+        return Err(format!(
+            "get_absform_types: Wrong length tuple. spec_in: {:?}",
+            spec_in
+        ));
+    };
+    let types_list = match types_list {
+        Lit::Cons(types_list) => types_list,
+        Lit::Nil => return Ok(vec![]),
+        _ => return Err("Expected Cons or Nil when in get_absform_product_type".to_string()),
     };
     if *tag == Atom("type".to_owned()) && *tag2 != Atom("product".to_owned()) {
         // Not product type assume a it is a ordinary type instead

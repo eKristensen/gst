@@ -19,89 +19,105 @@ module 'st_compute_server' ['handle_new_session_call'/3,
 		%% Line 13
 		'session' =
 		    %% Line 13
-		    [39|[104|[97|[110|[100|[108|[101|[95|[110|[101|[119|[95|[115|[101|[115|[115|[105|[111|[110|[95|[99|[97|[108|[108|[39|[40|[95|[44|[95|[44|[95|[41|[59|[40|[95|[44|[95|[44|[95|[41|[59|[40|[95|[44|[95|[44|[95|[41]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],
+		    [39|[115|[116|[97|[114|[116|[95|[108|[105|[110|[107|[39|[40|[41]]]]]]]]]]]]]],
 		%% Line 14
 		'session' =
 		    %% Line 14
+		    [39|[104|[97|[110|[100|[108|[101|[95|[110|[101|[119|[95|[115|[101|[115|[115|[105|[111|[110|[95|[99|[97|[108|[108|[39|[40|[95|[44|[95|[44|[95|[41|[59|[40|[95|[44|[95|[44|[95|[41|[59|[40|[95|[44|[95|[44|[95|[41]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],
+		%% Line 15
+		'session' =
+		    %% Line 15
 		    [39|[104|[97|[110|[100|[108|[101|[95|[112|[108|[117|[115|[95|[99|[97|[108|[108|[39|[40|[95|[44|[95|[44|[95|[44|[95|[41|[59|[40|[95|[44|[95|[44|[95|[44|[95|[41|[59|[40|[95|[44|[95|[44|[95|[44|[95|[41|[59|[40|[95|[44|[95|[44|[95|[44|[95|[41]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],
-		%% Line 33
+		%% Line 16
+		'session' =
+		    %% Line 16
+		    [39|[104|[97|[110|[100|[108|[101|[95|[112|[108|[117|[115|[95|[99|[97|[115|[116|[39|[40|[95|[44|[95|[44|[95|[41]]]]]]]]]]]]]]]]]]]]]]]]],
+		%% Line 28
 		'spec' =
-		    %% Line 33
-		    [{{'handle_new_session_call',3},[{'type',{33,30},'fun',[{'type',{33,30},'product',[{'atom',{33,31},'neg'}|[{'type',{33,38},'pid',[]}|[{'type',{33,45},'map','any'}]]]}|[{'type',{33,55},'tuple',[{'atom',{33,56},'reply'}|[{'atom',{33,65},'received'}|[{'type',{33,77},'tuple',[{'atom',{33,78},'sel_neg'}|[{'type',{33,89},'tuple',[]}]]}|[{'type',{33,94},'map','any'}]]]]}]]}|[{'type',{34,30},'fun',[{'type',{34,30},'product',[{'atom',{34,31},'add'}|[{'type',{34,38},'pid',[]}|[{'type',{34,45},'map','any'}]]]}|[{'type',{34,55},'tuple',[{'atom',{34,56},'reply'}|[{'atom',{34,65},'received'}|[{'type',{34,77},'tuple',[{'atom',{34,78},'sel_add'}|[{'type',{34,89},'tuple',[]}]]}|[{'type',{34,94},'map','any'}]]]]}]]}|[{'type',{35,30},'fun',[{'type',{35,30},'product',[{'type',{35,31},'any',[]}|[{'type',{35,38},'any',[]}|[{'type',{35,45},'any',[]}]]]}|[{'type',{35,55},'tuple',[{'atom',{35,56},'noreply'}|[{'type',{35,67},'any',[]}]]}]]}]]]}],
-		%% Line 46
+		    %% Line 28
+		    [{{'start_link',0},[{'type',{28,17},'fun',[{'type',{28,17},'product',[]}|[{'type',{28,23},'any',[]}]]}]}],
+		%% Line 36
 		'spec' =
-		    %% Line 46
-		    [{{'handle_plus_call',4},[{'type',{46,23},'fun',[{'type',{46,23},'product',[{'type',{46,24},'integer',[]}|[{'type',{46,35},'pid',[]}|[{'type',{46,42},'tuple',[{'atom',{46,43},'sel_neg'}|[{'type',{46,54},'tuple',[]}]]}|[{'type',{46,64},'map','any'}]]]]}|[{'type',{46,74},'tuple',[{'atom',{46,75},'reply'}|[{'type',{46,84},'integer',[]}|[{'type',{46,96},'tuple',[{'atom',{46,97},'session_end'}|[{'type',{46,112},'tuple',[]}]]}|[{'type',{46,118},'map','any'}]]]]}]]}|[{'type',{47,23},'fun',[{'type',{47,23},'product',[{'type',{47,24},'integer',[]}|[{'type',{47,35},'pid',[]}|[{'type',{47,42},'tuple',[{'atom',{47,43},'sel_add'}|[{'type',{47,54},'tuple',[]}]]}|[{'type',{47,64},'map','any'}]]]]}|[{'type',{47,74},'tuple',[{'atom',{47,75},'reply'}|[{'atom',{47,84},'received'}|[{'type',{47,96},'tuple',[{'atom',{47,97},'add_1'}|[{'type',{47,106},'integer',[]}]]}|[{'type',{47,118},'map','any'}]]]]}]]}|[{'type',{48,23},'fun',[{'type',{48,23},'product',[{'type',{48,24},'integer',[]}|[{'type',{48,35},'pid',[]}|[{'type',{48,42},'tuple',[{'atom',{48,43},'add_1'}|[{'type',{48,52},'integer',[]}]]}|[{'type',{48,64},'map','any'}]]]]}|[{'type',{48,74},'tuple',[{'atom',{48,75},'reply'}|[{'type',{48,84},'integer',[]}|[{'type',{48,96},'tuple',[{'atom',{48,97},'session_end'}|[{'type',{48,112},'tuple',[]}]]}|[{'type',{48,118},'map','any'}]]]]}]]}|[{'type',{49,23},'fun',[{'type',{49,23},'product',[{'type',{49,24},'any',[]}|[{'type',{49,31},'any',[]}|[{'type',{49,38},'any',[]}|[{'type',{49,45},'any',[]}]]]]}|[{'type',{49,55},'tuple',[{'atom',{49,56},'noreply'}|[{'type',{49,67},'any',[]}|[{'type',{49,74},'any',[]}]]]}]]}]]]]}]]
+		    %% Line 36
+		    [{{'handle_new_session_call',3},[{'type',{36,30},'fun',[{'type',{36,30},'product',[{'atom',{36,31},'neg'}|[{'type',{36,38},'pid',[]}|[{'type',{36,45},'map','any'}]]]}|[{'type',{36,55},'tuple',[{'atom',{36,56},'reply'}|[{'atom',{36,65},'received'}|[{'type',{36,77},'tuple',[{'atom',{36,78},'sel_neg'}|[{'type',{36,89},'tuple',[]}]]}|[{'type',{36,94},'map','any'}]]]]}]]}|[{'type',{37,30},'fun',[{'type',{37,30},'product',[{'atom',{37,31},'add'}|[{'type',{37,38},'pid',[]}|[{'type',{37,45},'map','any'}]]]}|[{'type',{37,55},'tuple',[{'atom',{37,56},'reply'}|[{'atom',{37,65},'received'}|[{'type',{37,77},'tuple',[{'atom',{37,78},'sel_add'}|[{'type',{37,89},'tuple',[]}]]}|[{'type',{37,94},'map','any'}]]]]}]]}|[{'type',{38,30},'fun',[{'type',{38,30},'product',[{'type',{38,31},'any',[]}|[{'type',{38,38},'any',[]}|[{'type',{38,45},'any',[]}]]]}|[{'type',{38,55},'tuple',[{'atom',{38,56},'noreply'}|[{'type',{38,67},'any',[]}]]}]]}]]]}],
+		%% Line 49
+		'spec' =
+		    %% Line 49
+		    [{{'handle_plus_call',4},[{'type',{49,23},'fun',[{'type',{49,23},'product',[{'type',{49,24},'integer',[]}|[{'type',{49,35},'pid',[]}|[{'type',{49,42},'tuple',[{'atom',{49,43},'sel_neg'}|[{'type',{49,54},'tuple',[]}]]}|[{'type',{49,64},'map','any'}]]]]}|[{'type',{49,74},'tuple',[{'atom',{49,75},'reply'}|[{'type',{49,84},'integer',[]}|[{'type',{49,96},'tuple',[{'atom',{49,97},'session_end'}|[{'type',{49,112},'tuple',[]}]]}|[{'type',{49,118},'map','any'}]]]]}]]}|[{'type',{50,23},'fun',[{'type',{50,23},'product',[{'type',{50,24},'integer',[]}|[{'type',{50,35},'pid',[]}|[{'type',{50,42},'tuple',[{'atom',{50,43},'sel_add'}|[{'type',{50,54},'tuple',[]}]]}|[{'type',{50,64},'map','any'}]]]]}|[{'type',{50,74},'tuple',[{'atom',{50,75},'reply'}|[{'atom',{50,84},'received'}|[{'type',{50,96},'tuple',[{'atom',{50,97},'add_1'}|[{'type',{50,106},'integer',[]}]]}|[{'type',{50,118},'map','any'}]]]]}]]}|[{'type',{51,23},'fun',[{'type',{51,23},'product',[{'type',{51,24},'integer',[]}|[{'type',{51,35},'pid',[]}|[{'type',{51,42},'tuple',[{'atom',{51,43},'add_1'}|[{'type',{51,52},'integer',[]}]]}|[{'type',{51,64},'map','any'}]]]]}|[{'type',{51,74},'tuple',[{'atom',{51,75},'reply'}|[{'type',{51,84},'integer',[]}|[{'type',{51,96},'tuple',[{'atom',{51,97},'session_end'}|[{'type',{51,112},'tuple',[]}]]}|[{'type',{51,118},'map','any'}]]]]}]]}|[{'type',{52,23},'fun',[{'type',{52,23},'product',[{'type',{52,24},'any',[]}|[{'type',{52,31},'any',[]}|[{'type',{52,38},'any',[]}|[{'type',{52,45},'any',[]}]]]]}|[{'type',{52,55},'tuple',[{'atom',{52,56},'noreply'}|[{'type',{52,67},'any',[]}|[{'type',{52,74},'any',[]}]]]}]]}]]]]}],
+		%% Line 67
+		'spec' =
+		    %% Line 67
+		    [{{'handle_plus_cast',3},[{'type',{67,23},'fun',[{'type',{67,23},'product',[{'type',{67,24},'any',[]}|[{'type',{67,31},'any',[]}|[{'type',{67,38},'any',[]}]]]}|[{'type',{67,48},'tuple',[{'atom',{67,49},'noreply'}|[{'type',{67,60},'any',[]}|[{'type',{67,67},'any',[]}]]]}]]}]}]]
 'start_link'/0 =
-    %% Line 26
+    %% Line 29
     ( fun () ->
-	  %% Line 27
+	  %% Line 30
 	  call 'gen_server_plus':'start_link'
 	      ('st_compute_server', [], [])
       -| [{'function',{'start_link',0}}] )
 'handle_new_session_call'/3 =
-    %% Line 36
+    %% Line 39
     ( fun (_0,_1,_2) ->
 	  ( case <_0,_1,_2> of
 	      <'neg',_X_From,GlobalState> when 'true' ->
-		  %% Line 37
-		  {'reply','received',{'sel_neg',{}},GlobalState}
-	      %% Line 39
-	      <'add',_X_From,GlobalState> when 'true' ->
 		  %% Line 40
+		  {'reply','received',{'sel_neg',{}},GlobalState}
+	      %% Line 42
+	      <'add',_X_From,GlobalState> when 'true' ->
+		  %% Line 43
 		  {'reply','received',{'sel_add',{}},GlobalState}
-	      %% Line 43
+	      %% Line 46
 	      <_6,_7,GlobalState> when 'true' ->
-		  %% Line 44
+		  %% Line 47
 		  {'noreply',GlobalState}
 	    end
 	    -| [{'function',{'handle_new_session_call',3}}] )
       -| [{'function',{'handle_new_session_call',3}}] )
 'handle_plus_call'/4 =
-    %% Line 50
+    %% Line 53
     ( fun (_0,_1,_2,_3) ->
 	  ( case <_0,_1,_2,_3> of
 	      <V1,_X_From,{'sel_neg',{}},GlobalState> when 'true' ->
 		  let <_4> =
-		      call %% Line 51
-			   'erlang':%% Line 51
+		      call %% Line 54
+			   'erlang':%% Line 54
 				    '-'
-			  (%% Line 51
+			  (%% Line 54
 			   V1)
-		  in  %% Line 51
+		  in  %% Line 54
 		      {'reply',_4,{'session_end',{}},GlobalState}
-	      %% Line 53
-	      <V1,_X_From,{'sel_add',{}},GlobalState> when 'true' ->
-		  %% Line 54
-		  {'reply','received',{'add_1',V1},GlobalState}
 	      %% Line 56
+	      <V1,_X_From,{'sel_add',{}},GlobalState> when 'true' ->
+		  %% Line 57
+		  {'reply','received',{'add_1',V1},GlobalState}
+	      %% Line 59
 	      <V2,_X_From,{'add_1',V1},GlobalState> when 'true' ->
 		  let <_5> =
-		      call %% Line 57
-			   'erlang':%% Line 57
+		      call %% Line 60
+			   'erlang':%% Line 60
 				    '+'
-			  (%% Line 57
-			   V1, %% Line 57
+			  (%% Line 60
+			   V1, %% Line 60
 			       V2)
-		  in  %% Line 57
+		  in  %% Line 60
 		      {'reply',_5,{'session_end',{}},GlobalState}
-	      %% Line 60
+	      %% Line 63
 	      <_10,_11,SessionState,GlobalState> when 'true' ->
-		  do  %% Line 61
+		  do  %% Line 64
 		      call 'io':'format'
 			  ([85|[110|[107|[110|[111|[119|[110|[32|[112|[108|[117|[115|[32|[99|[97|[108|[108|[32|[105|[103|[110|[111|[114|[101|[100|[46|[32|[73|[102|[32|[111|[110|[108|[121|[32|[115|[117|[112|[112|[111|[114|[116|[101|[100|[32|[99|[97|[108|[108|[115|[32|[97|[114|[101|[32|[109|[97|[100|[101|[32|[116|[104|[105|[115|[32|[109|[101|[115|[115|[97|[103|[101|[32|[115|[104|[111|[117|[108|[100|[32|[110|[101|[118|[101|[114|[32|[97|[112|[112|[101|[97|[114|[46|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
-		      %% Line 62
+		      %% Line 65
 		      {'noreply',SessionState,GlobalState}
 	    end
 	    -| [{'function',{'handle_plus_call',4}}] )
       -| [{'function',{'handle_plus_call',4}}] )
 'handle_plus_cast'/3 =
-    %% Line 64
+    %% Line 68
     ( fun (_0,_1,_2) ->
-	  do  %% Line 65
+	  do  %% Line 69
 	      call 'io':'format'
 		  ([78|[111|[32|[99|[97|[115|[116|[32|[115|[117|[112|[112|[111|[114|[116|[126|[110]]]]]]]]]]]]]]]]])
-	      %% Line 66
+	      %% Line 70
 	      {'noreply',_1,_2}
       -| [{'function',{'handle_plus_cast',3}}] )
 'module_info'/0 =

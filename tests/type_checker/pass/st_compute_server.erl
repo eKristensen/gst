@@ -10,8 +10,10 @@
 % TODO: Maybe using [] for state labels is a bad idea. Same symbol as used with lists...
 
 % TODO: Required because static type checker require full annotation. Make it work without
+-session("'start_link'()").
 -session("'handle_new_session_call'(_,_,_);(_,_,_);(_,_,_)").
 -session("'handle_plus_call'(_,_,_,_);(_,_,_,_);(_,_,_,_);(_,_,_,_)").
+-session("'handle_plus_cast'(_,_,_)").
 
 % By Emil Kristensen, ITU 2023-2024
 
@@ -23,6 +25,7 @@
 
 -export([handle_new_session_call/3,handle_plus_call/4,handle_plus_cast/3]).
 
+-spec start_link() -> any().
 start_link() ->
     gen_server_plus:start_link(?MODULE, [], []).
 
@@ -61,6 +64,7 @@ handle_plus_call(_, _, SessionState, GlobalState) ->
   io:format("Unknown plus call ignored. If only supported calls are made this message should never appear.~n"),
   {noreply, SessionState, GlobalState}.
 
+-spec handle_plus_cast(any(), any(), any()) -> {'noreply', any(), any()}.
 handle_plus_cast(_, SessionState, GlobalState) ->
     io:format("No cast support~n"),
     {noreply, SessionState, GlobalState}.

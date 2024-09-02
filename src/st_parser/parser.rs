@@ -4,7 +4,7 @@ use nom::{
     branch::alt,
     character::complete::alpha1,
     combinator::{map, value},
-    multi::separated_list1,
+    multi::{separated_list0, separated_list1},
     sequence::{delimited, pair, preceded, tuple},
     IResult,
 };
@@ -44,7 +44,7 @@ fn clause(i: &str) -> IResult<&str, SessionSpec, ErrorTree<&str>> {
     map(
         delimited(
             ws(tag("(")),
-            separated_list1(
+            separated_list0(
                 ws(tag(",")),
                 alt((new_spec, consume_spec, value(BasePlaceholder, ws(tag("_"))))),
             ),
