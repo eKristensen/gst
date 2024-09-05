@@ -162,6 +162,8 @@ pub fn gsp_sync_send(
         SessionType::State(_) => {
             Err("State annotation is not allowed in -session, only -mspec".to_string())
         }
+        SessionType::Var(_) => todo!(),
+        SessionType::Rec(_, _) => todo!(),
     }
 
     // Call by value, We need to argument type. Execution environment? Should I consider it isolated? I suppose?
@@ -318,5 +320,393 @@ fn envs_isolation(old_envs: &TypeEnvs, new_envs: &mut TypeEnvs) {
                 }
             },
         }
+    }
+}
+
+fn unfold_once(input: &SessionTypesList) -> SessionTypesList {
+    match input.0.as_slice() {
+        [SessionType::Rec(binder, inner)] => {
+            let free_names = free_names(&inner.0);
+            println!("Found free names: {:?}", free_names);
+            println!("For this inner: {:?}", inner);
+            substitution(binder, &input.0, &inner.0, &free_names.0)
+        }
+        _ => input.clone(), // TODO: Avoid clone here should be possible
+    }
+}
+
+#[derive(Debug)]
+pub struct FreeNames(pub Vec<FreeName>);
+
+#[derive(Debug)]
+enum FreeName {
+    None,
+    Free(Var),
+    Branch(HashMap<Label, FreeNames>),
+}
+
+fn free_names(input: &[SessionType]) -> FreeNames {
+    let mut seen: HashSet<Var> = HashSet::new();
+    free_names_aux(&mut seen, input)
+}
+
+// The concept is give the free variable at each element in the same order as original to rematch.
+fn free_names_aux(seen: &mut HashSet<Var>, input: &[SessionType]) -> FreeNames {
+    match input {
+        [] => FreeNames(vec![]),
+        [SessionType::Var(var), tail @ ..] => {
+            seen.insert(var.clone());
+            let mut output: Vec<FreeName> = Vec::new();
+            output.push(FreeName::Free(var.clone()));
+            let mut tail = free_names_aux(seen, tail).0;
+            output.append(&mut tail);
+            FreeNames(output)
+        }
+        [SessionType::Rec(var, next)] => {
+            let mut output: Vec<FreeName> = Vec::new();
+            if seen.contains(var) {
+                todo!("Handle shadowing!")
+            }
+            output.push(FreeName::None);
+            let mut tail = free_names_aux(seen, &next.0).0;
+            output.append(&mut tail);
+            FreeNames(output)
+        }
+        [SessionType::End] => FreeNames(vec![FreeName::None]),
+        [SessionType::Send(_), tail @ ..] => {
+            let mut output: Vec<FreeName> = Vec::new();
+            output.push(FreeName::None);
+            let mut tail = free_names_aux(seen, tail).0;
+            output.append(&mut tail);
+            FreeNames(output)
+        }
+        [SessionType::Receive(_), tail @ ..] => {
+            let mut output: Vec<FreeName> = Vec::new();
+            output.push(FreeName::None);
+            let mut tail = free_names_aux(seen, tail).0;
+            output.append(&mut tail);
+            FreeNames(output)
+        }
+        [SessionType::State(_), tail @ ..] => {
+            let mut output: Vec<FreeName> = Vec::new();
+            output.push(FreeName::None);
+            let mut tail = free_names_aux(seen, tail).0;
+            output.append(&mut tail);
+            FreeNames(output)
+        }
+        [SessionType::MakeChoice(choices)] => {
+            let mut branch: HashMap<Label, FreeNames> = HashMap::new();
+            for (label, choice) in choices {
+                let res = free_names_aux(&mut seen.clone(), &choice.0.as_slice());
+                branch.insert(label.clone(), res);
+            }
+            let mut output: Vec<FreeName> = Vec::new();
+            output.push(FreeName::Branch(branch));
+            FreeNames(output)
+        }
+        [SessionType::OfferChoice(choices)] => {
+            let mut branch: HashMap<Label, FreeNames> = HashMap::new();
+            for (label, choice) in choices {
+                let res = free_names_aux(&mut seen.clone(), &choice.0.as_slice());
+                branch.insert(label.clone(), res);
+            }
+            let mut output: Vec<FreeName> = Vec::new();
+            output.push(FreeName::Branch(branch));
+            FreeNames(output)
+        }
+        _ => todo!("Invalid session type not supported by free name lookup."),
+    }
+}
+
+// Replacment in place
+fn substitution(
+    binder: &Var,
+    full: &[SessionType],
+    input: &[SessionType],
+    free_names: &[FreeName],
+) -> SessionTypesList {
+    match (input, free_names) {
+        ([], []) => SessionTypesList(vec![]),
+        ([SessionType::Var(var), tail @ ..], [FreeName::Free(free_var), tail_names @ ..])
+            if var == binder && free_var == var =>
+        {
+            let mut output: Vec<SessionType> = Vec::new();
+            output.append(&mut full.clone().to_vec()); // Clone to ensure I dont consume
+                                                       // TODO: Check if needed for "full""
+            let mut tail = substitution(binder, full, tail, tail_names).0;
+            output.append(&mut tail);
+            SessionTypesList(output)
+        }
+        ([SessionType::Var(var), tail @ ..], [_, tail_names @ ..]) => {
+            let mut output: Vec<SessionType> = Vec::new();
+            output.push(SessionType::Var(var.clone()));
+            let mut tail = substitution(binder, full, tail, tail_names).0;
+            output.append(&mut tail);
+            SessionTypesList(output)
+        }
+        ([SessionType::Rec(var, next)], [_, tail_names @ ..]) => {
+            let mut output: Vec<SessionType> = Vec::new();
+            let tail = substitution(binder, full, &next.0, tail_names);
+            output.push(SessionType::Rec(var.clone(), tail));
+            SessionTypesList(output)
+        }
+        ([SessionType::End], [_]) => SessionTypesList(vec![SessionType::End]),
+        ([SessionType::Send(send), tail @ ..], [_, tail_names @ ..]) => {
+            let mut output: Vec<SessionType> = Vec::new();
+            output.push(SessionType::Send(send.clone()));
+            let mut tail = substitution(binder, full, tail, tail_names).0;
+            output.append(&mut tail);
+            SessionTypesList(output)
+        }
+        ([SessionType::Receive(receive), tail @ ..], [_, tail_names @ ..]) => {
+            let mut output: Vec<SessionType> = Vec::new();
+            output.push(SessionType::Receive(receive.clone()));
+            let mut tail = substitution(binder, full, tail, tail_names).0;
+            output.append(&mut tail);
+            SessionTypesList(output)
+        }
+        ([SessionType::State(state), tail @ ..], [_, tail_names @ ..]) => {
+            let mut output: Vec<SessionType> = Vec::new();
+            output.push(SessionType::State(state.clone()));
+            let mut tail = substitution(binder, full, tail, tail_names).0;
+            output.append(&mut tail);
+            SessionTypesList(output)
+        }
+        ([SessionType::MakeChoice(choices)], [FreeName::Branch(names_map)]) => {
+            let mut branch: HashMap<Label, SessionTypesList> = HashMap::new();
+            for (label, choice) in choices {
+                let this_name = names_map.get(label).unwrap();
+                let res = substitution(binder, full, choice.0.as_slice(), this_name.0.as_slice());
+                branch.insert(label.clone(), res);
+            }
+            let mut output: Vec<SessionType> = Vec::new();
+            output.push(SessionType::MakeChoice(branch));
+            SessionTypesList(output)
+        }
+        ([SessionType::OfferChoice(choices)], [FreeName::Branch(names_map)]) => {
+            let mut branch: HashMap<Label, SessionTypesList> = HashMap::new();
+            for (label, choice) in choices {
+                let this_name = names_map.get(label).unwrap();
+                let res = substitution(binder, full, choice.0.as_slice(), this_name.0.as_slice());
+                branch.insert(label.clone(), res);
+            }
+            let mut output: Vec<SessionType> = Vec::new();
+            output.push(SessionType::OfferChoice(branch));
+            SessionTypesList(output)
+        }
+        _ => todo!("Invalid session type not supported by substitution."),
+    }
+}
+
+fn substitution_old(
+    inner_found: bool,
+    shadow_found: bool,
+    binder: &Var,
+    full: &SessionTypesList,
+    inner: &SessionTypesList,
+) -> SessionTypesList {
+    // When to start? Dive into full and start when full == inner
+    // shaddowing? "just" stop replacing when I see the binder in a rec t S type of session type
+    // element ? Ok algorithm ?
+    println!(
+        "subst started with: {:?} {:?} {:?} {:?} {:?}",
+        inner_found, shadow_found, binder, full, inner
+    );
+
+    match (inner_found, shadow_found, full.0.as_slice()) {
+        (_, _, []) => return SessionTypesList(vec![]),
+        (false, _, [head, tail @ ..]) if tail == inner.0 => {
+            let mut output: Vec<SessionType> = Vec::new();
+            output.push(head.clone());
+            let mut tail = substitution_old(true, shadow_found, binder, full, inner).0;
+            output.append(&mut tail);
+            return SessionTypesList(output);
+        }
+        (false, _, [head, tail @ ..]) => {
+            // TODO: What if we pass by anoter rec to, i.e. shadowing before we find inner???? Is
+            // that possible?
+            let mut output: Vec<SessionType> = Vec::new();
+            output.push(head.clone());
+            let mut tail = substitution_old(
+                inner_found,
+                shadow_found,
+                binder,
+                full,
+                &SessionTypesList(tail.to_vec()),
+            )
+            .0;
+            output.append(&mut tail);
+            return SessionTypesList(output);
+        }
+        (true, false, [head, tail @ ..]) => match head {
+            SessionType::Var(bind) if bind == binder => {
+                println!("Did reach case to match. Full here is: {:?}", full);
+                let mut output: Vec<SessionType> = Vec::new();
+                output.append(&mut full.clone().0); // Clone full to avoid consuming original full
+                let mut tail = substitution_old(
+                    inner_found,
+                    shadow_found,
+                    binder,
+                    full,
+                    &SessionTypesList(tail.to_vec()),
+                )
+                .0;
+                output.append(&mut tail);
+                return SessionTypesList(output);
+            }
+            SessionType::Rec(bind, _) if bind == binder => {
+                println!("Found shadow");
+                let mut output: Vec<SessionType> = Vec::new();
+                output.push(head.clone());
+                let mut tail = substitution_old(
+                    inner_found,
+                    true,
+                    binder,
+                    full,
+                    &SessionTypesList(tail.to_vec()),
+                )
+                .0;
+                output.append(&mut tail);
+                return SessionTypesList(output);
+            }
+            _ => {
+                let mut output: Vec<SessionType> = Vec::new();
+                output.push(head.clone());
+                let mut tail = substitution_old(
+                    inner_found,
+                    shadow_found,
+                    binder,
+                    full,
+                    &SessionTypesList(tail.to_vec()),
+                )
+                .0;
+                output.append(&mut tail);
+                return SessionTypesList(output);
+            }
+        },
+        (true, true, _) => return inner.clone(),
+    }
+}
+
+// Unfolding algorithm
+fn unfold(
+    recursions: &mut HashMap<Var, SessionTypesList>,
+    input: &SessionTypesList,
+) -> SessionTypesList {
+    // rec t3. rec t2. rec t. S
+    // So unfound t, in S, then t2 in S, then t3 in S
+    // Once all "heads", i.e. rec t3, t2, t has been unfolded we are done.
+    // Maybe we need to stop before?
+    // Let us just start with something simple: one unfolding
+    let mut out: Vec<SessionType> = Vec::new();
+    for elm in input.0.iter() {
+        match elm {
+            SessionType::Rec(binder, inner) => {
+                recursions.insert(binder.clone(), inner.clone());
+                let mut rec_out = unfold(recursions, inner).0;
+                out.append(&mut rec_out);
+                return SessionTypesList(out);
+            }
+            SessionType::Var(binder) => {
+                let saved_inner = recursions.get(binder).unwrap();
+                out.push(SessionType::Rec(binder.clone(), saved_inner.clone()))
+            }
+            SessionType::MakeChoice(map) => {
+                let mut new_map: HashMap<Label, SessionTypesList> = HashMap::new();
+                for (k, v) in map {
+                    // Clone to avoid leaking definitions between branches
+                    let new_val = unfold(&mut recursions.clone(), v);
+                    new_map.insert(k.clone(), new_val);
+                }
+                out.push(SessionType::MakeChoice(new_map));
+                return SessionTypesList(out);
+            }
+            SessionType::OfferChoice(map) => {
+                let mut new_map: HashMap<Label, SessionTypesList> = HashMap::new();
+                for (k, v) in map {
+                    // Clone to avoid leaking definitions between branches
+                    let new_val = unfold(&mut recursions.clone(), v);
+                    new_map.insert(k.clone(), new_val);
+                }
+                out.push(SessionType::OfferChoice(new_map));
+                return SessionTypesList(out);
+            }
+            x => out.push(x.clone()),
+        }
+    }
+    SessionTypesList(out)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn unfold_once_test_00() {
+        // Session Type without recursion.
+        let input = SessionTypesList(vec![SessionType::Send(BaseType::Any), SessionType::End]);
+
+        // No change expected
+        assert_eq!(unfold_once(&input.clone()), input);
+    }
+
+    #[test]
+    fn unfold_once_test_01() {
+        // Session Type without recursion.
+        let input = SessionTypesList(vec![SessionType::Rec(
+            Var("t".to_string()),
+            SessionTypesList(vec![
+                SessionType::Send(BaseType::Any),
+                SessionType::Var(Var("t".to_string())),
+            ]),
+        )]);
+
+        // Change is expected. Nothing changed == bad
+        assert_ne!(unfold_once(&input.clone()), input);
+
+        // Expeted change:
+        let expected = SessionTypesList(vec![
+            SessionType::Send(BaseType::Any),
+            SessionType::Rec(
+                Var("t".to_string()),
+                SessionTypesList(vec![
+                    SessionType::Send(BaseType::Any),
+                    SessionType::Var(Var("t".to_string())),
+                ]),
+            ),
+        ]);
+
+        // Check expected is the output:
+        assert_eq!(unfold_once(&input.clone()), expected);
+    }
+
+    #[test]
+    fn unfold_once_test_02() {
+        // E.g.:      rec t. !int. t.
+        // Would be:         !int. rec t !int. t.
+        // Session Type without recursion.
+        let input = SessionTypesList(vec![SessionType::Rec(
+            Var("t".to_string()),
+            SessionTypesList(vec![
+                SessionType::Send(BaseType::Integer),
+                SessionType::Var(Var("t".to_string())),
+            ]),
+        )]);
+
+        // Expeted change:
+        let expected = SessionTypesList(vec![
+            SessionType::Send(BaseType::Integer),
+            SessionType::Rec(
+                Var("t".to_string()),
+                SessionTypesList(vec![
+                    SessionType::Send(BaseType::Integer),
+                    SessionType::Var(Var("t".to_string())),
+                ]),
+            ),
+        ]);
+
+        // Check expected is the output:
+        assert_eq!(unfold_once(&input.clone()), expected);
     }
 }

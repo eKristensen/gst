@@ -10,9 +10,9 @@ use nom::{
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
-use crate::st_parser::ast::SessionSpecElm::ConsumeSpec;
 use crate::st_parser::ast::SessionSpecElm::NewSpec;
 use crate::{cerl_parser::tokeniser::atom, st_parser::ast::SessionSpecElm::BasePlaceholder};
+use crate::{cerl_parser::tokeniser::var, st_parser::ast::SessionSpecElm::ConsumeSpec};
 use crate::{
     cerl_parser::{ast::FunName, helpers::ws},
     contract_cerl::types::{BaseType, Label, SessionType, SessionTypesList},
@@ -86,6 +86,11 @@ pub fn st_inner(i: &str) -> IResult<&str, SessionTypesList, ErrorTree<&str>> {
                     st_offer_choice,
                     value(SessionType::End, tag("end")),
                     mspec_state,
+                    map(var, SessionType::Var),
+                    map(
+                        tuple((ws(tag("rec")), var, ws(tag(".")), ws(st_inner))),
+                        |(_, binder, _, inner)| SessionType::Rec(binder, inner),
+                    ),
                 )),
             ), // TODO: Add branch and choice
             tag("."),

@@ -4,7 +4,7 @@
 
 use std::{collections::HashMap, fmt};
 
-use crate::cerl_parser::ast::Atom;
+use crate::cerl_parser::ast::{Atom, Var};
 
 // Type support is limited to the ones below.
 // TODO: Allow generic/new types.
@@ -44,6 +44,8 @@ pub enum SessionType {
     OfferChoice(HashMap<Label, SessionTypesList>),
     State(Atom), // for mspec to support gen server plus as a state machine.
     End,         // End is never consumed
+    Var(Var),    // Recursion variable binder
+    Rec(Var, SessionTypesList), // Recursion
                  // TODO: Missing variable and recursion. How do they work?
 }
 
