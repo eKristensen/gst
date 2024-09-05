@@ -336,7 +336,7 @@ fn unfold_once(input: &SessionTypesList) -> SessionTypesList {
 }
 
 #[derive(Debug)]
-pub struct FreeNames(pub Vec<FreeName>);
+struct FreeNames(Vec<FreeName>);
 
 #[derive(Debug)]
 enum FreeName {
@@ -397,21 +397,19 @@ fn free_names_aux(seen: &mut HashSet<Var>, input: &[SessionType]) -> FreeNames {
         [SessionType::MakeChoice(choices)] => {
             let mut branch: HashMap<Label, FreeNames> = HashMap::new();
             for (label, choice) in choices {
-                let res = free_names_aux(&mut seen.clone(), &choice.0.as_slice());
+                let res = free_names_aux(&mut seen.clone(), choice.0.as_slice());
                 branch.insert(label.clone(), res);
             }
-            let mut output: Vec<FreeName> = Vec::new();
-            output.push(FreeName::Branch(branch));
+            let output: Vec<FreeName> = vec![FreeName::Branch(branch)];
             FreeNames(output)
         }
         [SessionType::OfferChoice(choices)] => {
             let mut branch: HashMap<Label, FreeNames> = HashMap::new();
             for (label, choice) in choices {
-                let res = free_names_aux(&mut seen.clone(), &choice.0.as_slice());
+                let res = free_names_aux(&mut seen.clone(), choice.0.as_slice());
                 branch.insert(label.clone(), res);
             }
-            let mut output: Vec<FreeName> = Vec::new();
-            output.push(FreeName::Branch(branch));
+            let output: Vec<FreeName> = vec![FreeName::Branch(branch)];
             FreeNames(output)
         }
         _ => todo!("Invalid session type not supported by free name lookup."),
@@ -479,8 +477,7 @@ fn substitution(
                 let res = substitution(binder, full, choice.0.as_slice(), this_name.0.as_slice());
                 branch.insert(label.clone(), res);
             }
-            let mut output: Vec<SessionType> = Vec::new();
-            output.push(SessionType::MakeChoice(branch));
+            let output: Vec<SessionType> = vec![SessionType::MakeChoice(branch)];
             SessionTypesList(output)
         }
         ([SessionType::OfferChoice(choices)], [FreeName::Branch(names_map)]) => {
@@ -490,8 +487,7 @@ fn substitution(
                 let res = substitution(binder, full, choice.0.as_slice(), this_name.0.as_slice());
                 branch.insert(label.clone(), res);
             }
-            let mut output: Vec<SessionType> = Vec::new();
-            output.push(SessionType::OfferChoice(branch));
+            let output: Vec<SessionType> = vec![SessionType::OfferChoice(branch)];
             SessionTypesList(output)
         }
         _ => todo!("Invalid session type not supported by substitution."),

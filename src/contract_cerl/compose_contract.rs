@@ -269,12 +269,10 @@ fn clause_pats_to_fun_header_arg(arg_pat: &Pat) -> Result<CPat, String> {
             }
             Ok(CPat::Tuple(tuple_content))
         }
-        x => {
-            return Err(format!(
-                "when case is top-level function every arg must be a var. Found {}",
-                x,
-            ))
-        }
+        x => Err(format!(
+            "when case is top-level function every arg must be a var. Found {}",
+            x,
+        )),
     }
 }
 // TODO: Can clause_to_cclause and expr_to_cexpr be "mered" into one name via some trait or

@@ -63,9 +63,9 @@ pub fn init_env(
 // matching?
 fn pat_init_envs(envs: &mut TypeEnvs, right: &[CPat], left: &CType) {
     // Unpack assuming tuple
-    let CType::Base(left) = left else { return () };
+    let CType::Base(left) = left else { return };
     let BaseType::Tuple(left) = left else {
-        return ();
+        return;
     };
     for (elm_left, elm_right) in right.iter().zip(left.iter()) {
         match (elm_left, elm_right) {

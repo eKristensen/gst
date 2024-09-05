@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    cerl_parser::ast::{Atom, FunName, Lit},
+    cerl_parser::ast::{Atom, FunName},
     contract_cerl::{
-        ast::{CFunClause, CModule, CType, OptWarnings},
+        ast::{CModule, CType, OptWarnings},
         types::{BaseType, SessionType},
     },
 };
@@ -238,7 +238,7 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
             };
 
             // Init env based on function header
-            let init_ok = init_env(&mut envs, &clause.args, &clause.spec, &fallback);
+            let init_ok = init_env(&mut envs, &clause.args, &clause.spec, fallback);
             if init_ok.is_err() {
                 warnings.push(format!(
                     "Init env failed for {} due to {}",
