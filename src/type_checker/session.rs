@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use crate::{
     cerl_parser::ast::{Atom, Lit, Var},
@@ -180,7 +180,7 @@ pub fn gsp_sync_send(
 pub fn e_case_offer(
     module: &CModule,
     envs: &TypeEnvs,
-    offers: &HashMap<Label, SessionTypesList>,
+    offers: &BTreeMap<Label, SessionTypesList>,
     clauses: &Vec<CClause>,
 ) -> Result<CType, String> {
     // Return types
@@ -471,7 +471,7 @@ fn substitution(
             SessionTypesList(output)
         }
         ([SessionType::MakeChoice(choices)], [FreeName::Branch(names_map)]) => {
-            let mut branch: HashMap<Label, SessionTypesList> = HashMap::new();
+            let mut branch: BTreeMap<Label, SessionTypesList> = BTreeMap::new();
             for (label, choice) in choices {
                 let this_name = names_map.get(label).unwrap();
                 let res = substitution(binder, full, choice.0.as_slice(), this_name.0.as_slice());
@@ -481,7 +481,7 @@ fn substitution(
             SessionTypesList(output)
         }
         ([SessionType::OfferChoice(choices)], [FreeName::Branch(names_map)]) => {
-            let mut branch: HashMap<Label, SessionTypesList> = HashMap::new();
+            let mut branch: BTreeMap<Label, SessionTypesList> = BTreeMap::new();
             for (label, choice) in choices {
                 let this_name = names_map.get(label).unwrap();
                 let res = substitution(binder, full, choice.0.as_slice(), this_name.0.as_slice());
@@ -491,6 +491,72 @@ fn substitution(
             SessionTypesList(output)
         }
         _ => todo!("Invalid session type not supported by substitution."),
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct EqualityPairs(BTreeSet<BTreeSet<SessionTypesList>>);
+
+fn equality(s1: &[SessionType], s2: &[SessionType]) -> bool {
+    let mut seen_pairs = BTreeSet::new();
+    equality_aux(&mut EqualityPairs(seen_pairs), s1, s2)
+}
+
+fn equality_aux(seen_pairs: &mut EqualityPairs, s1: &[SessionType], s2: &[SessionType]) -> bool {
+    let mut current_pair = BTreeSet::new();
+    current_pair.insert(SessionTypesList(s1.to_vec()));
+    current_pair.insert(SessionTypesList(s2.to_vec()));
+    if seen_pairs.0.contains(&current_pair) {
+        return true;
+    }
+    seen_pairs.0.insert(current_pair);
+
+    // Unfold if needed , unfold_once does nothing if unfold is not needed
+    let s1 = unfold_once(&SessionTypesList(s1.to_vec())).0;
+    let s1 = s1.as_slice();
+    let s2 = unfold_once(&SessionTypesList(s2.to_vec())).0;
+    let s2 = s2.as_slice();
+
+    match (s1, s2) {
+        ([SessionType::OfferChoice(s1_choices)], [SessionType::OfferChoice(s2_choices)]) => {
+            if s1_choices.len() != s2_choices.len() {
+                return false;
+            }
+            for (s1_elm_label, s1_elm_tail) in s1_choices {
+                let Some(s2_elm_tail) = s2_choices.get(s1_elm_label) else {
+                    return false;
+                };
+                if !equality_aux(&mut seen_pairs.clone(), &s1_elm_tail.0, &s2_elm_tail.0) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        ([SessionType::MakeChoice(s1_choices)], [SessionType::MakeChoice(s2_choices)]) => {
+            if s1_choices.len() != s2_choices.len() {
+                return false;
+            }
+            for (s1_elm_label, s1_elm_tail) in s1_choices {
+                let Some(s2_elm_tail) = s2_choices.get(s1_elm_label) else {
+                    return false;
+                };
+                if !equality_aux(&mut seen_pairs.clone(), &s1_elm_tail.0, &s2_elm_tail.0) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        ([s1_head, s1_tail @ ..], [s2_head, s2_tail @ ..]) if s1_head == s2_head => {
+            equality_aux(seen_pairs, s1_tail, s2_tail)
+        }
+        ([s1_head], [s2_head]) if s1_head == s2_head => {
+            return true;
+        }
+        ([], []) => true,
+        _ => {
+            println!("deub false: {:?} {:?}", s1, s2);
+            false
+        }
     }
 }
 
@@ -565,5 +631,51 @@ mod tests {
 
         // Check expected is the output:
         assert_eq!(unfold_once(&input.clone()), expected);
+    }
+
+    #[test]
+    fn equality_test_00() {
+        let input = SessionTypesList(vec![SessionType::End]);
+        assert!(equality(&input.clone().0, &input.0));
+    }
+
+    #[test]
+    fn equality_test_01() {
+        let s1 = SessionTypesList(vec![SessionType::Rec(
+            Var("t".to_string()),
+            SessionTypesList(vec![
+                SessionType::Send(BaseType::Integer),
+                SessionType::Var(Var("t".to_string())),
+            ]),
+        )]);
+        let s2 = SessionTypesList(vec![SessionType::Rec(
+            Var("t".to_string()),
+            SessionTypesList(vec![
+                SessionType::Send(BaseType::Integer),
+                SessionType::Send(BaseType::Integer),
+                SessionType::Var(Var("t".to_string())),
+            ]),
+        )]);
+        assert!(equality(&s1.0, &s2.0));
+    }
+
+    #[test]
+    fn equality_test_02() {
+        let s1 = SessionTypesList(vec![SessionType::Rec(
+            Var("t".to_string()),
+            SessionTypesList(vec![
+                SessionType::Send(BaseType::Integer),
+                SessionType::Var(Var("t".to_string())),
+            ]),
+        )]);
+        let s2 = SessionTypesList(vec![SessionType::Rec(
+            Var("t".to_string()),
+            SessionTypesList(vec![
+                SessionType::Send(BaseType::Integer),
+                SessionType::Receive(BaseType::Integer),
+                SessionType::Var(Var("t".to_string())),
+            ]),
+        )]);
+        assert!(!equality(&s1.0, &s2.0));
     }
 }

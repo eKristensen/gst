@@ -2,14 +2,17 @@
 // Used (at least) by analysis, spec_extractor and st_parser
 // Types at not known by the cerl_parser, but used almost everywhere after parsing cerl
 
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt,
+};
 
 use crate::cerl_parser::ast::{Atom, Var};
 
 // Type support is limited to the ones below.
 // TODO: Allow generic/new types.
 // TODO: Remember to test all cases
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum BaseType {
     Atom(Atom), // Atom is named as it is a constant that can be checked statically
     Pid,        // TODO: Add pid to paper?
@@ -28,20 +31,20 @@ pub enum BaseType {
 // Label to differentiate branches in session types. They are assumed to be non-overlapping
 // TODO: Non-overlapping assumption reconsider
 // TODO Note assumption: Labels are atoms in the erlang program. It is impossible to distinguish atoms and labels from each other currently.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Label(pub String); // To differentiate between atoms and labels in the type system.
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SessionTypesList(pub Vec<SessionType>);
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SessionType {
     Send(BaseType),
     Receive(BaseType),
     // TODO: Add wellformed check: No elements after MakeChoice/OfferChoice/End
     // Why list? Easier to work with in Rust to avoid Boxing.
-    MakeChoice(HashMap<Label, SessionTypesList>),
-    OfferChoice(HashMap<Label, SessionTypesList>),
+    MakeChoice(BTreeMap<Label, SessionTypesList>),
+    OfferChoice(BTreeMap<Label, SessionTypesList>),
     State(Atom), // for mspec to support gen server plus as a state machine.
     End,         // End is never consumed
     Var(Var),    // Recursion variable binder

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use nom::{
     branch::alt,
@@ -132,7 +132,7 @@ fn st_make_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
             ws(tag("}")),
         ),
         |o| {
-            let mut offer_choice = HashMap::new();
+            let mut offer_choice = BTreeMap::new();
 
             for (label, elm) in o {
                 if offer_choice.insert(label.clone(), elm.clone()).is_some() {
@@ -156,7 +156,7 @@ fn st_offer_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
             ws(tag("}")),
         ),
         |o| {
-            let mut offer_choice = HashMap::new();
+            let mut offer_choice = BTreeMap::new();
 
             for (label, elm) in o {
                 if offer_choice.insert(label.clone(), elm.clone()).is_some() {
@@ -381,7 +381,7 @@ mod tests {
             st_offer_choice("+{test(!integer.)}").unwrap(),
             (
                 "",
-                SessionType::OfferChoice(HashMap::from([(
+                SessionType::OfferChoice(BTreeMap::from([(
                     Label("test".to_owned()),
                     SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
                 )]))
@@ -401,7 +401,7 @@ mod tests {
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
-                        SessionType::OfferChoice(HashMap::from([(
+                        SessionType::OfferChoice(BTreeMap::from([(
                             Label("test".to_owned()),
                             SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
                         )]))
@@ -423,7 +423,7 @@ mod tests {
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
-                        SessionType::OfferChoice(HashMap::from([(
+                        SessionType::OfferChoice(BTreeMap::from([(
                             Label("test".to_owned()),
                             SessionTypesList(vec![
                                 SessionType::Send(BaseType::Integer),
@@ -451,7 +451,7 @@ mod tests {
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
-                        SessionType::OfferChoice(HashMap::from([
+                        SessionType::OfferChoice(BTreeMap::from([
                             (
                                 Label("test".to_owned()),
                                 SessionTypesList(vec![
@@ -478,7 +478,7 @@ mod tests {
             st_make_choice("&{test(!integer.)}").unwrap(),
             (
                 "",
-                SessionType::MakeChoice(HashMap::from([(
+                SessionType::MakeChoice(BTreeMap::from([(
                     Label("test".to_owned()),
                     SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
                 )]))
@@ -498,7 +498,7 @@ mod tests {
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
-                        SessionType::MakeChoice(HashMap::from([(
+                        SessionType::MakeChoice(BTreeMap::from([(
                             Label("test".to_owned()),
                             SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
                         )]))

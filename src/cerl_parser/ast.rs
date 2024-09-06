@@ -14,7 +14,7 @@ pub struct AnnoAtom {
     pub name: Atom,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Atom(pub String);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -23,7 +23,7 @@ pub struct AnnoVar {
     pub name: Var,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Var(pub String);
 
 #[derive(Debug, Clone)]
