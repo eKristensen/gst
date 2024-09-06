@@ -264,37 +264,48 @@ fn is_st_subtype_aux(t1: &[SessionType], t2: &[SessionType]) -> bool {
 }
 
 // Consume from session if possible on a single path based on inputs
-fn st_consume_single_path(
-    source_session: &[SessionType],
+fn st_consume(
+    current_session: &[SessionType],
     to_consume: &[SessionType],
 ) -> Result<SessionTypesList, String> {
-    if to_consume.is_empty() {
-        return Ok(SessionTypesList(source_session.to_vec()));
-    }
-    if source_session.is_empty() {
-        return Err("Cannot consume on from consumed session".to_string());
-    }
-    match (source_session.first().unwrap(), to_consume.first().unwrap()) {
-        (SessionType::Send(t1), SessionType::Send(t2)) => {
-            if *t1 != *t2 {
-                return Err("Consume type mismatch".to_string());
+    // TODO: Wellformed check to ensure nothing comes after "end".
+
+    // Unfold first ?
+
+    match (current_session, to_consume) {
+        (_, []) => Ok(SessionTypesList(current_session.to_vec())),
+        ([SessionType::End], [SessionType::End]) => Ok(SessionTypesList(vec![SessionType::End])),
+        ([SessionType::MakeChoice(cur_choices)], [SessionType::MakeChoice(consume_choices)]) => {
+            // For all choices in contract, the current session must match. After each branch the
+            // session must be left the same/have a common return type, else fail the consume.
+            // It is fine if consume does not have all the labels that the current session has, but
+            // the labels that consume can chose MUST be in the current session.
+            let common_return;
+            for (consume_choice_label, consume_choice_tail) in consume_choices {
+                let Some(s2_elm_tail) = cur_choices.get(consume_choice_label) else {
+                    return Err(format!(
+                        "Required label {:?} in order to consume {:?} from {:?}",
+                        consume_choice_label, to_consume, current_session
+                    ));
+                };
+                let res = st_consume(cur_choice_tail, consume_choice_tail)?;
+                if 
+                if !equality_aux(&mut seen_pairs.clone(), &s1_elm_tail.0, &s2_elm_tail.0) {
+                    return false;
+                }
             }
-            st_consume_single_path(&source_session[1..], &to_consume[1..])
+            // Return the state consume would leave the session in no matter what choice that was
+            // made.
+            return Ok(common_return);
         }
-        (SessionType::Receive(t1), SessionType::Receive(t2)) => {
-            if *t1 != *t2 {
-                return Err("Consume type mismatch".to_string());
-            }
-            st_consume_single_path(&source_session[1..], &to_consume[1..])
+        ([cur_head, cur_tail @ ..], [consume_head, consume_tail @ ..])
+            if cur_head == consume_head =>
+        {
+            st_consume_single_path(cur_tail, consume_tail)
         }
-        (SessionType::MakeChoice(t1), SessionType::MakeChoice(t2)) => {
-            if *t1 != *t2 {
-                return Err("Make choice type mismatch".to_string());
-            }
-            st_consume_single_path(&source_session[1..], &to_consume[1..])
-        }
-        (SessionType::OfferChoice(_), SessionType::OfferChoice(_)) => todo!(),
-        (SessionType::End, SessionType::End) => Ok(SessionTypesList(source_session.to_vec())),
-        _ => Err("Consume not possible".to_string()),
+        _ => Err(format!(
+            "Could not consume {:?} from {:?}",
+            to_consume, current_session
+        )),
     }
 }
