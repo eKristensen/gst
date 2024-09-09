@@ -191,7 +191,7 @@ fn e_app_contract(
             (CType::Consume(to_consume), CType::Consume(source_session)) => {
                 // do the consume
                 let updated_source_session =
-                    st_consume_single_path(source_session.0.as_slice(), to_consume.0.as_slice())?;
+                    st_consume(source_session.0.as_slice(), to_consume.0.as_slice())?;
 
                 // update env, IMPORTANT!
                 let CExpr::Var(session_id_var) = input_elm else {
@@ -280,28 +280,44 @@ fn st_consume(
             // session must be left the same/have a common return type, else fail the consume.
             // It is fine if consume does not have all the labels that the current session has, but
             // the labels that consume can chose MUST be in the current session.
-            let common_return;
+            let mut common_return = None;
             for (consume_choice_label, consume_choice_tail) in consume_choices {
-                let Some(s2_elm_tail) = cur_choices.get(consume_choice_label) else {
+                let Some(cur_choice_session_tail) = cur_choices.get(consume_choice_label) else {
                     return Err(format!(
                         "Required label {:?} in order to consume {:?} from {:?}",
                         consume_choice_label, to_consume, current_session
                     ));
                 };
-                let res = st_consume(cur_choice_tail, consume_choice_tail)?;
-                if 
-                if !equality_aux(&mut seen_pairs.clone(), &s1_elm_tail.0, &s2_elm_tail.0) {
-                    return false;
+                let res = st_consume(
+                    cur_choice_session_tail.0.as_slice(),
+                    consume_choice_tail.0.as_slice(),
+                )?;
+                match &common_return {
+                    // Do we already know the session that we are supposed to see?
+                    Some(common_return) => {
+                        if common_return != &res {
+                            return Err(
+                                "Branching session type must result in a common residual type."
+                                    .to_string(),
+                            );
+                        }
+                    }
+                    // If not, then it is the first round:
+                    // On first round learn the sessiontype for the common return
+                    None => common_return = Some(res),
                 }
             }
             // Return the state consume would leave the session in no matter what choice that was
             // made.
-            return Ok(common_return);
+            match &common_return {
+                Some(common_return) => Ok(common_return.clone()),
+                None => Err("No common return. No choices available?".to_string()),
+            }
         }
         ([cur_head, cur_tail @ ..], [consume_head, consume_tail @ ..])
             if cur_head == consume_head =>
         {
-            st_consume_single_path(cur_tail, consume_tail)
+            st_consume(cur_tail, consume_tail)
         }
         _ => Err(format!(
             "Could not consume {:?} from {:?}",
