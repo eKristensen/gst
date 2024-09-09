@@ -18,7 +18,7 @@
 %      Connect calculator and ServerPID            Can return be ST or service or both?
 %                        ↓↓                                       ↓↓
 -session("'addition'(new(+{neg(!integer. ?integer. end.), add(!integer. ?'received'. !integer. ?integer. end.)}.),_,_)").
-% TO ADD: multi-options for session.
+% TODO: ADD: multi-options for session.
 -spec negation(new(),integer()) -> integer().
 negation(ServerPid,V1) ->
     io:format("DEBUG: Started neg~n"),
