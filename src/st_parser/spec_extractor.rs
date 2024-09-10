@@ -86,7 +86,13 @@ fn add_session_spec(spec: &Lit) -> Result<(FunName, SessionSpecs), String> {
 
     // Parse session type spec string
     let session_type_parsed: (FunName, SessionSpecs) = match st_parse(&st_string).finish() {
-        Ok((_, res)) => res,
+        Ok((residual_input, res)) if residual_input.is_empty() => res,
+        Ok((residual_iniput, _)) => {
+            return Err(format!(
+                "Could not parse session type. Extra unknown input not allowed: {:?}",
+                residual_iniput
+            ))
+        }
         Err(e) => return Err(format!("Nom could not parse session type\n\n{}", e)),
     };
     Ok(session_type_parsed)

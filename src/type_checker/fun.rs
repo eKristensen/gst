@@ -7,7 +7,10 @@ use crate::{
     type_checker::env::TypeEnv,
 };
 
-use super::{env::TypeEnvs, session::must_st_consume_expr};
+use super::{
+    env::TypeEnvs,
+    session::{must_st_consume_expr, unfold},
+};
 
 // Handle build in functions
 pub fn bif_fun(
@@ -271,6 +274,10 @@ fn st_consume(
     // TODO: Wellformed check to ensure nothing comes after "end".
 
     // Unfold first ?
+    let current_session = unfold(&SessionTypesList(current_session.to_vec())).0;
+    let current_session = current_session.as_slice();
+    let to_consume = unfold(&SessionTypesList(to_consume.to_vec())).0;
+    let to_consume = to_consume.as_slice();
 
     match (current_session, to_consume) {
         (_, []) => Ok(SessionTypesList(current_session.to_vec())),

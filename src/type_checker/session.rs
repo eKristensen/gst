@@ -41,6 +41,8 @@ pub fn gsp_new(
         return Err("Must construct new session here".to_string());
     };
 
+    let session_type = st_dual(&session_type)?;
+
     Ok(CType::Consume(session_type))
 
     // Call by value, We need to argument type. Execution environment? Should I consider it isolated? I suppose?
@@ -105,44 +107,20 @@ pub fn gsp_sync_send(
     else {
         return Err("e_call gsp_sync_send second argument must be session type".to_string());
     };
-    let mut session_type = session_type;
 
-    // TODO: session_var must match, if not defined, set it!
-
-    // Session must have at least one element otherwise it is not possible to continue:
-    if session_type.0.is_empty() {
-        return Err("e_call gsp_sync_send Cannot send on empty/consumed session".to_string());
-    }
-
-    // It can be either an atom matching a label, or a simple value sent. Let us check:
-    match session_type.0.first().unwrap() {
-        SessionType::Send(to_send_val) => {
-            if session_type.0.len() < 2 {
-                return Err("Session type too short for sync send-receive".to_string());
-            }
-            // Send base value
-            if sending_val != *to_send_val {
-                return Err("Mismatch between expected to send and actual type.".to_string());
-            }
-            session_type.0.remove(0);
-            // Return type is received value
-            let SessionType::Receive(received) = session_type.0.remove(0) else {
-                // TODO: Do not return error here. This flow is normal and expected!
-                // Make choice should be fine. The time this type is used a choice must be made.
-                // Subtype relation should work here.
-                return Err("Expects ping-pong send-receive".to_string());
-            };
-            envs.0
-                .insert(session_var.clone(), TypeEnv::Delta(session_type));
-            Ok(CType::Base(received))
+    match session_type.0.as_slice() {
+        // Session must have at least one element otherwise it is not possible to continue:
+        [] => Err("e_call gsp_sync_send Cannot send on empty/consumed session".to_string()),
+        [SessionType::Send(to_send_val), SessionType::Receive(received), tail @ ..]
+            if sending_val == *to_send_val =>
+        {
+            envs.0.insert(
+                session_var.clone(),
+                TypeEnv::Delta(SessionTypesList(tail.to_vec())),
+            );
+            Ok(CType::Base(received.clone()))
         }
-        SessionType::Receive(_) => {
-            Err("Session type says receive, we are about to send".to_string())
-        }
-        SessionType::MakeChoice(_) => {
-            Err("Session type MakeChoice, expected OfferChoice".to_string())
-        }
-        SessionType::OfferChoice(offers) => {
+        [SessionType::MakeChoice(offers)] => {
             // Make choice
             let BaseType::Atom(atom_label) = sending_val else {
                 return Err(format!("Cannot make a choice without a label. Session type expects a choice {:?} {:?} {:?}", session_type, sending_val, args));
@@ -158,13 +136,15 @@ pub fn gsp_sync_send(
                 None => Err("Trying to make choice not offered by session".to_string()),
             }
         }
-        SessionType::End => Err("Session type is End, but we are about to use it".to_string()),
-        SessionType::State(_) => {
-            Err("State annotation is not allowed in -session, only -mspec".to_string())
-        }
-        SessionType::Var(_) => todo!(),
-        SessionType::Rec(_, _) => todo!(),
+        _ => Err(format!(
+            "Cannot perform next step {:?} in session with this state: {:?}",
+            sending_val, session_type
+        )),
     }
+
+    // ----------------------------------------------------------------------------------------
+
+    // TODO: session_var must match, if not defined, set it!
 
     // Call by value, We need to argument type. Execution environment? Should I consider it isolated? I suppose?
     // The safest and more reasonable way to deal with the call-by-value is to assume it is like a let x (var-name) = expr type
@@ -321,6 +301,11 @@ fn envs_isolation(old_envs: &TypeEnvs, new_envs: &mut TypeEnvs) {
             },
         }
     }
+}
+
+pub fn unfold(input: &SessionTypesList) -> SessionTypesList {
+    // TODO: Unfold more than once!
+    unfold_once(input)
 }
 
 fn unfold_once(input: &SessionTypesList) -> SessionTypesList {
@@ -557,6 +542,42 @@ fn equality_aux(seen_pairs: &mut EqualityPairs, s1: &[SessionType], s2: &[Sessio
             println!("deub false: {:?} {:?}", s1, s2);
             false
         }
+    }
+}
+
+// Compute dual to an input session type and output it
+fn st_dual(input: &SessionTypesList) -> Result<SessionTypesList, String> {
+    match input.0.as_slice() {
+        [] => Ok(SessionTypesList(vec![])),
+        [SessionType::Send(sending), tail @ ..] => {
+            let mut output = vec![SessionType::Receive(sending.clone())];
+            let mut tail = (st_dual(&SessionTypesList(tail.to_vec()))?).0;
+            output.append(&mut tail);
+            Ok(SessionTypesList(output))
+        }
+        [SessionType::Receive(receiving), tail @ ..] => {
+            let mut output = vec![SessionType::Send(receiving.clone())];
+            let mut tail = (st_dual(&SessionTypesList(tail.to_vec()))?).0;
+            output.append(&mut tail);
+            Ok(SessionTypesList(output))
+        }
+        [SessionType::Var(var), tail @ ..] => {
+            let mut output = vec![SessionType::Var(var.clone())];
+            let mut tail = (st_dual(&SessionTypesList(tail.to_vec()))?).0;
+            output.append(&mut tail);
+            Ok(SessionTypesList(output))
+        }
+        [SessionType::MakeChoice(choices)] => Ok(SessionTypesList(vec![SessionType::OfferChoice(
+            choices.clone(),
+        )])),
+        [SessionType::OfferChoice(choices)] => Ok(SessionTypesList(vec![SessionType::MakeChoice(
+            choices.clone(),
+        )])),
+        [SessionType::Rec(var, next)] => {
+            let next = st_dual(next)?;
+            Ok(SessionTypesList(vec![SessionType::Rec(var.clone(), next)]))
+        }
+        _ => Err(format!("Cannot find dual for: {:?}", input)),
     }
 }
 
