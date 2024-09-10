@@ -567,12 +567,23 @@ fn st_dual(input: &SessionTypesList) -> Result<SessionTypesList, String> {
             output.append(&mut tail);
             Ok(SessionTypesList(output))
         }
-        [SessionType::MakeChoice(choices)] => Ok(SessionTypesList(vec![SessionType::OfferChoice(
-            choices.clone(),
-        )])),
-        [SessionType::OfferChoice(choices)] => Ok(SessionTypesList(vec![SessionType::MakeChoice(
-            choices.clone(),
-        )])),
+        [SessionType::End] => Ok(SessionTypesList(vec![SessionType::End])),
+        [SessionType::MakeChoice(choices)] => {
+            let mut output = BTreeMap::new();
+            for (label, inner) in choices {
+                let inner = st_dual(inner)?;
+                output.insert(label.clone(), inner);
+            }
+            Ok(SessionTypesList(vec![SessionType::OfferChoice(output)]))
+        }
+        [SessionType::OfferChoice(choices)] => {
+            let mut output = BTreeMap::new();
+            for (label, inner) in choices {
+                let inner = st_dual(inner)?;
+                output.insert(label.clone(), inner);
+            }
+            Ok(SessionTypesList(vec![SessionType::MakeChoice(output)]))
+        }
         [SessionType::Rec(var, next)] => {
             let next = st_dual(next)?;
             Ok(SessionTypesList(vec![SessionType::Rec(var.clone(), next)]))

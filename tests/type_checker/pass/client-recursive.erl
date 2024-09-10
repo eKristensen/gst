@@ -8,8 +8,8 @@
 -type consume() :: {}.
 
 % TODO: Fix Session type syntax, dot is not predictable and err msg is very hard to read.
--session("'foo'(new(rec T. +{send(!integer. ?integer. T.), stop(end.)}..),_)").
--session("'bar'(new(rec T. +{send(!integer. ?integer. T.), stop(end.)}..),consume(&{send(!integer. ?integer. &{send(!integer. ?integer.)}.)}.),_)").
+-session("'foo'(new(rec T. +{send(?integer. !integer. T.), stop(end.)}..),_)").
+-session("'bar'(new(rec T. +{send(?integer. !integer. T.), stop(end.)}..),consume(&{send(!integer. ?integer. &{send(!integer. ?integer.)}.)}.),_)").
 
 
 -spec foo(new(),integer()) -> integer().

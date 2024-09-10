@@ -9,9 +9,7 @@
 -type new() :: {}. % changed from server() as constructor
 -type consume() :: {}. % changed from session()
 
-% TODO: Bad: Syntax does not allow custom tags after function definitions! Maybe we should have used comments instead?
-% Though I would have ad to use erlang directly then.
--session("'foo'(new(!integer. ?string. !string. ?integer.  end.)) ->   ").
+-session("'foo'(new(!integer. ?string. !string. ?integer.  end.))").
 -session("'bar'(_,consume(!string. ?integer. ),_)").
 
 -spec foo(new()) -> integer().
