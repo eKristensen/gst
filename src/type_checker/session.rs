@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    time::Duration,
+};
 
 use crate::{
     cerl_parser::ast::{Atom, Lit, Var},
@@ -41,7 +44,7 @@ pub fn gsp_new(
         return Err("Must construct new session here".to_string());
     };
 
-    let session_type = st_dual(&session_type)?;
+    // let session_type = st_dual(&session_type)?;
 
     Ok(CType::Consume(session_type))
 
@@ -108,7 +111,11 @@ pub fn gsp_sync_send(
         return Err("e_call gsp_sync_send second argument must be session type".to_string());
     };
 
-    match session_type.0.as_slice() {
+    println!("Unfolding once here #1");
+    let session_type = unfold(&session_type).0;
+    let session_type = session_type.as_slice();
+
+    match session_type {
         // Session must have at least one element otherwise it is not possible to continue:
         [] => Err("e_call gsp_sync_send Cannot send on empty/consumed session".to_string()),
         [SessionType::Send(to_send_val), SessionType::Receive(received), tail @ ..]
@@ -194,6 +201,7 @@ pub fn e_case_offer(
         // think so?
 
         // TODO: Potential optimization: Before vars are computed for each clause, where they could be computed outside loop.
+        println!("must_st_consume_expr via e_case_offer");
         let clause_res =
             must_st_consume_expr(module, &case_start_envs, &mut clause_envs, &clause.res);
         if clause_res.is_err() {
@@ -220,6 +228,7 @@ pub fn e_case_offer(
 // Check that all sessions are finished
 pub fn finished(envs: &TypeEnvs) -> Result<(), String> {
     let empty: TypeEnvs = TypeEnvs(HashMap::new());
+    println!("diff_consumed via finished");
     diff_consumed(&empty, envs)
 }
 
@@ -229,6 +238,10 @@ pub fn diff_consumed(before_envs: &TypeEnvs, after_envs: &TypeEnvs) -> Result<()
     // Two stage: Find all to check, and then to check their value.
     let before_vars = before_envs.0.keys().cloned().collect();
     let after_vars: HashSet<Var> = after_envs.0.keys().cloned().collect();
+    println!(
+        "DEBUG: Before vars {:?}, After vars: {:?}",
+        before_vars, after_vars
+    );
     // must_be_consumed == new variables that only exist within the enclosed let in
     let must_be_consumed: HashSet<&Var> = after_vars.difference(&before_vars).collect();
     for check_var in must_be_consumed {
@@ -243,9 +256,15 @@ pub fn diff_consumed(before_envs: &TypeEnvs, after_envs: &TypeEnvs) -> Result<()
                     if *check_consumed.0.first().unwrap() == SessionType::End {
                         continue;
                     }
-                    return Err(format!("{:?} Not consumed {:?}", check_var, check_consumed));
+                    return Err(format!(
+                        "{:?} Not consumed #1 {:?}",
+                        check_var, check_consumed
+                    ));
                 }
-                return Err(format!("{:?} Not consumed {:?}", check_var, check_consumed));
+                return Err(format!(
+                    "{:?} Not consumed #2 {:?}",
+                    check_var, check_consumed
+                ));
             }
             TypeEnv::Sigma(_) => continue,
         }
@@ -263,6 +282,10 @@ pub fn must_st_consume_expr(
     match expr(module, current_envs, e) {
         Ok(return_type) => {
             // Check finished for all new sessions, diff between environments
+            println!(
+                "diff consumed via must_st_consume_expr, before env: {:?}",
+                before_envs.0.keys()
+            );
             let diff_ok = diff_consumed(before_envs, current_envs);
             if let Err(err_val) = diff_ok {
                 return Err(format!(
@@ -309,11 +332,12 @@ pub fn unfold(input: &SessionTypesList) -> SessionTypesList {
 }
 
 fn unfold_once(input: &SessionTypesList) -> SessionTypesList {
+    //std::thread::sleep(Duration::from_millis(200));
     match input.0.as_slice() {
         [SessionType::Rec(binder, inner)] => {
             let free_names = free_names(&inner.0);
-            println!("Found free names: {:?}", free_names);
-            println!("For this inner: {:?}", inner);
+            // println!("Found free names: {:?}", free_names);
+            // println!("For this inner: {:?}", inner);
             substitution(binder, &input.0, &inner.0, &free_names.0)
         }
         _ => input.clone(), // TODO: Avoid clone here should be possible
@@ -542,53 +566,6 @@ fn equality_aux(seen_pairs: &mut EqualityPairs, s1: &[SessionType], s2: &[Sessio
             println!("deub false: {:?} {:?}", s1, s2);
             false
         }
-    }
-}
-
-// Compute dual to an input session type and output it
-fn st_dual(input: &SessionTypesList) -> Result<SessionTypesList, String> {
-    match input.0.as_slice() {
-        [] => Ok(SessionTypesList(vec![])),
-        [SessionType::Send(sending), tail @ ..] => {
-            let mut output = vec![SessionType::Receive(sending.clone())];
-            let mut tail = (st_dual(&SessionTypesList(tail.to_vec()))?).0;
-            output.append(&mut tail);
-            Ok(SessionTypesList(output))
-        }
-        [SessionType::Receive(receiving), tail @ ..] => {
-            let mut output = vec![SessionType::Send(receiving.clone())];
-            let mut tail = (st_dual(&SessionTypesList(tail.to_vec()))?).0;
-            output.append(&mut tail);
-            Ok(SessionTypesList(output))
-        }
-        [SessionType::Var(var), tail @ ..] => {
-            let mut output = vec![SessionType::Var(var.clone())];
-            let mut tail = (st_dual(&SessionTypesList(tail.to_vec()))?).0;
-            output.append(&mut tail);
-            Ok(SessionTypesList(output))
-        }
-        [SessionType::End] => Ok(SessionTypesList(vec![SessionType::End])),
-        [SessionType::MakeChoice(choices)] => {
-            let mut output = BTreeMap::new();
-            for (label, inner) in choices {
-                let inner = st_dual(inner)?;
-                output.insert(label.clone(), inner);
-            }
-            Ok(SessionTypesList(vec![SessionType::OfferChoice(output)]))
-        }
-        [SessionType::OfferChoice(choices)] => {
-            let mut output = BTreeMap::new();
-            for (label, inner) in choices {
-                let inner = st_dual(inner)?;
-                output.insert(label.clone(), inner);
-            }
-            Ok(SessionTypesList(vec![SessionType::MakeChoice(output)]))
-        }
-        [SessionType::Rec(var, next)] => {
-            let next = st_dual(next)?;
-            Ok(SessionTypesList(vec![SessionType::Rec(var.clone(), next)]))
-        }
-        _ => Err(format!("Cannot find dual for: {:?}", input)),
     }
 }
 

@@ -7,9 +7,15 @@
 -type new() :: {}.
 -type consume() :: {}.
 
+% Note: What Marco meant by "end" in consume was to stop doing things.
+% TODO: Fix somehow with main session type. Right now it should fail because not fully consumed
+% But fails in call contract typing
+
+% TODO: Replace "stop(T.)" with "stop(end.)" in ServerPid session type. And try to type it.
+
 % TODO: Fix Session type syntax, dot is not predictable and err msg is very hard to read.
--session("'foo'(new(rec T. +{send(!integer. ?integer. T.), stop(end.)}..),_)").
--session("'bar'(new(rec T. +{send(!integer. ?integer. T.), stop(end.)}..),consume(rec T. +{send(!integer. ?integer. T.), stop(end.)}..),_)").
+-session("'foo'(new(rec T. +{send(!integer. ?integer. T.), stop(T.)}..),_)").
+-session("'bar'(new(rec T. +{send(!integer. ?integer. T.), stop(T.)}..),consume(rec T. +{send(!integer. ?integer. T.), stop(.)}..),_)").
 %         &{send(!integer. ?integer. &{send(!integer. ?integer.)}.)}.),_)").
 
 

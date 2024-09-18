@@ -77,7 +77,7 @@ fn consume_spec(i: &str) -> IResult<&str, SessionSpecElm, ErrorTree<&str>> {
 pub fn st_inner(i: &str) -> IResult<&str, SessionTypesList, ErrorTree<&str>> {
     map(
         pair(
-            separated_list1(
+            separated_list0(
                 ws(tag(".")),
                 alt((
                     st_send,
@@ -141,7 +141,7 @@ fn st_make_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
                 }
             }
 
-            SessionType::MakeChoice(offer_choice)
+            SessionType::OfferChoice(offer_choice)
         },
     )(i)
 }
@@ -165,7 +165,7 @@ fn st_offer_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
                 }
             }
 
-            SessionType::OfferChoice(offer_choice)
+            SessionType::MakeChoice(offer_choice)
         },
     )(i)
 }

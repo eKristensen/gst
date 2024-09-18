@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::{
     cerl_parser::ast::{Atom, FunName},
     contract_cerl::{
@@ -104,6 +106,7 @@ pub fn e_app(
     // 2a) Get types of arguments
     let mut input_types: Vec<CType> = Vec::new();
     for elm in args {
+        println!("must_st_consume_expr called by e_app");
         match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, elm) {
             Ok(ok_val) => input_types.push(ok_val),
             Err(err_val) => {
@@ -170,6 +173,7 @@ fn e_app_contract(
     inputs: &[CExpr],
 ) -> Result<(), String> {
     for (contract_elm, input_elm) in contract.iter().zip(inputs.iter()) {
+        println!("must_st_consume_expr called by e_app_contract");
         let ctype_input_elm =
             match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, input_elm) {
                 Ok(ok_val) => ok_val,
@@ -271,12 +275,30 @@ fn st_consume(
     current_session: &[SessionType],
     to_consume: &[SessionType],
 ) -> Result<SessionTypesList, String> {
+    let mut seen_pairs = BTreeSet::new();
+    st_consume_aux(&mut seen_pairs, current_session, to_consume)
+}
+
+fn st_consume_aux(
+    seen_pairs: &mut BTreeSet<(Vec<SessionType>, Vec<SessionType>)>,
+    current_session: &[SessionType],
+    to_consume: &[SessionType],
+) -> Result<SessionTypesList, String> {
     // TODO: Wellformed check to ensure nothing comes after "end".
 
     // Unfold first ?
+    println!("st consume unfolding");
     let current_session = unfold(&SessionTypesList(current_session.to_vec())).0;
-    let current_session = current_session.as_slice();
     let to_consume = unfold(&SessionTypesList(to_consume.to_vec())).0;
+
+    let pair = (current_session.clone(), to_consume.clone());
+    if seen_pairs.contains(&pair) {
+        println!("Found pair, returning current session");
+        return Ok(SessionTypesList(current_session));
+    } else {
+        seen_pairs.insert(pair);
+    }
+    let current_session = current_session.as_slice();
     let to_consume = to_consume.as_slice();
 
     match (current_session, to_consume) {
@@ -295,7 +317,8 @@ fn st_consume(
                         consume_choice_label, to_consume, current_session
                     ));
                 };
-                let res = st_consume(
+                let res = st_consume_aux(
+                    seen_pairs,
                     cur_choice_session_tail.0.as_slice(),
                     consume_choice_tail.0.as_slice(),
                 )?;
@@ -303,9 +326,9 @@ fn st_consume(
                     // Do we already know the session that we are supposed to see?
                     Some(common_return) => {
                         if common_return != &res {
-                            return Err(
-                                "Branching session type must result in a common residual type."
-                                    .to_string(),
+                            return Err(format!(
+                                "Branching session type must result in a common residual type. Expected {:?} but found {:?}",
+                                common_return, res),
                             );
                         }
                     }
@@ -324,7 +347,7 @@ fn st_consume(
         ([cur_head, cur_tail @ ..], [consume_head, consume_tail @ ..])
             if cur_head == consume_head =>
         {
-            st_consume(cur_tail, consume_tail)
+            st_consume_aux(seen_pairs, cur_tail, consume_tail)
         }
         _ => Err(format!(
             "Could not consume {:?} from {:?}",
