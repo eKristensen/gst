@@ -220,53 +220,66 @@ fn e_app_contract(
 // Partial session equality relation
 // t1 <: t2
 fn is_st_subtype(t1: &SessionTypesList, t2: &SessionTypesList) -> bool {
-    is_st_subtype_aux(t1.0.as_slice(), t2.0.as_slice())
+    let mut seen_pairs = BTreeSet::new();
+    is_st_subtype_aux(&mut seen_pairs, t1, t2)
 }
 
 // TODO How to handle "End" in subtype relation??
 // Can subtype end before or can it only be done i supertype?
-fn is_st_subtype_aux(t1: &[SessionType], t2: &[SessionType]) -> bool {
-    if t2.is_empty() && !t1.is_empty() {
-        return false;
-    };
-    if t1.is_empty() && t2.is_empty() {
-        return false;
-    };
-    if t1 == t2 {
+fn is_st_subtype_aux(
+    seen_pairs: &mut BTreeSet<(SessionTypesList, SessionTypesList)>,
+    t1: &SessionTypesList,
+    t2: &SessionTypesList,
+) -> bool {
+    // TODO: Unfold and memory...
+    if seen_pairs.contains(&(t1.clone(), t2.clone())) {
         return true;
-    };
-    if t1 == [SessionType::End] && t2.is_empty() {
-        return false;
-    };
-    match t2.first().unwrap() {
-        SessionType::Send(_) => is_st_subtype_aux(t1, &t2[1..]),
-        SessionType::Receive(_) => is_st_subtype_aux(t1, &t2[1..]),
-        SessionType::MakeChoice(choices) => {
-            if t2.len() != 1 {
-                return false;
-            }
-            for choice in choices.values() {
-                if is_st_subtype_aux(t1, choice.0.as_slice()) {
-                    return true;
+    }
+    seen_pairs.insert((t1.clone(), t2.clone()));
+    let t1 = unfold(t1).0;
+    let t1 = t1.as_slice();
+
+    let t2 = unfold(t2).0;
+    let t2 = t2.as_slice();
+
+    match (t1, t2) {
+        (t1, t2) if t1 == t2 => true,
+        ([SessionType::End], [SessionType::End]) => true,
+        ([t1_head, t1_tail @ ..], [t2_head, t2_tail @ ..]) if t1_head == t2_head => {
+            // TODO: General match t1_head==t2_head maybe allows too much? Should not be a problem
+            // when wellformed?
+            is_st_subtype_aux(
+                seen_pairs,
+                &SessionTypesList(t1_tail.to_vec()),
+                &SessionTypesList(t2_tail.to_vec()),
+            )
+        }
+        ([SessionType::MakeChoice(t1_choices)], [SessionType::MakeChoice(t2_choices)]) => {
+            for (t1_label, t1_st) in t1_choices {
+                if let Some(t2_st) = t2_choices.get(t1_label) {
+                    if !is_st_subtype_aux(seen_pairs, t1_st, t2_st) {
+                        return false;
+                    }
+                } else {
+                    return false;
                 }
             }
-            false
+            true
         }
-        SessionType::OfferChoice(offers) => {
-            if t2.len() != 1 {
-                return false;
-            }
-            for offer in offers.values() {
-                if is_st_subtype_aux(t1, offer.0.as_slice()) {
-                    return true;
+        ([SessionType::OfferChoice(t1_choices)], [SessionType::OfferChoice(t2_choices)]) => {
+            for (t1_label, t1_st) in t1_choices {
+                if let Some(t2_st) = t2_choices.get(t1_label) {
+                    if !is_st_subtype_aux(seen_pairs, t1_st, t2_st) {
+                        return false;
+                    }
+                } else {
+                    return false;
                 }
             }
-            false
+            true
         }
-        SessionType::End => false,
-        SessionType::State(_) => todo!("State is not allowed in -session. Properly handle error message or redesign to not need it."),
-        SessionType::Var(_) => todo!(),
-        SessionType::Rec(t2_v,t2_st) => todo!("\nt1: {:?}\nt2_v : {:?}\nt2_st: {:?}", t1, t2_v, t2_st),
+        ([_head, _tail @ ..], []) => true,
+        (_, _) => false,
     }
 }
 

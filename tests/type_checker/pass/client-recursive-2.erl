@@ -23,14 +23,14 @@
 foo(ServerPid,V1) ->
     SessionID = gen_server_plus:new(ServerPid),
     Res = bar(ServerPid,SessionID, V1),
-    _ = gen_server_plus:call(ServerPid, SessionID, stop),
+    _ = gen_server_plus:call(ServerPid, SessionID, realstop),
     Res.
 
 -spec bar(new(),consume(),integer()) -> integer().
 bar(ServerPid, SessionID, V1) ->
     _ = gen_server_plus:call(ServerPid, SessionID, send),
     _ = gen_server_plus:call(ServerPid, SessionID, V1),
-    % gen_server_plus:call(ServerPid, SessionID, stop),
+    gen_server_plus:call(ServerPid, SessionID, stop),
     42.
 %    gen_server_plus:call(ServerPid, SessionID, V1).
 
