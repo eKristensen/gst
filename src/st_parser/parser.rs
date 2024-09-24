@@ -123,7 +123,7 @@ fn base_type(i: &str) -> IResult<&str, BaseType, ErrorTree<&str>> {
 
 // TODO: Avoid direct OK return
 // TODO: ElixirST has ? or ! on labels. Needed or not?
-fn st_make_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
+fn st_offer_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
     // TODO: Currently just like st_offer_choice make avoid duplicate code
     map(
         delimited(
@@ -148,7 +148,7 @@ fn st_make_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
 
 // TODO: Avoid direct OK return
 // TODO: ElixirST has ? or ! on labels. Needed or not?
-fn st_offer_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
+fn st_make_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
     map(
         delimited(
             ws(tag("+{")),
@@ -378,7 +378,7 @@ mod tests {
     #[test]
     fn offer_choice_00() {
         assert_eq!(
-            st_offer_choice("+{test(!integer.)}").unwrap(),
+            st_offer_choice("&{test(!integer.)}").unwrap(),
             (
                 "",
                 SessionType::OfferChoice(BTreeMap::from([(
@@ -392,7 +392,7 @@ mod tests {
     #[test]
     fn offer_choice_01() {
         assert_eq!(
-            st_parse("'test'(new( +{test(!integer.)}.))").unwrap(),
+            st_parse("'test'(new( &{test(!integer.)}.))").unwrap(),
             (
                 "",
                 (
@@ -414,7 +414,7 @@ mod tests {
     #[test]
     fn offer_choice_02() {
         assert_eq!(
-            st_parse("'test'(new( +{test(!integer. !integer. ?float. end.)}.))").unwrap(),
+            st_parse("'test'(new( &{test(!integer. !integer. ?float. end.)}.))").unwrap(),
             (
                 "",
                 (
@@ -441,7 +441,7 @@ mod tests {
     #[test]
     fn offer_choice_03() {
         assert_eq!(
-            st_parse("'test'(new( +{test(!integer. !integer. ?float. end.), alt(end.)}.))")
+            st_parse("'test'(new( &{test(!integer. !integer. ?float. end.), alt(end.)}.))")
                 .unwrap(),
             (
                 "",
@@ -475,7 +475,7 @@ mod tests {
     #[test]
     fn make_choice_00() {
         assert_eq!(
-            st_make_choice("&{test(!integer.)}").unwrap(),
+            st_make_choice("+{test(!integer.)}").unwrap(),
             (
                 "",
                 SessionType::MakeChoice(BTreeMap::from([(
@@ -489,7 +489,7 @@ mod tests {
     #[test]
     fn make_choice_01() {
         assert_eq!(
-            st_parse("'test'( new( &{ test( !integer. ) } . ) )   ").unwrap(),
+            st_parse("'test'( new( +{ test( !integer. ) } . ) )   ").unwrap(),
             (
                 "",
                 (
