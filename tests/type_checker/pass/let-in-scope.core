@@ -1,0 +1,15 @@
+module 'let-in-scope' []
+    attributes [
+
+		'session' =
+		    [39|[102|[111|[111|[39|[40|[41]]]]]]],
+		'spec' =
+		    [{{'foo',0},[{'type',{6,10},'fun',[{'type',{6,10},'product',[]}|[{'type',{6,16},'integer',[]}]]}]}]
+
+    ]
+'foo'/0 =
+    fun () ->
+	let <X> = call 'erlang':'+' (1,2) in
+    let <Y> = call 'erlang':'+' (X,3) in
+      call 'erlang':'+' (X,Y)
+end

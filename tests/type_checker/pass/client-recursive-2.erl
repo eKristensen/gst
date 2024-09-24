@@ -23,7 +23,7 @@
 foo(ServerPid,V1) ->
     SessionID = gen_server_plus:new(ServerPid),
     Res = bar(ServerPid,SessionID, V1),
-%    _ = gen_server_plus:call(ServerPid, SessionID, stop),
+    _ = gen_server_plus:call(ServerPid, SessionID, stop),
     Res.
 
 -spec bar(new(),consume(),integer()) -> integer().

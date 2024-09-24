@@ -283,8 +283,10 @@ pub fn must_st_consume_expr(
         Ok(return_type) => {
             // Check finished for all new sessions, diff between environments
             println!(
-                "diff consumed via must_st_consume_expr, before env: {:?}",
-                before_envs.0.keys()
+                "diff consumed via must_st_consume_expr, before env: {:?}, after envs {:?}, for expr: {:?}",
+                before_envs.0.keys(),
+                current_envs.0.keys(),
+                e
             );
             let diff_ok = diff_consumed(before_envs, current_envs);
             if let Err(err_val) = diff_ok {
@@ -296,7 +298,17 @@ pub fn must_st_consume_expr(
 
             // Env isolation step: Remove all new definitions, unless they are session identifiers
             // In this case, it would have been easier to have the envs separate
+            println!(
+                "\nDEBUG ISOLATION BEFORE STATUS: {:?} ||| {:?}",
+                before_envs.0.keys(),
+                current_envs.0.keys()
+            );
             envs_isolation(before_envs, current_envs);
+            println!(
+                "DEBUG ISOLATION BEFORE STATUS: {:?} ||| {:?}",
+                before_envs.0.keys(),
+                current_envs.0.keys()
+            );
 
             // Return return_type
             Ok(return_type)

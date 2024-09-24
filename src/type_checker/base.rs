@@ -17,6 +17,11 @@ use super::{
 };
 
 pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, String> {
+    println!(
+        "DEBUG: START EXPR CHECK: Env var names are {:?} before {:?}",
+        envs.0.keys(),
+        e
+    );
     match e {
         CExpr::Var(v) => e_base(envs, v),
         CExpr::Lit(l) => match l {
@@ -178,6 +183,22 @@ fn e_let(
         return Err(format!("e_let failed #1 because {}", err_val));
     }
 
+    // TODO: IMPORTANT I THINK I FOUND IT!
+    // No substituion/ pattern is NOT saved for e2 !!!!!
+    // E.g.
+    // Let V1 = E1 in (let V2 = E2 in E3)
+    // Then, V1 is not defined in (let V2 = E2 in E3) !!!
+    // WUT? Too much isolation here ????
+    // OR NOT? It makes sense that V1 is not defined before the let expr for V1...
+    // NO! It is in E1 that V1 is not defined, not the continuation !
+
+    println!(
+        "\n!!!! DEBUG: e1 is: {:?} Before e2 part of e_let: \n{:?} \n{:?}",
+        e1,
+        envs_copy_baseline.0.keys(),
+        envs.0.keys()
+    );
+    println!("must_st_consume_expr called by e_let");
     match must_st_consume_expr(module, &envs_copy_baseline, envs, e2) {
         Ok(ok_val) => Ok(ok_val),
         Err(err_val) => Err(format!("e_let failed #2 because {}", err_val)),
