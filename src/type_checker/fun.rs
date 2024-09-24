@@ -266,7 +266,7 @@ fn is_st_subtype_aux(t1: &[SessionType], t2: &[SessionType]) -> bool {
         SessionType::End => false,
         SessionType::State(_) => todo!("State is not allowed in -session. Properly handle error message or redesign to not need it."),
         SessionType::Var(_) => todo!(),
-        SessionType::Rec(_,_) => todo!(),
+        SessionType::Rec(t2_v,t2_st) => todo!("\nt1: {:?}\nt2_v : {:?}\nt2_st: {:?}", t1, t2_v, t2_st),
     }
 }
 

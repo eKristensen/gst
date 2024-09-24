@@ -72,6 +72,7 @@ pub struct CClause {
 
 #[derive(Debug, Clone)]
 pub enum CPat {
+    Any, // Emulate _ when variable is not needed, e.g. for do e1 e2
     Var(Var),
     Lit(Lit),
     Cons(Vec<CPat>),

@@ -152,17 +152,10 @@ fn e_lit_aux(l: &Lit) -> BaseType {
 }
 
 fn e_do(module: &CModule, envs: &mut TypeEnvs, e1: &CExpr, e2: &CExpr) -> Result<CType, String> {
-    // Clone env to compare consume later. Keep using original ref otherwise changes within are going to be lost
-    let envs_copy_baseline = TypeEnvs(envs.0.clone());
-    let eval_ok = expr(module, envs, e1);
-    if let Err(err_val) = eval_ok {
-        return Err(format!("e_do failed because {}", err_val));
-    }
-
-    match must_st_consume_expr(module, &envs_copy_baseline, envs, e2) {
-        Ok(ok_val) => Ok(ok_val),
-        Err(err_val) => Err(format!("e_do failed because {}", err_val)),
-    }
+    // TODO: e_do is the only reason we have cPat::Any
+    // _ is not properly supported in cerl, and I assume a CType of Base::Any It should work fine
+    // right?
+    e_let(module, envs, &CPat::Any, e1, e2)
 }
 
 // TODO: Reuse this function for : E_case, E_app ("call-by-value")
@@ -177,7 +170,7 @@ fn e_let(
     e2: &CExpr,
 ) -> Result<CType, String> {
     // Clone env to compare consume later. Keep using original ref otherwise changes within are going to be lost
-    let envs_copy_baseline = TypeEnvs(envs.0.clone());
+    //let envs_copy_baseline = TypeEnvs(envs.0.clone());
     let pat_ok = pattern_matching(module, envs, v, e1);
     if let Err(err_val) = pat_ok {
         return Err(format!("e_let failed #1 because {}", err_val));
@@ -193,13 +186,13 @@ fn e_let(
     // NO! It is in E1 that V1 is not defined, not the continuation !
 
     println!(
-        "\n!!!! DEBUG: e1 is: {:?} Before e2 part of e_let: \n{:?} \n{:?}",
+        "\n!!!! DEBUG:\ne1 is: {:?}\ne2 is {:?}\n Env \n{:?}",
         e1,
-        envs_copy_baseline.0.keys(),
+        e2,
         envs.0.keys()
     );
     println!("must_st_consume_expr called by e_let");
-    match must_st_consume_expr(module, &envs_copy_baseline, envs, e2) {
+    match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, e2) {
         Ok(ok_val) => Ok(ok_val),
         Err(err_val) => Err(format!("e_let failed #2 because {}", err_val)),
     }
@@ -383,6 +376,7 @@ fn cpat_to_ctype(envs: &TypeEnvs, p: &CPat) -> CType {
                 None => CType::Base(BaseType::Any), // If var is not found, allow binding the value with "any"
             }
         }
+        CPat::Any => CType::Base(BaseType::Any),
         CPat::Cons(_c) => todo!(),
         CPat::Tuple(_t) => todo!(),
         CPat::Alias(_, _) => todo!(),

@@ -133,11 +133,19 @@ pub fn gsp_sync_send(
                 return Err(format!("Cannot make a choice without a label. Session type expects a choice {:?} {:?} {:?}", session_type, sending_val, args));
             };
             let try_label = Label(atom_label.0);
+            println!(
+                "Try label: {:?} with session_var: {:?} in offers: {:?}",
+                try_label, session_var, offers
+            );
             match offers.get(&try_label) {
                 Some(continuation) => {
                     // TODO: Update ENV, gotta get session_var from argument.
                     envs.0
                         .insert(session_var.clone(), TypeEnv::Delta(continuation.clone()));
+                    println!(
+                        "---------!!!! MakeChoice DEBUG: {:?} {:?} {:?}",
+                        try_label, continuation, envs
+                    );
                     Ok(CType::Consume(continuation.clone()))
                 }
                 None => Err("Trying to make choice not offered by session".to_string()),
