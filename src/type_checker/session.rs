@@ -347,7 +347,7 @@ fn envs_isolation(old_envs: &TypeEnvs, new_envs: &mut TypeEnvs) {
 }
 
 pub fn unfold(input: &SessionTypesList) -> SessionTypesList {
-    // TODO: Unfold more than once!
+    // TODO: Very important! Unfold more than once!
     unfold_once(input)
 }
 
