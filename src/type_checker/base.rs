@@ -111,6 +111,10 @@ fn e_call(
         return Ok(res_ok);
     }
 
+    // TODO: Instead of three different kinds of errors here, would it be better to return a custom
+    // error type that differentiates between "this function does not belong to me" (like gen
+    // server call) and "An error occured you should not try anything else" (e.g. wrong application
+    // og gen server call). It would make it much easier to read error messages too!
     Err(format!(
         "Could not type call {:?}. gsp+ new error: {}, gsp+ send error {}, bif error {}, app error {}",
         call,
@@ -239,7 +243,7 @@ fn e_case(
         // basic let in again
         // - Can we select something here? No, again it would just be a basic let in again
         // - Can we offer something here? Yes, that is the whole point.
-        if let SessionType::OfferChoice(offers) = st.0.first().unwrap() {
+        if let SessionType::MakeChoice(offers) = st.0.first().unwrap() {
             let case_res = e_case_offer(module, envs, offers, clauses)?;
             // TODO: Write down typing system "assumption"
             // When we are here in the code, it means at least one offer has matched

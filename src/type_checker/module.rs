@@ -277,7 +277,9 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
             // Check result, i.e. everything that should be consumed, has been consumed
             if let Err(err_val) = finished(&envs) {
                 warnings.push(format!("Function contract for {} does not hold as all sessions are not fully consumed: {}", fun_name, err_val));
-                overall_acceptance = false
+                // TODO: Find a way to deal with residual session types. Right now we accept not
+                // fully consumed sessions at end of function. But we will give a warning.
+                // overall_acceptance = false
             };
 
             // If something went wrong set overall_acceptance to false

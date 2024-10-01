@@ -318,6 +318,16 @@ fn st_consume_aux(
         (_, []) => Ok(SessionTypesList(current_session.to_vec())),
         ([SessionType::End], [SessionType::End]) => Ok(SessionTypesList(vec![SessionType::End])),
         ([SessionType::MakeChoice(cur_choices)], [SessionType::MakeChoice(consume_choices)]) => {
+            // TODO: Subtyping. For now we require the same labels on both sides
+            // One way is checked in the session type consume check, here we check the reverse. If
+            // both are equal the same labels exists both ways
+            for label in cur_choices.keys() {
+                if !consume_choices.contains_key(label) {
+                    return Err(
+                        "Labels on both sides must be equal. No subtype support yet.".to_string(),
+                    );
+                }
+            }
             // For all choices in contract, the current session must match. After each branch the
             // session must be left the same/have a common return type, else fail the consume.
             // It is fine if consume does not have all the labels that the current session has, but
