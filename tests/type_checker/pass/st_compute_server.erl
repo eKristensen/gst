@@ -3,7 +3,7 @@
 
 %% Preliminary Typing Idea
 % elp:ignore W0013 (misspelled_attribute)
--mspec("+{
+-mspec("&{
         neg(['sel_neg']. ?integer. !integer. end.),
         add(['sel_add']. ?integer. ['add_1']. ?integer. !integer. end.)
        }.").
