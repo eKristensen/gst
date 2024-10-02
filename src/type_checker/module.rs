@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    cerl_parser::ast::{Atom, FunName},
+    cerl_parser::ast::{Atom, FunName, Var},
     contract_cerl::{
         ast::{CModule, CType, OptWarnings},
         types::{BaseType, SessionType},
@@ -52,10 +52,11 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
         //
         // Construct via recrsive function on the SessionTypesList
         let mut handle_map = MSpecEnv(HashMap::new());
-        // TODO: Assumption: The label "__START__" is used internally
+        // TODO: Assumption: The label "session_start" is used internally
         mspec_handle_extractor(
             &mut handle_map,
-            &Atom("__START__".to_string()),
+            &mut HashMap::new(),
+            &Atom("session_start".to_string()),
             mspec.0.as_slice(),
         );
         println!("==DEBUG: mspec extractor res: {:?}", handle_map);
@@ -114,7 +115,7 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
                     continue;
                 };
                 let find_mspec = MSpec {
-                    state_in: Atom("__START__".to_string()),
+                    state_in: Atom("session_start".to_string()),
                     state_out: state_out.clone(),
                     val_in: val_in.clone(),
                     val_out: val_out.clone(),
@@ -217,11 +218,14 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
             handle_map
         );
 
-        for (_, val) in handle_map.0 {
-            // If any session element is not implemented, fail now!
-            // TODO: Should be opt return warning stuff like the rest
+        for (mspec, val) in handle_map.0 {
             if !val {
-                todo!("mspec failed. Handle properly.");
+                warnings.push(format!(
+                    "Type checking failed for module {} as the mspec requires {:?} which was not found.",
+                    module.name,
+                    mspec
+                ));
+                overall_acceptance = false;
             }
         }
     }
@@ -291,7 +295,12 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
     }
 }
 
-fn mspec_handle_extractor(map: &mut MSpecEnv, state_in: &Atom, input: &[SessionType]) {
+fn mspec_handle_extractor(
+    map: &mut MSpecEnv,
+    rec_states: &mut HashMap<Var, Atom>,
+    state_in: &Atom,
+    input: &[SessionType],
+) {
     // To extract I need a label and to include all until next label.
     // TODO: Fixed pattern assumed now: When receive then follow by send
     // When choise, follow by send "received"
@@ -326,7 +335,7 @@ fn mspec_handle_extractor(map: &mut MSpecEnv, state_in: &Atom, input: &[SessionT
                 },
                 false,
             );
-            mspec_handle_extractor(map, state_out, remainder)
+            mspec_handle_extractor(map, rec_states, state_out, remainder)
         }
         [SessionType::Receive(recv), SessionType::End] => {
             map.0.insert(
@@ -336,6 +345,17 @@ fn mspec_handle_extractor(map: &mut MSpecEnv, state_in: &Atom, input: &[SessionT
                     val_in: recv.clone(),
                     val_out: BaseType::Atom(Atom("received".to_string())), // TODO: Should implicit
                                                                            // value here be explicit?
+                },
+                false,
+            );
+        }
+        [SessionType::Receive(recv), SessionType::Send(send), SessionType::Var(var)] => {
+            map.0.insert(
+                MSpec {
+                    state_in: state_in.clone(),
+                    state_out: rec_states.get(var).unwrap().clone(),
+                    val_in: recv.clone(),
+                    val_out: send.clone(),
                 },
                 false,
             );
@@ -354,17 +374,14 @@ fn mspec_handle_extractor(map: &mut MSpecEnv, state_in: &Atom, input: &[SessionT
                 },
                 false,
             );
-            mspec_handle_extractor(map, state_out, remainder)
+            mspec_handle_extractor(map, rec_states, state_out, remainder)
         }
         [SessionType::OfferChoice(offers)] => {
             for (label, inner) in offers {
                 // TODO: To offer label is converted into to receive label and send back received.
                 // The residual session type is checked recursively.
-                if inner.0.len() < 2 {
-                    todo!("Proper error when session type within a offer is too short to form a checkable session type.");
-                }
                 match inner.0.as_slice() {
-                    [SessionType::State(state_out), remainder @ ..] => {
+                    [SessionType::State(state_out), remainder @ ..] if remainder.len() > 0 => {
                         map.0.insert(
                             MSpec {
                                 state_in: state_in.clone(),
@@ -374,11 +391,29 @@ fn mspec_handle_extractor(map: &mut MSpecEnv, state_in: &Atom, input: &[SessionT
                             },
                             false,
                         );
-                        mspec_handle_extractor(map, state_out, remainder)
+                        mspec_handle_extractor(map, rec_states, state_out, remainder)
+                    }
+                    [SessionType::End] => {
+                        map.0.insert(
+                            MSpec {
+                                state_in: state_in.clone(),
+                                state_out: Atom("session_end".to_string()),
+                                val_in: BaseType::Atom(Atom(label.0.clone())),
+                                val_out: BaseType::Atom(Atom("received".to_string())),
+                            },
+                            false,
+                        );
                     }
                     _ => todo!("Could not check offer choice in mspec"),
                 }
             }
+        }
+        [SessionType::Rec(var, rec)] => {
+            if rec_states.contains_key(var) {
+                todo!("Handle shadowing");
+            }
+            rec_states.insert(var.clone(), state_in.clone());
+            mspec_handle_extractor(map, rec_states, state_in, rec.0.as_slice())
         }
         x => todo!(
             "Not supported mspec. Failed in mspec handle extraction: {:?}",
