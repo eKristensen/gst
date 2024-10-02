@@ -386,3 +386,48 @@ fn cpat_to_ctype(envs: &TypeEnvs, p: &CPat) -> CType {
         CPat::Alias(_, _) => todo!(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use std::collections::HashMap;
+
+    use crate::cerl_parser::ast::Atom;
+
+    use super::*;
+
+    #[test]
+    fn sanity_check_scope_test_e_do_let() {
+        // To ensure scope isolation actually works and does not break by accident
+        let module = CModule {
+            name: Atom("".to_owned()),
+            mspec: None,
+            functions: HashMap::new(),
+            fallback_args: HashMap::new(),
+        };
+        let mut envs = TypeEnvs(HashMap::new());
+        let e1 = CExpr::Let(
+            CPat::Var(Var("X".to_owned())),
+            Box::new(CExpr::Call(
+                CFunCall::Call(Atom("erlang".to_owned()), Atom("+".to_owned())),
+                vec![CExpr::Lit(Lit::Int(1)), CExpr::Lit(Lit::Int(2))],
+            )),
+            Box::new(CExpr::Let(
+                CPat::Var(Var("Y".to_owned())),
+                Box::new(CExpr::Call(
+                    CFunCall::Call(Atom("erlang".to_owned()), Atom("+".to_owned())),
+                    vec![CExpr::Var(Var("X".to_owned())), CExpr::Lit(Lit::Int(3))],
+                )),
+                Box::new(CExpr::Call(
+                    CFunCall::Call(Atom("erlang".to_owned()), Atom("+".to_owned())),
+                    vec![
+                        CExpr::Var(Var("X".to_owned())),
+                        CExpr::Var(Var("Y".to_owned())),
+                    ],
+                )),
+            )),
+        );
+        let e2 = CExpr::Var(Var("Y".to_owned()));
+        assert!(e_do(&module, &mut envs, &e1, &e2).is_err())
+    }
+}

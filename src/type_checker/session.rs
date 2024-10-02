@@ -559,7 +559,7 @@ fn equality_aux(seen_pairs: &mut EqualityPairs, s1: &[SessionType], s2: &[Sessio
                     return false;
                 }
             }
-            return true;
+            true
         }
         ([SessionType::MakeChoice(s1_choices)], [SessionType::MakeChoice(s2_choices)]) => {
             if s1_choices.len() != s2_choices.len() {
@@ -573,14 +573,12 @@ fn equality_aux(seen_pairs: &mut EqualityPairs, s1: &[SessionType], s2: &[Sessio
                     return false;
                 }
             }
-            return true;
+            true
         }
         ([s1_head, s1_tail @ ..], [s2_head, s2_tail @ ..]) if s1_head == s2_head => {
             equality_aux(seen_pairs, s1_tail, s2_tail)
         }
-        ([s1_head], [s2_head]) if s1_head == s2_head => {
-            return true;
-        }
+        ([s1_head], [s2_head]) if s1_head == s2_head => true,
         ([], []) => true,
         _ => {
             println!("deub false: {:?} {:?}", s1, s2);
