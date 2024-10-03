@@ -15,27 +15,7 @@ use crate::{
 use super::env::{TypeEnv, TypeEnvs};
 
 // Gen Server Plus Establish New Session
-pub fn gsp_new(
-    module: &CModule,
-    envs: &mut TypeEnvs,
-    call: &CFunCall,
-    args: &Vec<CExpr>,
-) -> Result<CType, String> {
-    let gsp_new = CFunCall::Call(Atom("gen_server_plus".to_owned()), Atom("new".to_owned()));
-    if *call != gsp_new {
-        return Err("Not gen server plus new session constructor".to_string());
-    }
-
-    // To find the right sub-call we need to check the args. There must be three args
-    if args.len() != 1 {
-        return Err(format!(
-            "gen_server_plus:new only works with one argument. {:?}",
-            args
-        ));
-    }
-    // Get the third argument. This is the important value
-    let server_pid = args.first().unwrap();
-
+pub fn gsp_new(module: &CModule, envs: &mut TypeEnvs, server_pid: &CExpr) -> Result<CType, String> {
     // TODO Call by value isolation!!!!! Important!!!
     let CType::New(session_type) = (match expr(module, &mut TypeEnvs(envs.0.clone()), server_pid) {
         Ok(ok_val) => ok_val,
@@ -62,26 +42,9 @@ pub fn gsp_new(
 pub fn gsp_sync_send(
     module: &CModule,
     envs: &mut TypeEnvs,
-    call: &CFunCall,
-    args: &Vec<CExpr>,
+    session_id: &CExpr,
+    sending_expr: &CExpr,
 ) -> Result<CType, String> {
-    let gsp_sync_send = CFunCall::Call(Atom("gen_server_plus".to_owned()), Atom("call".to_owned()));
-
-    if *call != gsp_sync_send {
-        return Err("Not Gen Server Plus Call".to_string());
-    }
-    // To find the right sub-call we need to check the args. There must be three args
-    if args.len() != 3 {
-        return Err(format!(
-            "gen_server_plus:call only works with three arguments. {:?}",
-            args
-        ));
-    }
-
-    println!("TODO: First and second argument are not checked right now. Should they?");
-
-    // Get the third argument. This is the important value, can it be sent?
-    let sending_expr = &args[2];
     let CType::Base(sending_val) = (match expr(module, &mut TypeEnvs(envs.0.clone()), sending_expr)
     {
         Ok(ok_val) => ok_val,
@@ -91,7 +54,6 @@ pub fn gsp_sync_send(
     };
 
     // Get current session
-    let session_id = &args[1];
     let CExpr::Var(session_var) = session_id else {
         return Err(
             "e_call gsp_sync_send Session variable name must be used, not expression".to_string(),
@@ -130,7 +92,10 @@ pub fn gsp_sync_send(
         [SessionType::MakeChoice(offers)] => {
             // Make choice
             let BaseType::Atom(atom_label) = sending_val else {
-                return Err(format!("Cannot make a choice without a label. Session type expects a choice {:?} {:?} {:?}", session_type, sending_val, args));
+                return Err(format!(
+                    "Cannot make a choice without a label. Session type expects a choice {:?} {:?}",
+                    session_type, sending_val
+                ));
             };
             let try_label = Label(atom_label.0);
             println!(

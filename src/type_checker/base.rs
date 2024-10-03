@@ -1,5 +1,5 @@
 use crate::{
-    cerl_parser::ast::{Lit, Var},
+    cerl_parser::ast::{FunName, Lit, Var},
     contract_cerl::{
         ast::{CClause, CExpr, CFunCall, CModule, CPat, CType},
         types::{BaseType, SessionType, SessionTypesList},
@@ -87,42 +87,50 @@ fn e_call(
     // 1b) Send make choice (e_select)
     // 2)  A native call    (e_app, the fallback)
 
-    // Try session constructor
-    let gsp_new_res = gsp_new(module, envs, call, args);
-    if let Ok(res_ok) = gsp_new_res {
-        return Ok(res_ok);
-    }
+    // New concept kinda like:
+    // 1) normalize call name
+    // 2) Lookup in defined functions
+    // 3) match on normalized name (module and call), arg count and true/false lookup result
 
-    // Try send-receive
-    let gsp_sync_send_res = gsp_sync_send(module, envs, call, args);
-    if let Ok(res_ok) = gsp_sync_send_res {
-        return Ok(res_ok);
-    }
+    // Normalize call name
+    let (call_module, call_name) = match call {
+        CFunCall::PrimOp(_) => todo!("PrimOp not supported yet."),
+        CFunCall::Apply(name) if name.arity == args.len() => (&module.name, &name.name),
+        CFunCall::Call(call_module_name, name) => (call_module_name, name),
+        _ => panic!("Inconsistent call."),
+    };
 
-    // Try build-in functions (bif)
-    let bif_res = bif_fun(module, envs, call, args);
-    if let Ok(res_ok) = bif_res {
-        return Ok(res_ok);
-    }
+    // TODO: Improvement: Inter-module contract lookup
+    // Lookup function in module
+    let known_call = module.functions.get(&FunName {
+        name: call_name.clone(),
+        arity: args.len(),
+    });
 
-    // Try function application
-    let app_res = e_app(module, envs, call, args);
-    if let Ok(res_ok) = app_res {
-        return Ok(res_ok);
-    }
+    // TODO: Very imporant assumption: There will never be a name conflict between build in
+    // functions and user defined functions. Maybe it is better to check rather than assume.
 
-    // TODO: Instead of three different kinds of errors here, would it be better to return a custom
-    // error type that differentiates between "this function does not belong to me" (like gen
-    // server call) and "An error occured you should not try anything else" (e.g. wrong application
-    // og gen server call). It would make it much easier to read error messages too!
-    Err(format!(
-        "Could not type call {:?}. gsp+ new error: {}, gsp+ send error {}, bif error {}, app error {}",
-        call,
-        gsp_new_res.err().unwrap(),
-        gsp_sync_send_res.err().unwrap(),
-        bif_res.err().unwrap(),
-        app_res.err().unwrap(),
-    ))
+    match (
+        call_module.0.as_str(),
+        call_name.0.as_str(),
+        args.as_slice(),
+        known_call,
+    ) {
+        ("gen_server_plus", "new", [server_pid], None) => return gsp_new(module, envs, server_pid),
+        ("gen_server_plus", "new", _, _) => return Err("Invalid gs+:new call".to_string()),
+        ("gen_server_plus", "call", [_, session_id, sending_expr], None) => {
+            println!("TODO: First and second argument are not checked right now. Should they?");
+            return gsp_sync_send(module, envs, session_id, sending_expr);
+        }
+        ("gen_server_plus", "call", [_, session_id, sending_expr], None) => {
+            return Err("Invalid gs+:call call".to_string())
+        }
+        (call_module, call_name, args, None) => {
+            return bif_fun(module, envs, call_module, call_name, &args)
+        }
+        (_, _, args, Some(fun_clauses)) => return e_app(module, envs, args, fun_clauses),
+        _ => panic!("Invalid call. Issue unknown."),
+    }
 }
 
 fn e_base(envs: &TypeEnvs, v: &Var) -> Result<CType, String> {

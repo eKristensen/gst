@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use crate::{
     cerl_parser::ast::{Atom, FunName},
     contract_cerl::{
-        ast::{CExpr, CFunCall, CModule, CType},
+        ast::{CExpr, CFunCall, CFunClause, CModule, CType},
         types::{BaseType, SessionType, SessionTypesList},
     },
     type_checker::env::TypeEnv,
@@ -18,13 +18,11 @@ use super::{
 pub fn bif_fun(
     module: &CModule,
     envs: &mut TypeEnvs,
-    call: &CFunCall,
-    args: &Vec<CExpr>,
+    fun_mod: &str,
+    fun_name: &str,
+    args: &[CExpr],
 ) -> Result<CType, String> {
-    let CFunCall::Call(fun_mod, fun_name) = call else {
-        return Err("Unknown format bif or not bif".to_string());
-    };
-    match (fun_mod.0.as_str(), fun_name.0.as_str()) {
+    match (fun_mod, fun_name) {
         ("io", "format") => Ok(CType::Base(BaseType::Atom(Atom("ok".to_string())))),
         ("erlang", "-") => {
             // TODO: Add support for other types and binary. Only unary minus supported now
@@ -43,7 +41,7 @@ pub fn bif_fun(
             if args.len() != 2 {
                 return Err("Wrong or unknown use of erlang:+".to_string());
             }
-            let [val_1, val_2] = args.as_slice() else {
+            let [val_1, val_2] = args else {
                 return Err("Expected two args for erlang:+".to_string());
             };
             println!("Am here: {:?} {:?}", val_1, envs);
@@ -69,39 +67,9 @@ pub fn bif_fun(
 pub fn e_app(
     module: &CModule,
     envs: &mut TypeEnvs,
-    call: &CFunCall,
-    args: &Vec<CExpr>,
+    args: &[CExpr],
+    fun_clauses: &Vec<CFunClause>,
 ) -> Result<CType, String> {
-    // TODO: Improvement: Inter-module contract lookup
-    // 1) Lookup call to find function contract
-    let fun_name = match call {
-        CFunCall::PrimOp(_) => return Err("Function application cannot be a PrimOp.".to_string()),
-        CFunCall::Apply(name) => {
-            // Function call to function in the same module
-            name.name.clone()
-        }
-        CFunCall::Call(call_module_name, name) => {
-            // Function call potentially to another module or the same
-            // We currently only support calls to the same module.
-            // First step: Check module name matches
-            // Otherwise the same as above.
-            if module.name != *call_module_name {
-                return Err("Only call to the same module is supported currently".to_string());
-            }
-
-            // If OK, then return name.
-            name.clone()
-        }
-    };
-
-    // Lookup function clauses
-    let Some(fun_clauses) = module.functions.get(&FunName {
-        name: fun_name.clone(),
-        arity: args.len(),
-    }) else {
-        return Err("Function application not possible as function name not found".to_string());
-    };
-
     // 2) Use contract to check argument types, including session type evaluation
     // 2a) Get types of arguments
     let mut input_types: Vec<CType> = Vec::new();
