@@ -1,4 +1,4 @@
--module('client-recursive-2').
+-module('client-recursive-3').
 
 % By Emil Kristensen, ITU 2024
 
@@ -14,7 +14,7 @@
 % TODO: Replace "stop(T.)" with "stop(end.)" in ServerPid session type. And try to type it.
 
 % TODO: Fix Session type syntax, dot is not predictable and err msg is very hard to read.
--session("'foo'(new(rec T. +{send(!integer. ?integer. T.), stop(T.)}..),_)").
+-session("'foo'(new(rec T. +{send(!integer. ?integer. T.), stop(T.), realstop(end.)}..),_)").
 -session("'bar'(new(rec T. +{send(!integer. ?integer. T.), stop(T.)}..),consume(rec T. +{send(!integer. ?integer. T.), stop(.)}..),_)").
 %         &{send(!integer. ?integer. &{send(!integer. ?integer.)}.)}.),_)").
 
@@ -22,7 +22,9 @@
 -spec foo(new(),integer()) -> integer().
 foo(ServerPid,V1) ->
     SessionID = gen_server_plus:new(ServerPid),
-    bar(ServerPid,SessionID, V1).
+    Res = bar(ServerPid,SessionID, V1),
+    _ = gen_server_plus:call(ServerPid, SessionID, realstop),
+    Res.
 
 -spec bar(new(),consume(),integer()) -> integer().
 bar(ServerPid, SessionID, V1) ->
