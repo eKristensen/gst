@@ -65,7 +65,7 @@ fn anno_atom(i: &str) -> IResult<&str, AnnoAtom, ErrorTree<&str>> {
 fn anno_literal(i: &str) -> IResult<&str, AnnoLit, ErrorTree<&str>> {
     map(opt_annotation(literal), |(inner, anno)| AnnoLit {
         anno,
-        inner,
+        inner: inner.into(),
     })(i)
 }
 

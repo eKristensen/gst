@@ -1,6 +1,6 @@
 // Translator from Core Erlang AST to Contract Core Erlang
 
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     cerl_parser::{
@@ -48,11 +48,11 @@ fn make_contract(
     mspec: Option<SessionTypesList>,
 ) -> OptWarnings<ast::CModule> {
     let mut warnings: Vec<String> = Vec::new();
-    let mut functions: HashMap<FunName, Vec<CFunClause>> = HashMap::new();
-    let mut fallback_args: HashMap<FunName, Vec<Var>> = HashMap::new();
+    let mut functions: HashMap<Rc<FunName>, Vec<CFunClause>> = HashMap::new();
+    let mut fallback_args: HashMap<Rc<FunName>, Vec<Var>> = HashMap::new();
     // One body for each module
     for fun_def in &ast.defs {
-        let fname = fun_def.name.inner.clone();
+        let fname = Rc::new(fun_def.name.inner.clone()); // TODO: Consider Rc at cerl parser level
         match compose_function_with_contract(&base_spec, &session_spec, fun_def) {
             Ok((fun_fallback_args, contract_clauses)) => {
                 functions.insert(fname.clone(), contract_clauses);
@@ -181,7 +181,7 @@ fn compose_function_with_contract(
         .fun
         .vars
         .into_iter()
-        .map(|v| CPat::Var(v.name))
+        .map(|v| CPat::Var(v.name.into()))
         .collect();
     let clauses = match &fun_expr.body.inner {
         Expr::Case(_top_cases_var, top_cases_clauses) => {
@@ -304,7 +304,7 @@ fn pat_to_cpat(pat: Pat) -> CPat {
                 .map(|p| pat_to_cpat(p.inner))
                 .collect(),
         ),
-        Pat::Alias(var, pat) => CPat::Alias(var.name, Box::new(pat_to_cpat(pat.inner))),
+        Pat::Alias(var, pat) => CPat::Alias(var.name, Rc::new(pat_to_cpat(pat.inner))),
     }
 }
 
@@ -349,13 +349,13 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                 [v] => CPat::Var(v.name.clone()),
                 _ => CPat::Tuple(v.iter().map(|v| CPat::Var(v.name.clone())).collect()),
             };
-            let e1 = expr_to_cexpr(&e1.inner)?;
-            let e2 = expr_to_cexpr(&e2.inner)?;
+            let e1 = Rc::new(expr_to_cexpr(&e1.inner)?); // TODO: Consider Rc at cerl AST
+            let e2 = Rc::new(expr_to_cexpr(&e2.inner)?); // TODO: Consider Rc at cerl AST
 
-            Ok(CExpr::Let(v, Box::new(e1), Box::new(e2)))
+            Ok(CExpr::Let(v, e1, e2))
         }
         Expr::Case(e1, e2) => {
-            let base_expr = expr_to_cexpr(&e1.inner)?;
+            let base_expr = expr_to_cexpr(&e1.inner)?.into(); // TODO: Consider RC at cerl AST
             let mut contract_clauses: Vec<CClause> = Vec::new();
             for clause in e2 {
                 if Anno(Some(vec![Const(Lit::Atom(Atom(
@@ -369,7 +369,7 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                 let res = clause_to_cclause(&clause.inner)?;
                 contract_clauses.push(res);
             }
-            Ok(CExpr::Case(Box::new(base_expr), contract_clauses))
+            Ok(CExpr::Case(base_expr, contract_clauses))
         }
         Expr::Call(fun_call, args) => {
             let fun_call = match fun_call.as_ref().clone() {
@@ -403,9 +403,9 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
             Ok(CExpr::Call(fun_call, args_cexpr))
         }
         Expr::Do(e1, e2) => {
-            let e1 = expr_to_cexpr(&e1.inner)?;
-            let e2 = expr_to_cexpr(&e2.inner)?;
-            Ok(CExpr::Do(Box::new(e1), Box::new(e2)))
+            let e1 = expr_to_cexpr(&e1.inner)?.into(); // TODO: Consider Rc at cerl AST
+            let e2 = expr_to_cexpr(&e2.inner)?.into(); // TODO: Consider Rc at cerl AST
+            Ok(CExpr::Do(e1, e2))
         }
         _ => Err("Expression not supported in Contract Core Erlang yet.".to_string()),
     }

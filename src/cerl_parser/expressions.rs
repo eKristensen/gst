@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use nom::{
     branch::alt,
     combinator::{fail, map, value},
@@ -27,43 +29,47 @@ fn anno_expression(i: &str) -> IResult<&str, AnnoExpr, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn expression(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
+fn expression(i: &str) -> IResult<&str, Rc<Expr>, ErrorTree<&str>> {
     alt((
-        map(comma_sep_list("<", ">", anno_expression), Expr::Exprs),
+        map(
+            map(comma_sep_list("<", ">", anno_expression), Expr::Exprs),
+            |o| o.into(),
+        ),
         single_expression,
     ))(i)
 }
 
 // WSA OK
-fn single_expression(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
-    alt((
-        map(fname, Expr::Fname), // fname must have higher precedence than atomic_literal.
-        map(atomic_literal, Expr::AtomLit),
-        map(tuple_expression, Expr::Tuple),
-        map(cons_expression, Expr::Cons),
-        // Ready for extension: binary
-        map(var, Expr::Var),
-        map(fun_literal, Expr::FunLit),
-        map(fun_expr, |fun_expr| Expr::Fun(Box::new(fun_expr))),
-        map(letrec_expr, |(defs, body)| {
-            // letrec must have higher precedence than let to avoid "let" substring match in letrec
-            Expr::LetRec(defs, Box::new(body))
-        }),
-        map(let_expr, |(var, e1, e2)| {
-            Expr::Let(var, Box::new(e1), Box::new(e2))
-        }),
-        map(case_expr, |(arg, clauses)| {
-            Expr::Case(Box::new(arg), clauses)
-        }),
-        map(receive_expr, |receive_expr| {
-            Expr::Receive(Box::new(receive_expr))
-        }),
-        map(call_expr, |(name, args)| Expr::Call(Box::new(name), args)), // Merge apply, call and primop.
-        map(try_expr, |try_expr| Expr::Try(Box::new(try_expr))),
-        map(sequence, |(e1, e2)| Expr::Do(Box::new(e1), Box::new(e2))),
-        map(catch_expr, |catch_expr| Expr::Catch(Box::new(catch_expr))),
-        map(map_expr, Expr::Map),
-    ))(i)
+fn single_expression(i: &str) -> IResult<&str, Rc<Expr>, ErrorTree<&str>> {
+    map(
+        alt((
+            map(fname, Expr::Fname), // fname must have higher precedence than atomic_literal.
+            map(atomic_literal, Expr::AtomLit),
+            map(tuple_expression, Expr::Tuple),
+            map(cons_expression, Expr::Cons),
+            // Ready for extension: binary
+            map(var, Expr::Var),
+            map(fun_literal, Expr::FunLit),
+            map(fun_expr, |fun_expr| Expr::Fun(fun_expr)),
+            map(letrec_expr, |(defs, body)| {
+                // letrec must have higher precedence than let to avoid "let" substring match in letrec
+                Expr::LetRec(defs, body.into())
+            }),
+            map(let_expr, |(var, e1, e2)| {
+                Expr::Let(var, e1.into(), e2.into())
+            }),
+            map(case_expr, |(arg, clauses)| Expr::Case(arg.into(), clauses)),
+            map(receive_expr, |receive_expr| {
+                Expr::Receive(receive_expr.into())
+            }),
+            map(call_expr, |(name, args)| Expr::Call(name, args)), // Merge apply, call and primop.
+            map(try_expr, |try_expr| Expr::Try(Box::new(try_expr))),
+            map(sequence, |(e1, e2)| Expr::Do(Box::new(e1), Box::new(e2))),
+            map(catch_expr, |catch_expr| Expr::Catch(Box::new(catch_expr))),
+            map(map_expr, Expr::Map),
+        )),
+        |o| o.into(),
+    )(i)
 }
 
 // WSA OK
@@ -85,7 +91,7 @@ fn sequence(i: &str) -> IResult<&str, (AnnoExpr, AnnoExpr), ErrorTree<&str>> {
 }
 
 // WSA OK
-pub fn fun_expr(i: &str) -> IResult<&str, Fun, ErrorTree<&str>> {
+pub fn fun_expr(i: &str) -> IResult<&str, Rc<Fun>, ErrorTree<&str>> {
     map(
         tuple((
             wsa(tag("fun")),
@@ -93,7 +99,7 @@ pub fn fun_expr(i: &str) -> IResult<&str, Fun, ErrorTree<&str>> {
             wsa(tag("->")),
             anno_expression,
         )),
-        |(_, vars, _, body)| Fun { vars, body },
+        |(_, vars, _, body)| Fun { vars, body }.into(),
     )(i)
 }
 
@@ -166,22 +172,25 @@ fn clause_pattern(i: &str) -> IResult<&str, Vec<AnnoPat>, ErrorTree<&str>> {
 
 // Merge apply, call and primop as they are very similar.
 // WSA OK
-fn call_expr(i: &str) -> IResult<&str, (FunCall, Vec<AnnoExpr>), ErrorTree<&str>> {
+fn call_expr(i: &str) -> IResult<&str, (Rc<FunCall>, Vec<AnnoExpr>), ErrorTree<&str>> {
     pair(
-        alt((
-            map(preceded(wsa(tag("apply")), anno_expression), FunCall::Apply),
-            map(
-                preceded(
-                    wsa(tag("call")),
-                    tuple((anno_expression, wsa(tag(":")), anno_expression)),
+        map(
+            alt((
+                map(preceded(wsa(tag("apply")), anno_expression), FunCall::Apply),
+                map(
+                    preceded(
+                        wsa(tag("call")),
+                        tuple((anno_expression, wsa(tag(":")), anno_expression)),
+                    ),
+                    |(o1, _, o2)| FunCall::Call(o1, o2),
                 ),
-                |(o1, _, o2)| FunCall::Call(o1, o2),
-            ),
-            map(
-                preceded(wsa(tag("primop")), anno_expression),
-                FunCall::PrimOp,
-            ),
-        )),
+                map(
+                    preceded(wsa(tag("primop")), anno_expression),
+                    FunCall::PrimOp,
+                ),
+            )),
+            |o| o.into(),
+        ),
         comma_sep_list("(", ")", anno_expression),
     )(i)
 }
@@ -247,15 +256,18 @@ pub fn literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
 }
 
 // WSA OK
-pub fn atomic_literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
-    alt((
-        map(char_char, Lit::Char),
-        map(float, Lit::Float),
-        map(integer, Lit::Int),
-        map(atom, Lit::Atom),
-        map(string, Lit::String),
-        value(Lit::Nil, pair(wsa(tag("[")), wsa(tag("]")))),
-    ))(i)
+pub fn atomic_literal(i: &str) -> IResult<&str, Rc<Lit>, ErrorTree<&str>> {
+    map(
+        alt((
+            map(char_char, Lit::Char),
+            map(float, Lit::Float),
+            map(integer, Lit::Int),
+            map(atom, Lit::Atom),
+            map(string, Lit::String),
+            value(Lit::Nil, pair(wsa(tag("[")), wsa(tag("]")))),
+        )),
+        |o| Rc::new(o),
+    )(i)
 }
 
 // WSA OK
@@ -306,10 +318,10 @@ fn tail_literal(mut acc: Vec<Lit>, i: &str) -> IResult<&str, Vec<Lit>, ErrorTree
 }
 
 // WSA OK
-fn fun_literal(i: &str) -> IResult<&str, FunLit, ErrorTree<&str>> {
+fn fun_literal(i: &str) -> IResult<&str, Rc<FunLit>, ErrorTree<&str>> {
     map(
         tuple((wsa(tag("fun")), atom, wsa(tag(":")), fname)),
-        |(_, module, _, fname)| FunLit { module, fname },
+        |(_, module, _, fname)| FunLit { module, fname }.into(),
     )(i)
 }
 
@@ -349,7 +361,7 @@ fn map_expr(i: &str) -> IResult<&str, MapExpr, ErrorTree<&str>> {
                             wsa(tag("|")),
                             anno_map_expr,
                         )),
-                        |(pairs, _, e)| MapExpr::AnnoMap(pairs, Box::new(e)),
+                        |(pairs, _, e)| MapExpr::AnnoMap(pairs, e.into()),
                     ),
                 )),
                 wsa(tag("}")),

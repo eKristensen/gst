@@ -398,7 +398,7 @@ fn cpat_to_ctype(envs: &TypeEnvs, p: &CPat) -> CType {
 #[cfg(test)]
 mod tests {
 
-    use std::collections::HashMap;
+    use std::{collections::HashMap, rc::Rc};
 
     use crate::cerl_parser::ast::Atom;
 
@@ -416,17 +416,17 @@ mod tests {
         let mut envs = TypeEnvs(HashMap::new());
         let e1 = CExpr::Let(
             CPat::Var(Var("X".to_owned())),
-            Box::new(CExpr::Call(
+            Rc::new(CExpr::Call(
                 CFunCall::Call(Atom("erlang".to_owned()), Atom("+".to_owned())),
                 vec![CExpr::Lit(Lit::Int(1)), CExpr::Lit(Lit::Int(2))],
             )),
-            Box::new(CExpr::Let(
+            Rc::new(CExpr::Let(
                 CPat::Var(Var("Y".to_owned())),
-                Box::new(CExpr::Call(
+                Rc::new(CExpr::Call(
                     CFunCall::Call(Atom("erlang".to_owned()), Atom("+".to_owned())),
                     vec![CExpr::Var(Var("X".to_owned())), CExpr::Lit(Lit::Int(3))],
                 )),
-                Box::new(CExpr::Call(
+                Rc::new(CExpr::Call(
                     CFunCall::Call(Atom("erlang".to_owned()), Atom("+".to_owned())),
                     vec![
                         CExpr::Var(Var("X".to_owned())),

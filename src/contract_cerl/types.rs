@@ -2,10 +2,7 @@
 // Used (at least) by analysis, spec_extractor and st_parser
 // Types at not known by the cerl_parser, but used almost everywhere after parsing cerl
 
-use std::{
-    collections::{BTreeMap, HashMap},
-    fmt,
-};
+use std::{collections::BTreeMap, fmt};
 
 use crate::cerl_parser::ast::{Atom, Var};
 

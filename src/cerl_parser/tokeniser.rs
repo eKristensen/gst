@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use nom::{
     branch::alt,
     character::{
@@ -87,7 +89,7 @@ fn ctrlchar(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
 // - https://docs.rs/nom/latest/nom/recipes/index.html#escaped-strings
 // - https://github.com/rust-bakery/nom/blob/main/examples/string.rs
 // WSA OK
-pub fn atom(i: &str) -> IResult<&str, Atom, ErrorTree<&str>> {
+pub fn atom(i: &str) -> IResult<&str, Rc<Atom>, ErrorTree<&str>> {
     // fold is the equivalent of iterator::fold. It runs a parser in a loop,
     // and for each output value, calls a folding function on each output value.
     let build_string = fold_many0(
@@ -108,19 +110,19 @@ pub fn atom(i: &str) -> IResult<&str, Atom, ErrorTree<&str>> {
     // `delimited` with a looping parser (like fold), be sure that the
     // loop won't accidentally match your closing delimiter!
     wsa(map(delimited(char('\''), build_string, char('\'')), |o| {
-        Atom(o.iter().collect())
+        Atom(o.iter().collect()).into()
     }))(i)
 }
 
 // WSA OK
-pub fn fname(i: &str) -> IResult<&str, FunName, ErrorTree<&str>> {
+pub fn fname(i: &str) -> IResult<&str, Rc<FunName>, ErrorTree<&str>> {
     map(
         tuple((
             atom,
             wsa(tag("/")),
             map_res(wsa(digit1), str::parse::<usize>),
         )),
-        |(name, _, arity)| FunName { name, arity },
+        |(name, _, arity)| (FunName { name, arity }).into(),
     )(i)
 }
 
@@ -179,7 +181,7 @@ pub fn float<
     E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
 >(
     i: &'a str,
-) -> IResult<&str, Float, E> {
+) -> IResult<&str, Rc<Float>, E> {
     let (i, (base, _, decimal, exponent)) = tuple((
         opt_sign_digit1,
         char('.'),
@@ -197,7 +199,8 @@ pub fn float<
             base,
             decimal,
             exponent,
-        },
+        }
+        .into(),
     ))
 }
 
@@ -285,7 +288,7 @@ fn uppercase(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
 }
 
 // WSA OK
-pub fn var(i: &str) -> IResult<&str, Var, ErrorTree<&str>> {
+pub fn var(i: &str) -> IResult<&str, Rc<Var>, ErrorTree<&str>> {
     wsa(map(
         pair(
             alt((
@@ -300,7 +303,7 @@ pub fn var(i: &str) -> IResult<&str, Var, ErrorTree<&str>> {
         |(o1, o2)| {
             let mut var_name = vec![o1];
             var_name.extend(o2);
-            Var(var_name.iter().collect())
+            Rc::new(Var(var_name.iter().collect()))
         },
     ))(i)
 }

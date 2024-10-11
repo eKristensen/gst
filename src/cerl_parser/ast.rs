@@ -1,6 +1,9 @@
 // Core Erlang AST as is.
 
-use std::fmt::{Display, Formatter, Result};
+use std::{
+    fmt::{Display, Formatter, Result},
+    rc::Rc,
+};
 
 // AST is based on: https://github.com/erlang/otp/blob/master/lib/compiler/src/core_parse.yrl
 // The goal is to parse core erlang as close as possible to the reference implementation.
@@ -10,8 +13,8 @@ pub struct Anno(pub Option<Vec<Const>>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoAtom {
-    pub anno: Anno,
-    pub name: Atom,
+    pub anno: Rc<Anno>,
+    pub name: Rc<Atom>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -19,8 +22,8 @@ pub struct Atom(pub String);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoVar {
-    pub anno: Anno,
-    pub name: Var,
+    pub anno: Rc<Anno>,
+    pub name: Rc<Var>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -28,13 +31,13 @@ pub struct Var(pub String);
 
 #[derive(Debug, Clone)]
 pub struct AnnoModule {
-    pub anno: Anno,
+    pub anno: Rc<Anno>,
     pub inner: Module,
 }
 
 #[derive(Debug, Clone)]
 pub struct Module {
-    pub name: Atom,
+    pub name: Rc<Atom>,
     pub exports: Vec<AnnoFunName>,
     pub attributes: Vec<Attribute>,
     pub defs: Vec<FunDef>,
@@ -42,45 +45,45 @@ pub struct Module {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Attribute {
-    pub name: AnnoAtom,
-    pub value: AnnoLit,
+    pub name: Rc<AnnoAtom>,
+    pub value: Rc<AnnoLit>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum FunCall {
-    PrimOp(AnnoExpr),         // Call basic erlang functions
-    Apply(AnnoExpr),          // Inter-module call // Note: Apparently fname is used here
-    Call(AnnoExpr, AnnoExpr), // Cross-module call; (Module, Call name)
+    PrimOp(Rc<AnnoExpr>),             // Call basic erlang functions
+    Apply(Rc<AnnoExpr>),              // Inter-module call // Note: Apparently fname is used here
+    Call(Rc<AnnoExpr>, Rc<AnnoExpr>), // Cross-module call; (Module, Call name)
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoFunName {
-    pub anno: Anno,
-    pub inner: FunName,
+    pub anno: Rc<Anno>,
+    pub inner: Rc<FunName>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FunName {
-    pub name: Atom, // Function name atom cannot be annotated.
+    pub name: Rc<Atom>, // Function name atom cannot be annotated.
     pub arity: usize,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoFun {
-    pub anno: Anno,
-    pub fun: Fun,
+    pub anno: Rc<Anno>,
+    pub fun: Rc<Fun>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Fun {
     pub vars: Vec<AnnoVar>,
-    pub body: AnnoExpr,
+    pub body: Rc<AnnoExpr>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct FunDef {
-    pub name: AnnoFunName,
-    pub body: AnnoFun,
+    pub name: Rc<AnnoFunName>,
+    pub body: Rc<AnnoFun>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
@@ -95,15 +98,15 @@ pub struct Float {
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct AnnoLit {
-    pub anno: Anno,
-    pub inner: Lit,
+    pub anno: Rc<Anno>,
+    pub inner: Rc<Lit>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub enum Lit {
     Int(i64),
-    Float(Float),
-    Atom(Atom),
+    Float(Rc<Float>),
+    Atom(Rc<Atom>),
     Char(char),
     Cons(Vec<Lit>),
     Tuple(Vec<Lit>),
@@ -122,7 +125,7 @@ pub enum MapPairType {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoMapPair {
-    pub anno: Anno,
+    pub anno: Rc<Anno>,
     pub inner: MapPair,
 }
 
@@ -135,28 +138,28 @@ pub struct MapPair {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoExpr {
-    pub anno: Anno,
-    pub inner: Expr,
+    pub anno: Rc<Anno>,
+    pub inner: Rc<Expr>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Expr {
     Exprs(Vec<AnnoExpr>), // When expressions are in a "< e >" brackets
-    Var(Var),
-    Fname(FunName),
-    AtomLit(Lit),
-    FunLit(FunLit),
-    Fun(Box<Fun>),
+    Var(Rc<Var>),
+    Fname(Rc<FunName>),
+    AtomLit(Rc<Lit>),
+    FunLit(Rc<FunLit>),
+    Fun(Rc<Fun>),
     Cons(Vec<AnnoExpr>),
     Tuple(Vec<AnnoExpr>),
-    Let(Vec<AnnoVar>, Box<AnnoExpr>, Box<AnnoExpr>), // Note: Let vars
-    Case(Box<AnnoExpr>, Vec<AnnoClause>),
-    LetRec(Vec<FunDef>, Box<AnnoExpr>),
-    Call(Box<FunCall>, Vec<AnnoExpr>), // Merge call, apply and primop to avoid duplication
-    Receive(Box<Receive>),
-    Try(Box<Try>),
-    Do(Box<AnnoExpr>, Box<AnnoExpr>), // Sequence
-    Catch(Box<AnnoExpr>),
+    Let(Vec<AnnoVar>, Rc<AnnoExpr>, Rc<AnnoExpr>), // Note: Let vars
+    Case(Rc<AnnoExpr>, Vec<AnnoClause>),
+    LetRec(Vec<FunDef>, Rc<AnnoExpr>),
+    Call(Rc<FunCall>, Vec<AnnoExpr>), // Merge call, apply and primop to avoid duplication
+    Receive(Rc<Receive>),
+    Try(Rc<Try>),
+    Do(Rc<AnnoExpr>, Rc<AnnoExpr>), // Sequence
+    Catch(Rc<AnnoExpr>),
     Map(MapExpr), // TODO: More transparent way to allow "update" from map or variable that contains a map
                   // Ready for extensions: Binary, Segments
 }
@@ -164,8 +167,8 @@ pub enum Expr {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum MapExpr {
     OnlyPairs(Vec<AnnoMapPair>),
-    MapVar(Vec<AnnoMapPair>, AnnoVar),
-    AnnoMap(Vec<AnnoMapPair>, Box<AnnoMap>),
+    MapVar(Vec<AnnoMapPair>, Rc<AnnoVar>),
+    AnnoMap(Vec<AnnoMapPair>, Rc<AnnoMap>),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -197,36 +200,36 @@ pub struct Timeout {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FunLit {
-    pub module: Atom,
-    pub fname: FunName,
+    pub module: Rc<Atom>,
+    pub fname: Rc<FunName>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct AnnoClause {
-    pub anno: Anno,
-    pub inner: Clause,
+    pub anno: Rc<Anno>,
+    pub inner: Rc<Clause>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct Clause {
     pub pats: Vec<AnnoPat>,
-    pub when: AnnoExpr,
-    pub res: AnnoExpr,
+    pub when: Rc<AnnoExpr>,
+    pub res: Rc<AnnoExpr>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct AnnoPat {
-    pub anno: Anno,
-    pub inner: Pat,
+    pub anno: Rc<Anno>,
+    pub inner: Rc<Pat>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub enum Pat {
-    Var(AnnoVar),
-    Lit(Lit),
+    Var(Rc<AnnoVar>),
+    Lit(Rc<Lit>),
     Cons(Vec<AnnoPat>),
     Tuple(Vec<AnnoPat>),
-    Alias(AnnoVar, Box<AnnoPat>),
+    Alias(Rc<AnnoVar>, Rc<AnnoPat>),
     // Ready for extension: Maps, Segments, Binary
 }
 

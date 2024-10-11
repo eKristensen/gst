@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use nom::{branch::alt, combinator::map, sequence::tuple, IResult};
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
@@ -40,8 +42,10 @@ fn cons_pattern(i: &str) -> IResult<&str, Vec<AnnoPat>, ErrorTree<&str>> {
 }
 
 // WSA OK
-pub fn anno_variable(i: &str) -> IResult<&str, AnnoVar, ErrorTree<&str>> {
-    map(opt_annotation(var), |(name, anno)| AnnoVar { anno, name })(i)
+pub fn anno_variable(i: &str) -> IResult<&str, Rc<AnnoVar>, ErrorTree<&str>> {
+    map(opt_annotation(var), |(name, anno)| {
+        Rc::new(AnnoVar { anno, name })
+    })(i)
 }
 
 // WSA OK

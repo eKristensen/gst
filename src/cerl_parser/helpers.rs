@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use nom::{
     branch::alt,
     bytes::complete::take_until,
@@ -28,7 +30,7 @@ fn comment(i: &str) -> IResult<&str, (), ErrorTree<&str>> {
 // WSA OK (if inner WSA OK)
 fn annotation<'a, F, O>(
     inner: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, (O, Anno), ErrorTree<&str>>
+) -> impl FnMut(&'a str) -> IResult<&'a str, (O, Rc<Anno>), ErrorTree<&str>>
 where
     F: Parser<&'a str, O, ErrorTree<&'a str>>,
 {
@@ -45,7 +47,7 @@ where
             ),
             wsa(tag(")")),
         )),
-        |(_, inner_out, _, anno, _)| (inner_out, Anno(Some(anno))),
+        |(_, inner_out, _, anno, _)| (inner_out, Anno(Some(anno)).into()),
     )
 }
 
@@ -53,12 +55,15 @@ where
 // WSA OK (if inner WSA OK)
 pub fn opt_annotation<'a, F, O>(
     inner: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, (O, Anno), ErrorTree<&str>>
+) -> impl FnMut(&'a str) -> IResult<&'a str, (O, Rc<Anno>), ErrorTree<&str>>
 where
     F: Parser<&'a str, O, ErrorTree<&'a str>> + Clone,
 {
     // We assume the caller has taken care of whitespace on top of input.
-    alt((map(inner.clone(), |o| (o, Anno(None))), annotation(inner)))
+    alt((
+        map(inner.clone(), |o| (o, Anno(None).into())),
+        annotation(inner),
+    ))
 }
 
 // Consumes whitespace and any comments.

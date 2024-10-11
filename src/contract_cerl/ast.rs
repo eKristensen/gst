@@ -17,7 +17,7 @@
 // TODO: Keep in mind: It might make sense to encode "is_xxx(Var)" (e.g. "when is_pid(X)") and other restrictions into the contract later on.
 //       For now we rely completely on the specifications.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::cerl_parser::ast::{Atom, FunName, Lit, Var};
 
@@ -28,9 +28,9 @@ use super::types::{BaseType, SessionTypesList};
 pub struct CModule {
     pub name: Atom,
     pub mspec: Option<SessionTypesList>, // If module implements gen_server_plus behavior save mspec here
-    pub functions: HashMap<FunName, Vec<CFunClause>>,
-    pub fallback_args: HashMap<FunName, Vec<Var>>, // If clause has literal, we need to bind it to
-                                                   // the top level var name.
+    pub functions: HashMap<Rc<FunName>, Vec<CFunClause>>,
+    pub fallback_args: HashMap<Rc<FunName>, Vec<Var>>, // If clause has literal, we need to bind it to
+                                                       // the top level var name.
 }
 
 // Problem above: There is a CExpr for each spec, many clauses. How to keep it?
@@ -45,22 +45,22 @@ pub struct CFunClause {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CFunCall {
-    PrimOp(Atom),     // Call basic erlang functions
-    Apply(FunName),   // Inter-module call // Note: Apparently fname is used here
-    Call(Atom, Atom), // Cross-module call; (Module, Call name)
+    PrimOp(Rc<Atom>),         // Call basic erlang functions
+    Apply(Rc<FunName>),       // Inter-module call // Note: Apparently fname is used here
+    Call(Rc<Atom>, Rc<Atom>), // Cross-module call; (Module, Call name)
 }
 
 #[derive(Debug, Clone)]
 //  Simplified expression for function body
 pub enum CExpr {
-    Var(Var),                          // E_base
-    Lit(Lit),                          // E_base
-    Cons(Vec<CExpr>),                  // E_base
-    Tuple(Vec<CExpr>),                 // E_base
-    Let(CPat, Box<CExpr>, Box<CExpr>), // E_let*
-    Case(Box<CExpr>, Vec<CClause>),    // E_case
-    Call(CFunCall, Vec<CExpr>),        // E_{new,send, select, app}
-    Do(Box<CExpr>, Box<CExpr>),
+    Var(Rc<Var>),                        // E_base
+    Lit(Rc<Lit>),                        // E_base
+    Cons(Vec<CExpr>),                    // E_base
+    Tuple(Vec<CExpr>),                   // E_base
+    Let(Rc<CPat>, Rc<CExpr>, Rc<CExpr>), // E_let*
+    Case(Rc<CExpr>, Vec<CClause>),       // E_case
+    Call(CFunCall, Vec<CExpr>),          // E_{new,send, select, app}
+    Do(Rc<CExpr>, Rc<CExpr>),
 }
 
 #[derive(Debug, Clone)]
@@ -73,11 +73,11 @@ pub struct CClause {
 #[derive(Debug, Clone)]
 pub enum CPat {
     Any, // Emulate _ when variable is not needed, e.g. for do e1 e2
-    Var(Var),
-    Lit(Lit),
+    Var(Rc<Var>),
+    Lit(Rc<Lit>),
     Cons(Vec<CPat>),
     Tuple(Vec<CPat>),
-    Alias(Var, Box<CPat>),
+    Alias(Var, Rc<CPat>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
