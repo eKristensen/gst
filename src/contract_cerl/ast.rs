@@ -26,7 +26,7 @@ use super::types::{BaseType, SessionTypesList};
 // TODO: Support more than one module for each "program" definition. Could also make a generic-ish way to define build in functions by lookup instead of hardcoded.
 #[derive(Debug, Clone)]
 pub struct CModule {
-    pub name: Atom,
+    pub name: Rc<Atom>,
     pub mspec: Option<SessionTypesList>, // If module implements gen_server_plus behavior save mspec here
     pub functions: HashMap<Rc<FunName>, Vec<CFunClause>>,
     pub fallback_args: HashMap<Rc<FunName>, Vec<Var>>, // If clause has literal, we need to bind it to
@@ -77,7 +77,7 @@ pub enum CPat {
     Lit(Rc<Lit>),
     Cons(Vec<CPat>),
     Tuple(Vec<CPat>),
-    Alias(Var, Rc<CPat>),
+    Alias(Rc<Var>, Rc<CPat>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

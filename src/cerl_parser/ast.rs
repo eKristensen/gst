@@ -173,7 +173,7 @@ pub enum MapExpr {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoMap {
-    pub anno: Anno,
+    pub anno: Rc<Anno>,
     pub inner: MapExpr,
 }
 

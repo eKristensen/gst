@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use nom::{
     combinator::map,
     multi::many0,
@@ -57,15 +59,20 @@ fn module_attribute(i: &str) -> IResult<&str, Vec<Attribute>, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn anno_atom(i: &str) -> IResult<&str, AnnoAtom, ErrorTree<&str>> {
-    map(opt_annotation(atom), |(name, anno)| AnnoAtom { anno, name })(i)
+fn anno_atom(i: &str) -> IResult<&str, Rc<AnnoAtom>, ErrorTree<&str>> {
+    map(opt_annotation(atom), |(name, anno)| {
+        AnnoAtom { anno, name }.into()
+    })(i)
 }
 
 // WSA OK
-fn anno_literal(i: &str) -> IResult<&str, AnnoLit, ErrorTree<&str>> {
-    map(opt_annotation(literal), |(inner, anno)| AnnoLit {
-        anno,
-        inner: inner.into(),
+fn anno_literal(i: &str) -> IResult<&str, Rc<AnnoLit>, ErrorTree<&str>> {
+    map(opt_annotation(literal), |(inner, anno)| {
+        AnnoLit {
+            anno,
+            inner: inner.into(),
+        }
+        .into()
     })(i)
 }
 
@@ -82,18 +89,21 @@ pub fn function_definitions(i: &str) -> IResult<&str, Vec<FunDef>, ErrorTree<&st
 }
 
 // WSA OK
+// Do not Rc as FunDef is used in Vec
 fn function_definition(i: &str) -> IResult<&str, FunDef, ErrorTree<&str>> {
     map(
         tuple((anno_function_name, wsa(tag("=")), anno_fun)),
-        |(name, _, body)| FunDef { name, body },
+        |(name, _, body)| FunDef {
+            name: name.into(),
+            body,
+        },
     )(i)
 }
 
 // WSA OK
-fn anno_fun(i: &str) -> IResult<&str, AnnoFun, ErrorTree<&str>> {
-    map(opt_annotation(fun_expr), |(fun, anno)| AnnoFun {
-        anno,
-        fun,
+fn anno_fun(i: &str) -> IResult<&str, Rc<AnnoFun>, ErrorTree<&str>> {
+    map(opt_annotation(fun_expr), |(fun, anno)| {
+        AnnoFun { anno, fun }.into()
     })(i)
 }
 

@@ -358,6 +358,7 @@ mod tests {
                     decimal: 0,
                     exponent: 1
                 }
+                .into()
             ))
         );
         assert_eq!(
@@ -369,6 +370,7 @@ mod tests {
                     decimal: 7182818,
                     exponent: 1
                 }
+                .into()
             ))
         );
         assert_eq!(
@@ -380,6 +382,7 @@ mod tests {
                     decimal: 14,
                     exponent: 1
                 }
+                .into()
             ))
         );
         assert_eq!(
@@ -391,6 +394,7 @@ mod tests {
                     decimal: 2,
                     exponent: -6
                 }
+                .into()
             ))
         );
         assert_eq!(
@@ -402,6 +406,7 @@ mod tests {
                     decimal: 23,
                     exponent: 12
                 }
+                .into()
             ))
         );
         assert_eq!(
@@ -413,6 +418,7 @@ mod tests {
                     decimal: 0,
                     exponent: 9
                 }
+                .into()
             ))
         );
 
@@ -421,66 +427,84 @@ mod tests {
             literal("0.0").unwrap(),
             (
                 "",
-                Lit::Float(Float {
-                    base: 0,
-                    decimal: 0,
-                    exponent: 1
-                })
+                Lit::Float(
+                    Float {
+                        base: 0,
+                        decimal: 0,
+                        exponent: 1
+                    }
+                    .into()
+                )
             )
         );
         assert_eq!(
             literal("2.7182818").unwrap(),
             (
                 "",
-                Lit::Float(Float {
-                    base: 2,
-                    decimal: 7182818,
-                    exponent: 1
-                })
+                Lit::Float(
+                    Float {
+                        base: 2,
+                        decimal: 7182818,
+                        exponent: 1
+                    }
+                    .into()
+                )
             )
         );
         assert_eq!(
             literal("-3.14").unwrap(),
             (
                 "",
-                Lit::Float(Float {
-                    base: -3,
-                    decimal: 14,
-                    exponent: 1
-                })
+                Lit::Float(
+                    Float {
+                        base: -3,
+                        decimal: 14,
+                        exponent: 1
+                    }
+                    .into()
+                )
             )
         );
         assert_eq!(
             literal("+1.2E-6").unwrap(),
             (
                 "",
-                Lit::Float(Float {
-                    base: 1,
-                    decimal: 2,
-                    exponent: -6
-                })
+                Lit::Float(
+                    Float {
+                        base: 1,
+                        decimal: 2,
+                        exponent: -6
+                    }
+                    .into()
+                )
             )
         );
         assert_eq!(
             literal("-1.23e12").unwrap(),
             (
                 "",
-                Lit::Float(Float {
-                    base: -1,
-                    decimal: 23,
-                    exponent: 12
-                })
+                Lit::Float(
+                    Float {
+                        base: -1,
+                        decimal: 23,
+                        exponent: 12
+                    }
+                    .into()
+                )
             )
         );
         assert_eq!(
             literal("1.0e+9").unwrap(),
             (
                 "",
-                Lit::Float(Float {
-                    base: 1,
-                    decimal: 0,
-                    exponent: 9
-                })
+                Lit::Float(
+                    Float {
+                        base: 1,
+                        decimal: 0,
+                        exponent: 9
+                    }
+                    .into()
+                )
             )
         );
 
@@ -494,6 +518,7 @@ mod tests {
                     decimal: 0,
                     exponent: 1
                 }
+                .into()
             ))
         );
 
@@ -503,50 +528,59 @@ mod tests {
     #[test]
     fn test_atom() {
         // Tests based on Core Erlang 1.03 specification Appendix A
-        assert_eq!(atom("'foo'").unwrap(), ("", Atom("foo".to_owned())));
-        assert_eq!(atom("'Bar'").unwrap(), ("", Atom("Bar".to_owned())));
-        assert_eq!(atom("'foo bar'").unwrap(), ("", Atom("foo bar".to_owned())));
-        assert_eq!(atom("''").unwrap(), ("", Atom("".to_owned())));
+        assert_eq!(atom("'foo'").unwrap(), ("", Atom("foo".to_owned()).into()));
+        assert_eq!(atom("'Bar'").unwrap(), ("", Atom("Bar".to_owned()).into()));
+        assert_eq!(
+            atom("'foo bar'").unwrap(),
+            ("", Atom("foo bar".to_owned()).into())
+        );
+        assert_eq!(atom("''").unwrap(), ("", Atom("".to_owned()).into()));
 
         // TODO: Is the test correct with \\ == \ in the string?
         assert_eq!(octal("012").unwrap(), ("", 10 as char));
-        assert_eq!(atom("'\\010'").unwrap(), ("", Atom("\u{8}".to_owned())));
+        assert_eq!(
+            atom("'\\010'").unwrap(),
+            ("", Atom("\u{8}".to_owned()).into())
+        );
 
         assert_eq!(
             atom("'_hello_world'").unwrap(),
-            ("", Atom("_hello_world".to_owned()))
+            ("", Atom("_hello_world".to_owned()).into())
         );
-        assert_eq!(atom("'=:='").unwrap(), ("", Atom("=:=".to_owned())));
+        assert_eq!(atom("'=:='").unwrap(), ("", Atom("=:=".to_owned()).into()));
 
         // TODO Move "lit" tests to lex.rs ?
         assert_eq!(
             literal("'foo'").unwrap(),
-            ("", Lit::Atom(Atom("foo".to_owned())))
+            ("", Lit::Atom(Atom("foo".to_owned()).into()))
         );
         assert_eq!(
             literal("'Bar'").unwrap(),
-            ("", Lit::Atom(Atom("Bar".to_owned())))
+            ("", Lit::Atom(Atom("Bar".to_owned()).into()))
         );
         assert_eq!(
             literal("'foo bar'").unwrap(),
-            ("", Lit::Atom(Atom("foo bar".to_owned())))
+            ("", Lit::Atom(Atom("foo bar".to_owned()).into()))
         );
-        assert_eq!(literal("''").unwrap(), ("", Lit::Atom(Atom("".to_owned()))));
+        assert_eq!(
+            literal("''").unwrap(),
+            ("", Lit::Atom(Atom("".to_owned()).into()))
+        );
         assert_eq!(
             literal("'%#\\010@\\n!'").unwrap(),
-            ("", Lit::Atom(Atom("%#\u{8}@\n!".to_owned())))
+            ("", Lit::Atom(Atom("%#\u{8}@\n!".to_owned()).into()))
         );
         assert_eq!(
             literal("'_hello_world'").unwrap(),
-            ("", Lit::Atom(Atom("_hello_world".to_owned())))
+            ("", Lit::Atom(Atom("_hello_world".to_owned()).into()))
         );
         assert_eq!(
             literal("'=:='").unwrap(),
-            ("", Lit::Atom(Atom("=:=".to_owned())))
+            ("", Lit::Atom(Atom("=:=".to_owned()).into()))
         );
 
         // Mindless sanity check
-        assert_ne!(atom("'foo'").unwrap(), ("", Atom("bar".to_owned())));
+        assert_ne!(atom("'foo'").unwrap(), ("", Atom("bar".to_owned()).into()));
     }
 
     #[test]
@@ -617,24 +651,33 @@ mod tests {
     #[test]
     fn test_variables() {
         // Tests based on Core Erlang 1.03 specification Appendix A
-        assert_eq!(var("X").unwrap(), ("", Var("X".to_owned())));
-        assert_eq!(var("Bar").unwrap(), ("", Var("Bar".to_owned())));
-        assert_eq!(var("Value_2").unwrap(), ("", Var("Value_2".to_owned())));
-        assert_eq!(var("One2Three").unwrap(), ("", Var("One2Three".to_owned())));
-        assert_eq!(var("Stay@home").unwrap(), ("", Var("Stay@home".to_owned())));
+        assert_eq!(var("X").unwrap(), ("", Var("X".to_owned()).into()));
+        assert_eq!(var("Bar").unwrap(), ("", Var("Bar".to_owned()).into()));
+        assert_eq!(
+            var("Value_2").unwrap(),
+            ("", Var("Value_2".to_owned()).into())
+        );
+        assert_eq!(
+            var("One2Three").unwrap(),
+            ("", Var("One2Three".to_owned()).into())
+        );
+        assert_eq!(
+            var("Stay@home").unwrap(),
+            ("", Var("Stay@home".to_owned()).into())
+        );
         assert_eq!(
             var("_hello_world").unwrap(),
-            ("", Var("_hello_world".to_owned()))
+            ("", Var("_hello_world".to_owned()).into())
         );
 
         // Lowercase var must give error
         assert!(var("lowercase").is_err());
 
         // Core erlang accepts "_" as a var despite spec version 1.03 explicitly says this is invalid
-        assert_eq!(var("_").unwrap(), ("", Var("_".to_owned())));
+        assert_eq!(var("_").unwrap(), ("", Var("_".to_owned()).into()));
 
         // Mindless sanity check
-        assert_ne!(var("A").unwrap(), ("", Var("B".to_owned())));
+        assert_ne!(var("A").unwrap(), ("", Var("B".to_owned()).into()));
 
         // TODO: Negative / Expect Error test
     }
@@ -643,7 +686,7 @@ mod tests {
     fn test_lit_atom_in_list() {
         assert_eq!(
             literal("'new', 'neg')").unwrap(),
-            (", 'neg')", Lit::Atom(Atom("new".to_owned())))
+            (", 'neg')", Lit::Atom(Atom("new".to_owned()).into()))
         );
     }
 }

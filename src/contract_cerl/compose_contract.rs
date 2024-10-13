@@ -1,6 +1,6 @@
 // Translator from Core Erlang AST to Contract Core Erlang
 
-use std::{collections::HashMap, rc::Rc};
+use std::{borrow::Borrow, collections::HashMap, rc::Rc};
 
 use crate::{
     cerl_parser::{
@@ -52,11 +52,11 @@ fn make_contract(
     let mut fallback_args: HashMap<Rc<FunName>, Vec<Var>> = HashMap::new();
     // One body for each module
     for fun_def in &ast.defs {
-        let fname = Rc::new(fun_def.name.inner.clone()); // TODO: Consider Rc at cerl parser level
+        let fname = &fun_def.name.inner; // TODO: Consider Rc at cerl parser level
         match compose_function_with_contract(&base_spec, &session_spec, fun_def) {
             Ok((fun_fallback_args, contract_clauses)) => {
                 functions.insert(fname.clone(), contract_clauses);
-                fallback_args.insert(fname, fun_fallback_args);
+                fallback_args.insert(fname.clone(), fun_fallback_args);
             }
             Err(err) => {
                 // TODO: Consider to make a strict mode that requires full annotation
@@ -161,13 +161,13 @@ fn compose_function_with_contract(
     let fun_expr = &fun_def.body.fun;
 
     // If a function clause use a literal, then we need to use the top level binder instead.
-    let fallback_binders_top = fun_def
-        .clone()
+    let fallback_binders_top: Vec<Var> = fun_def
         .body
         .fun
         .vars
+        .clone()
         .into_iter()
-        .map(|v| v.name)
+        .map(|v| Rc::unwrap_or_clone(v.name))
         .collect();
 
     // A top-level function expression may contain multiplte clauses.
@@ -176,14 +176,14 @@ fn compose_function_with_contract(
     // We check for this annotation. If the annotation is not present the function only has one
     // clause.
     let single_clause_std_args = fun_def
-        .clone()
         .body
         .fun
         .vars
+        .clone()
         .into_iter()
-        .map(|v| CPat::Var(v.name.into()))
+        .map(|v| CPat::Var(Rc::unwrap_or_clone(v.name).into()))
         .collect();
-    let clauses = match &fun_expr.body.inner {
+    let clauses = match &*fun_expr.body.inner.borrow() {
         Expr::Case(_top_cases_var, top_cases_clauses) => {
             match &fun_expr.body.anno.0 {
                 None => {
@@ -193,7 +193,7 @@ fn compose_function_with_contract(
                 Some(anno) => {
                     // Top level clause is a function if the annotation contains the function name:
                     if vec![Const(Lit::Tuple(vec![
-                        Lit::Atom(Atom("function".to_string())),
+                        Lit::Atom(Atom("function".to_string()).into()),
                         Lit::Tuple(vec![
                             Lit::Atom(fname.name.clone()),
                             Lit::Int(fname.arity.try_into().unwrap()),
@@ -218,7 +218,7 @@ fn compose_function_with_contract(
             }
         }
 
-        single_clause => match expr_to_cexpr(single_clause) {
+        single_clause => match expr_to_cexpr(&single_clause) {
             Ok(cexpr) => vec![(single_clause_std_args, cexpr)],
             _ => todo!("Unable to to process function expression"),
         },
@@ -282,29 +282,32 @@ fn clause_to_cclause(clause: &Clause) -> Result<CClause, String> {
     let res = expr_to_cexpr(&clause.res.inner)?;
     Ok(CClause {
         pats: clause
-            .clone()
             .pats
+            .clone()
             .into_iter()
-            .map(|p| pat_to_cpat(p.inner))
+            .map(|p| pat_to_cpat(&p.inner))
             .collect(),
         res,
     })
 }
 
-fn pat_to_cpat(pat: Pat) -> CPat {
+fn pat_to_cpat(pat: &Pat) -> CPat {
     match pat {
-        Pat::Var(v) => CPat::Var(v.name),
-        Pat::Lit(l) => CPat::Lit(l),
-        Pat::Cons(pat_cons) => {
-            CPat::Cons(pat_cons.into_iter().map(|p| pat_to_cpat(p.inner)).collect())
-        }
+        Pat::Var(v) => CPat::Var(v.name.clone()),
+        Pat::Lit(l) => CPat::Lit(l.clone()),
+        Pat::Cons(pat_cons) => CPat::Cons(
+            pat_cons
+                .into_iter()
+                .map(|p| pat_to_cpat(&p.inner))
+                .collect(),
+        ),
         Pat::Tuple(pat_tuple) => CPat::Tuple(
             pat_tuple
                 .into_iter()
-                .map(|p| pat_to_cpat(p.inner))
+                .map(|p| pat_to_cpat(&p.inner))
                 .collect(),
         ),
-        Pat::Alias(var, pat) => CPat::Alias(var.name, Rc::new(pat_to_cpat(pat.inner))),
+        Pat::Alias(var, pat) => CPat::Alias(var.name.clone(), pat_to_cpat(&pat.inner).into()),
     }
 }
 
@@ -346,22 +349,24 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
         }
         Expr::Let(v, e1, e2) => {
             let v = match v.as_slice() {
-                [v] => CPat::Var(v.name.clone()),
-                _ => CPat::Tuple(v.iter().map(|v| CPat::Var(v.name.clone())).collect()),
+                [v] => Rc::new(CPat::Var(v.name.clone())),
+                _ => Rc::new(CPat::Tuple(
+                    v.iter().map(|v| CPat::Var(v.name.clone())).collect(),
+                )),
             };
             let e1 = Rc::new(expr_to_cexpr(&e1.inner)?); // TODO: Consider Rc at cerl AST
             let e2 = Rc::new(expr_to_cexpr(&e2.inner)?); // TODO: Consider Rc at cerl AST
 
-            Ok(CExpr::Let(v, e1, e2))
+            Ok(CExpr::Let(v.clone(), e1, e2))
         }
         Expr::Case(e1, e2) => {
             let base_expr = expr_to_cexpr(&e1.inner)?.into(); // TODO: Consider RC at cerl AST
             let mut contract_clauses: Vec<CClause> = Vec::new();
             for clause in e2 {
-                if Anno(Some(vec![Const(Lit::Atom(Atom(
-                    "compiler_generated".to_string(),
-                )))]))
-                    == clause.anno
+                if Anno(Some(vec![Const(Lit::Atom(
+                    Atom("compiler_generated".to_string()).into(),
+                ))]))
+                    == *clause.anno
                 {
                     println!("Warning: Skipped compiler generated case."); // TODO: Proper warning
                     continue;
@@ -372,7 +377,7 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
             Ok(CExpr::Case(base_expr, contract_clauses))
         }
         Expr::Call(fun_call, args) => {
-            let fun_call = match fun_call.as_ref().clone() {
+            let fun_call = match *fun_call.borrow() {
                 FunCall::PrimOp(AnnoExpr {
                     anno: _anno,
                     inner: Expr::AtomLit(Lit::Atom(a)),
