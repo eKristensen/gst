@@ -43,13 +43,6 @@ pub struct CFunClause {
     pub return_type: BaseType,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum CFunCall {
-    PrimOp(Rc<Atom>),         // Call basic erlang functions
-    Apply(Rc<FunName>),       // Inter-module call // Note: Apparently fname is used here
-    Call(Rc<Atom>, Rc<Atom>), // Cross-module call; (Module, Call name)
-}
-
 #[derive(Debug, Clone)]
 //  Simplified expression for function body
 pub enum CExpr {
@@ -59,7 +52,9 @@ pub enum CExpr {
     Tuple(Vec<CExpr>),                   // E_base
     Let(Rc<CPat>, Rc<CExpr>, Rc<CExpr>), // E_let*
     Case(Rc<CExpr>, Vec<CClause>),       // E_case
-    Call(CFunCall, Vec<CExpr>),          // E_{new,send, select, app}
+    PrimOp(Rc<Atom>, Vec<CExpr>),
+    Apply(Rc<FunName>, Vec<CExpr>),
+    Call(Rc<Atom>, Rc<Atom>, Vec<CExpr>), // E_{new,send, select, app}
     Do(Rc<CExpr>, Rc<CExpr>),
 }
 

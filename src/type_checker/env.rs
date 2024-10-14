@@ -1,6 +1,6 @@
 // Typing environment for GST type checker
 
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     cerl_parser::ast::Var,
@@ -18,4 +18,4 @@ pub enum TypeEnv {
 
 #[derive(Debug)]
 // "Runtime" environment for type checker.
-pub struct TypeEnvs(pub HashMap<Var, TypeEnv>);
+pub struct TypeEnvs(pub HashMap<Rc<Var>, TypeEnv>);

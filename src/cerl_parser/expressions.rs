@@ -11,8 +11,9 @@ use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
     ast::{
-        AnnoClause, AnnoExpr, AnnoFunName, AnnoMap, AnnoMapPair, AnnoPat, AnnoVar, Clause, Expr,
-        Fun, FunCall, FunDef, FunLit, Lit, MapExpr, MapPair, MapPairType, Receive, Timeout, Try,
+        AnnoClause, AnnoExpr, AnnoFunName, AnnoMap, AnnoMapPair, AnnoPat, AnnoVar, CallModule,
+        Clause, Expr, Fun, FunDef, FunLit, Lit, MapExpr, MapPair, MapPairType, Receive, Timeout,
+        Try,
     },
     grammar::function_definitions,
     helpers::{comma_sep_list, cons, opt_angle_bracket, opt_annotation, wsa},
@@ -63,7 +64,9 @@ fn single_expression(i: &str) -> IResult<&str, Rc<Expr>, ErrorTree<&str>> {
             map(receive_expr, |receive_expr| {
                 Expr::Receive(receive_expr.into())
             }),
-            map(call_expr, |(name, args)| Expr::Call(name, args)), // Merge apply, call and primop.
+            map(call_expr, |(module, name, args)| {
+                Expr::Call(module, name, args)
+            }), // Merge apply, call and primop.
             map(try_expr, |try_expr| Expr::Try(try_expr)),
             map(sequence, |(e1, e2)| Expr::Do(e1, e2)),
             map(catch_expr, |catch_expr| Expr::Catch(catch_expr)),
@@ -191,24 +194,27 @@ fn clause_pattern(i: &str) -> IResult<&str, Vec<AnnoPat>, ErrorTree<&str>> {
 
 // Merge apply, call and primop as they are very similar.
 // WSA OK
-fn call_expr(i: &str) -> IResult<&str, (Rc<FunCall>, Vec<AnnoExpr>), ErrorTree<&str>> {
-    pair(
-        alt((
-            map(preceded(wsa(tag("apply")), anno_expression), |o| {
-                FunCall::Apply(o.into()).into()
-            }),
-            map(
-                preceded(
-                    wsa(tag("call")),
-                    tuple((anno_expression, wsa(tag(":")), anno_expression)),
+fn call_expr(i: &str) -> IResult<&str, (CallModule, Rc<AnnoExpr>, Vec<AnnoExpr>), ErrorTree<&str>> {
+    map(
+        pair(
+            alt((
+                map(preceded(wsa(tag("apply")), anno_expression), |o| {
+                    (CallModule::Apply, o.into())
+                }),
+                map(
+                    preceded(
+                        wsa(tag("call")),
+                        tuple((anno_expression, wsa(tag(":")), anno_expression)),
+                    ),
+                    |(o1, _, o2)| (CallModule::Call(o1.into()), o2.into()),
                 ),
-                |(o1, _, o2)| FunCall::Call(o1.into(), o2.into()).into(),
-            ),
-            map(preceded(wsa(tag("primop")), anno_expression), |o| {
-                FunCall::PrimOp(o.into()).into()
-            }),
-        )),
-        comma_sep_list("(", ")", anno_expression),
+                map(preceded(wsa(tag("primop")), anno_expression), |o| {
+                    (CallModule::PrimOp, o.into())
+                }),
+            )),
+            comma_sep_list("(", ")", anno_expression),
+        ),
+        |((m, c), a)| (m, c, a),
     )(i)
 }
 

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use nom::{
     branch::alt,
@@ -200,7 +200,7 @@ mod tests {
                 "",
                 (
                     FunName {
-                        name: Atom("test".to_owned()),
+                        name: Atom("test".to_owned()).into(),
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -220,7 +220,7 @@ mod tests {
                 "",
                 (
                     FunName {
-                        name: Atom("test".to_owned()),
+                        name: Atom("test".to_owned()).into(),
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -244,7 +244,7 @@ mod tests {
                 "",
                 (
                     FunName {
-                        name: Atom("test".to_owned()),
+                        name: Atom("test".to_owned()).into(),
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -268,7 +268,7 @@ mod tests {
                 "",
                 (
                     FunName {
-                        name: Atom("test".to_owned()),
+                        name: Atom("test".to_owned()).into(),
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -292,7 +292,7 @@ mod tests {
                 "",
                 (
                     FunName {
-                        name: Atom("test".to_owned()),
+                        name: Atom("test".to_owned()).into(),
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -314,7 +314,7 @@ mod tests {
                 "",
                 (
                     FunName {
-                        name: Atom("test".to_owned()),
+                        name: Atom("test".to_owned()).into(),
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -337,7 +337,7 @@ mod tests {
                 "",
                 (
                     FunName {
-                        name: Atom("test".to_owned()),
+                        name: Atom("test".to_owned()).into(),
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -360,7 +360,7 @@ mod tests {
                 "",
                 (
                     FunName {
-                        name: Atom("test".to_owned()),
+                        name: Atom("test".to_owned()).into(),
                         arity: 2,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(
@@ -397,7 +397,7 @@ mod tests {
                 "",
                 (
                     FunName {
-                        name: Atom("test".to_owned()),
+                        name: Atom("test".to_owned()).into(),
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
@@ -419,7 +419,7 @@ mod tests {
                 "",
                 (
                     FunName {
-                        name: Atom("test".to_owned()),
+                        name: Atom("test".to_owned()).into(),
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
@@ -447,7 +447,7 @@ mod tests {
                 "",
                 (
                     FunName {
-                        name: Atom("test".to_owned()),
+                        name: Atom("test".to_owned()).into(),
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
@@ -494,7 +494,7 @@ mod tests {
                 "",
                 (
                     FunName {
-                        name: Atom("test".to_owned()),
+                        name: Atom("test".to_owned()).into(),
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(

@@ -50,10 +50,10 @@ pub struct Attribute {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum FunCall {
-    PrimOp(Rc<AnnoExpr>),             // Call basic erlang functions
-    Apply(Rc<AnnoExpr>),              // Inter-module call // Note: Apparently fname is used here
-    Call(Rc<AnnoExpr>, Rc<AnnoExpr>), // Cross-module call; (Module, Call name)
+pub enum CallModule {
+    PrimOp,             // Call basic erlang functions
+    Apply,              // Inter-module call // Note: Apparently fname is used here
+    Call(Rc<AnnoExpr>), // Cross-module call; (Module, Call name)
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -155,7 +155,7 @@ pub enum Expr {
     Let(Vec<AnnoVar>, Rc<AnnoExpr>, Rc<AnnoExpr>), // Note: Let vars
     Case(Rc<AnnoExpr>, Vec<AnnoClause>),
     LetRec(Vec<FunDef>, Rc<AnnoExpr>),
-    Call(Rc<FunCall>, Vec<AnnoExpr>), // Merge call, apply and primop to avoid duplication
+    Call(CallModule, Rc<AnnoExpr>, Vec<AnnoExpr>), // Merge call, apply and primop to avoid duplication
     Receive(Rc<Receive>),
     Try(Rc<Try>),
     Do(Rc<AnnoExpr>, Rc<AnnoExpr>), // Sequence
@@ -487,7 +487,9 @@ impl Display for Expr {
                 write!(f, "case {} of {} end", *arg, AnnoClauseList(clauses))
             }
             Expr::LetRec(defs, body) => write!(f, "letrec {} in {}", DefList(defs), *body),
-            Expr::Call(call, args) => write!(f, "{} {}", *call, AnnoExprList(args)), // Merge call, apply and primop to avoid duplication
+            Expr::Call(module, call, args) => {
+                write!(f, "{}{} {}", module, *call, AnnoExprList(args))
+            } // Merge call, apply and primop to avoid duplication
             Expr::Receive(receive) => (*receive).fmt(f),
             Expr::Try(t) => (*t).fmt(f),
             Expr::Do(e1, e2) => write!(f, "do {} {}", *e1, *e2),
@@ -521,12 +523,12 @@ impl Display for Clause {
     }
 }
 
-impl Display for FunCall {
+impl Display for CallModule {
     fn fmt(&self, f: &mut Formatter) -> Result {
         match &self {
-            FunCall::Call(module, call) => write!(f, "call {}:{}", module, call),
-            FunCall::Apply(call) => write!(f, "apply {}", call),
-            FunCall::PrimOp(call) => write!(f, "primop {}", call),
+            CallModule::Call(module) => write!(f, "call {}:", module),
+            CallModule::Apply => write!(f, "apply "),
+            CallModule::PrimOp => write!(f, "primop "),
         }
     }
 }

@@ -7,7 +7,7 @@ use nom::Finish;
 use crate::{
     cerl_parser::{
         self,
-        ast::{Atom, FunName, Lit},
+        ast::{AnnoLit, FunName, Lit},
     },
     contract_cerl::types::SessionTypesList,
 };
@@ -20,17 +20,22 @@ use super::{
 pub fn mspec_extractor(ast: &cerl_parser::ast::Module) -> Result<Option<SessionTypesList>, String> {
     // Find mspec if any defined for module
     for attribute in &ast.attributes {
-        let Atom(a_name) = &attribute.name.name;
-        if *a_name == "mspec" {
+        if attribute.name.name.0 == "mspec" {
             // Use st_inner to typecheck inner value
             // Session type is wrapped within a list and then as the name of an atom
 
             // Unwrap the char list.
-            let Lit::Cons(val_const) = &attribute.value.inner else {
-                return Err("Expected cons for mspec".to_string());
+
+            // TODO: Too much clone? Is it Rc clone or deep clone?
+            let AnnoLit {
+                anno: _,
+                inner: val_const,
+            } = (*attribute.value).clone();
+            let Lit::Cons(val_const) = (*val_const).clone() else {
+                return Err("Mspec expects cons".to_owned());
             };
 
-            let st_string = decimal_string_decode(val_const)?;
+            let st_string = decimal_string_decode(&val_const)?;
 
             // Convert encoded string to string. Move out to common part.
             match st_inner(st_string.as_str()) {
@@ -48,8 +53,7 @@ pub fn session_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<SessionS
     // Find all session attributes
     let mut session_spec_def: SessionSpecDef = SessionSpecDef(HashMap::new());
     for attribute in &ast.attributes {
-        let Atom(a_name) = &attribute.name.name;
-        if *a_name == "session" {
+        if attribute.name.name.0 == "session" {
             match add_session_spec(&attribute.value.inner) {
                 Ok((fun_name, session_specs)) => {
                     if session_spec_def.0.contains_key(&fun_name) {

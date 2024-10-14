@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     cerl_parser::ast::{Atom, FunName, Var},
@@ -15,8 +15,8 @@ struct MSpecEnv(HashMap<MSpec, bool>);
 
 #[derive(Debug, Eq, Hash, PartialEq)]
 struct MSpec {
-    state_in: Atom,
-    state_out: Atom,
+    state_in: Rc<Atom>,
+    state_out: Rc<Atom>,
     val_in: BaseType,
     val_out: BaseType,
 }
@@ -56,7 +56,7 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
         mspec_handle_extractor(
             &mut handle_map,
             &mut HashMap::new(),
-            &Atom("session_start".to_string()),
+            &Atom("session_start".to_string()).into(),
             mspec.0.as_slice(),
         );
         println!("==DEBUG: mspec extractor res: {:?}", handle_map);
@@ -71,7 +71,7 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
         // Accept extra handle calls for now. TODO: Maybe this is a bad idea as they could
         //                                          interfere with the communication.
         if let Some(new_session_clauses) = module.functions.get(&FunName {
-            name: Atom("handle_new_session_call".to_string()),
+            name: Atom("handle_new_session_call".to_string()).into(),
             arity: 3,
         }) {
             for new_session_clause in new_session_clauses {
@@ -98,7 +98,7 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
                     println!("Debug #4");
                     continue;
                 };
-                if handle_action != &BaseType::Atom(Atom("reply".to_string())) {
+                if handle_action != &BaseType::Atom(Atom("reply".to_string()).into()) {
                     println!("Debug #5");
                     continue;
                 }
@@ -115,7 +115,7 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
                     continue;
                 };
                 let find_mspec = MSpec {
-                    state_in: Atom("session_start".to_string()),
+                    state_in: Atom("session_start".to_string()).into(),
                     state_out: state_out.clone(),
                     val_in: val_in.clone(),
                     val_out: val_out.clone(),
@@ -134,7 +134,7 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
         }
 
         if let Some(plus_calls) = module.functions.get(&FunName {
-            name: Atom("handle_plus_call".to_string()),
+            name: Atom("handle_plus_call".to_string()).into(),
             arity: 4,
         }) {
             for plus_clause in plus_calls {
@@ -177,7 +177,7 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
                     println!("Debug #4");
                     continue;
                 };
-                if handle_action != &BaseType::Atom(Atom("reply".to_string())) {
+                if handle_action != &BaseType::Atom(Atom("reply".to_string()).into()) {
                     println!("Debug #5");
                     continue;
                 }
@@ -297,8 +297,8 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
 
 fn mspec_handle_extractor(
     map: &mut MSpecEnv,
-    rec_states: &mut HashMap<Var, Atom>,
-    state_in: &Atom,
+    rec_states: &mut HashMap<Rc<Var>, Rc<Atom>>,
+    state_in: &Rc<Atom>,
     input: &[SessionType],
 ) {
     // To extract I need a label and to include all until next label.
@@ -314,7 +314,7 @@ fn mspec_handle_extractor(
             map.0.insert(
                 MSpec {
                     state_in: state_in.clone(),
-                    state_out: Atom("session_end".to_string()),
+                    state_out: Atom("session_end".to_string()).into(),
                     val_in: recv.clone(),
                     val_out: send.clone(),
                 },
@@ -329,7 +329,7 @@ fn mspec_handle_extractor(
             map.0.insert(
                 MSpec {
                     state_in: state_in.clone(),
-                    state_out: Atom("session_end".to_string()),
+                    state_out: Atom("session_end".to_string()).into(),
                     val_in: recv.clone(),
                     val_out: send.clone(),
                 },
@@ -341,10 +341,10 @@ fn mspec_handle_extractor(
             map.0.insert(
                 MSpec {
                     state_in: state_in.clone(),
-                    state_out: Atom("session_end".to_string()),
+                    state_out: Atom("session_end".to_string()).into(),
                     val_in: recv.clone(),
-                    val_out: BaseType::Atom(Atom("received".to_string())), // TODO: Should implicit
-                                                                           // value here be explicit?
+                    val_out: BaseType::Atom(Atom("received".to_string()).into()), // TODO: Should implicit
+                                                                                  // value here be explicit?
                 },
                 false,
             );
@@ -369,8 +369,8 @@ fn mspec_handle_extractor(
                     state_in: state_in.clone(),
                     state_out: state_out.clone(),
                     val_in: recv.clone(),
-                    val_out: BaseType::Atom(Atom("received".to_string())), // TODO: Should implicit
-                                                                           // value here be explicit?
+                    val_out: BaseType::Atom(Atom("received".to_string()).into()), // TODO: Should implicit
+                                                                                  // value here be explicit?
                 },
                 false,
             );
@@ -386,8 +386,8 @@ fn mspec_handle_extractor(
                             MSpec {
                                 state_in: state_in.clone(),
                                 state_out: state_out.clone(),
-                                val_in: BaseType::Atom(Atom(label.0.clone())),
-                                val_out: BaseType::Atom(Atom("received".to_string())),
+                                val_in: BaseType::Atom(Atom(label.0.clone()).into()),
+                                val_out: BaseType::Atom(Atom("received".to_string()).into()),
                             },
                             false,
                         );
@@ -397,9 +397,9 @@ fn mspec_handle_extractor(
                         map.0.insert(
                             MSpec {
                                 state_in: state_in.clone(),
-                                state_out: Atom("session_end".to_string()),
-                                val_in: BaseType::Atom(Atom(label.0.clone())),
-                                val_out: BaseType::Atom(Atom("received".to_string())),
+                                state_out: Atom("session_end".to_string()).into(),
+                                val_in: BaseType::Atom(Atom(label.0.clone()).into()),
+                                val_out: BaseType::Atom(Atom("received".to_string()).into()),
                             },
                             false,
                         );

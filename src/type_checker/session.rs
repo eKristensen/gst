@@ -1,12 +1,13 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    rc::Rc,
     time::Duration,
 };
 
 use crate::{
     cerl_parser::ast::{Atom, Lit, Var},
     contract_cerl::{
-        ast::{CClause, CExpr, CFunCall, CModule, CPat, CType},
+        ast::{CClause, CExpr, CModule, CPat, CType},
         types::{BaseType, Label, SessionType, SessionTypesList},
     },
     type_checker::base::expr,
@@ -97,7 +98,7 @@ pub fn gsp_sync_send(
                     session_type, sending_val
                 ));
             };
-            let try_label = Label(atom_label.0);
+            let try_label = Label(atom_label.0.clone());
             println!(
                 "Try label: {:?} with session_var: {:?} in offers: {:?}",
                 try_label, session_var, offers
@@ -159,7 +160,7 @@ pub fn e_case_offer(
         let [CPat::Lit(label)] = clause.pats.as_slice() else {
             return Err("label must be an atom #1".to_string());
         };
-        let Lit::Atom(label) = label else {
+        let Lit::Atom(label) = (**label).clone() else {
             return Err("label must be an atom #2".to_string());
         };
 
@@ -209,8 +210,18 @@ pub fn diff_consumed(before_envs: &TypeEnvs, after_envs: &TypeEnvs) -> Result<()
     // Check all that should be consumed, has been consumed (aka "finished" function)
     // Aka: Check all newly defined variables are consumed (if required).
     // Two stage: Find all to check, and then to check their value.
-    let before_vars = before_envs.0.keys().cloned().collect();
-    let after_vars: HashSet<Var> = after_envs.0.keys().cloned().collect();
+    let before_vars = before_envs
+        .0
+        .keys()
+        .into_iter()
+        .map(|k| (**k).clone())
+        .collect();
+    let after_vars: HashSet<Var> = after_envs
+        .0
+        .keys()
+        .into_iter()
+        .map(|k| (**k).clone())
+        .collect();
     println!(
         "DEBUG: Before vars {:?}, After vars: {:?}",
         before_vars, after_vars
@@ -293,7 +304,12 @@ pub fn must_st_consume_expr(
 // Task: Ensure that we preserve isolation of all environments but except Delta. Remove new values and restore old values.
 // Used to e.g. ensure arguments are evaluated in an isolated environment.
 fn envs_isolation(old_envs: &TypeEnvs, new_envs: &mut TypeEnvs) {
-    let new_vars: HashSet<Var> = new_envs.0.keys().cloned().collect();
+    let new_vars: HashSet<Var> = new_envs
+        .0
+        .keys()
+        .into_iter()
+        .map(|k| (**k).clone())
+        .collect();
     // Check current env. For all that is not Delta, the definition must be the same as in before. Remove or update as needed
     for var_key in new_vars {
         let cur_val = new_envs.0.get(&var_key).unwrap();
@@ -301,7 +317,7 @@ fn envs_isolation(old_envs: &TypeEnvs, new_envs: &mut TypeEnvs) {
             TypeEnv::Delta(_) => continue, // Keep only changes in Delta
             _ => match old_envs.0.get(&var_key) {
                 Some(old_val) => {
-                    new_envs.0.insert(var_key.clone(), old_val.clone());
+                    new_envs.0.insert(var_key.clone().into(), old_val.clone());
                 }
                 None => {
                     new_envs.0.remove(&var_key);
@@ -335,17 +351,17 @@ struct FreeNames(Vec<FreeName>);
 #[derive(Debug)]
 enum FreeName {
     None,
-    Free(Var),
+    Free(Rc<Var>),
     Branch(HashMap<Label, FreeNames>),
 }
 
 fn free_names(input: &[SessionType]) -> FreeNames {
-    let mut seen: HashSet<Var> = HashSet::new();
+    let mut seen: HashSet<Rc<Var>> = HashSet::new();
     free_names_aux(&mut seen, input)
 }
 
 // The concept is give the free variable at each element in the same order as original to rematch.
-fn free_names_aux(seen: &mut HashSet<Var>, input: &[SessionType]) -> FreeNames {
+fn free_names_aux(seen: &mut HashSet<Rc<Var>>, input: &[SessionType]) -> FreeNames {
     match input {
         [] => FreeNames(vec![]),
         [SessionType::Var(var), tail @ ..] => {
@@ -412,7 +428,7 @@ fn free_names_aux(seen: &mut HashSet<Var>, input: &[SessionType]) -> FreeNames {
 
 // Replacment in place
 fn substitution(
-    binder: &Var,
+    binder: &Rc<Var>,
     full: &[SessionType],
     input: &[SessionType],
     free_names: &[FreeName],
@@ -570,10 +586,10 @@ mod tests {
     fn unfold_once_test_01() {
         // Session Type without recursion.
         let input = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()),
+            Var("t".to_string()).into(),
             SessionTypesList(vec![
                 SessionType::Send(BaseType::Any),
-                SessionType::Var(Var("t".to_string())),
+                SessionType::Var(Var("t".to_string()).into()),
             ]),
         )]);
 
@@ -584,10 +600,10 @@ mod tests {
         let expected = SessionTypesList(vec![
             SessionType::Send(BaseType::Any),
             SessionType::Rec(
-                Var("t".to_string()),
+                Var("t".to_string()).into(),
                 SessionTypesList(vec![
                     SessionType::Send(BaseType::Any),
-                    SessionType::Var(Var("t".to_string())),
+                    SessionType::Var(Var("t".to_string()).into()),
                 ]),
             ),
         ]);
@@ -602,10 +618,10 @@ mod tests {
         // Would be:         !int. rec t !int. t.
         // Session Type without recursion.
         let input = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()),
+            Var("t".to_string()).into(),
             SessionTypesList(vec![
                 SessionType::Send(BaseType::Integer),
-                SessionType::Var(Var("t".to_string())),
+                SessionType::Var(Var("t".to_string()).into()),
             ]),
         )]);
 
@@ -613,10 +629,10 @@ mod tests {
         let expected = SessionTypesList(vec![
             SessionType::Send(BaseType::Integer),
             SessionType::Rec(
-                Var("t".to_string()),
+                Var("t".to_string()).into(),
                 SessionTypesList(vec![
                     SessionType::Send(BaseType::Integer),
-                    SessionType::Var(Var("t".to_string())),
+                    SessionType::Var(Var("t".to_string()).into()),
                 ]),
             ),
         ]);
@@ -634,18 +650,18 @@ mod tests {
     #[test]
     fn equality_test_01() {
         let s1 = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()),
+            Var("t".to_string()).into(),
             SessionTypesList(vec![
                 SessionType::Send(BaseType::Integer),
-                SessionType::Var(Var("t".to_string())),
+                SessionType::Var(Var("t".to_string()).into()),
             ]),
         )]);
         let s2 = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()),
+            Var("t".to_string()).into(),
             SessionTypesList(vec![
                 SessionType::Send(BaseType::Integer),
                 SessionType::Send(BaseType::Integer),
-                SessionType::Var(Var("t".to_string())),
+                SessionType::Var(Var("t".to_string()).into()),
             ]),
         )]);
         assert!(equality(&s1.0, &s2.0));
@@ -654,18 +670,18 @@ mod tests {
     #[test]
     fn equality_test_02() {
         let s1 = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()),
+            Var("t".to_string()).into(),
             SessionTypesList(vec![
                 SessionType::Send(BaseType::Integer),
-                SessionType::Var(Var("t".to_string())),
+                SessionType::Var(Var("t".to_string()).into()),
             ]),
         )]);
         let s2 = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()),
+            Var("t".to_string()).into(),
             SessionTypesList(vec![
                 SessionType::Send(BaseType::Integer),
                 SessionType::Receive(BaseType::Integer),
-                SessionType::Var(Var("t".to_string())),
+                SessionType::Var(Var("t".to_string()).into()),
             ]),
         )]);
         assert!(!equality(&s1.0, &s2.0));

@@ -6,8 +6,7 @@ use crate::{
     cerl_parser::{
         self,
         ast::{
-            Anno, AnnoExpr, AnnoPat, Atom, Clause, Const, Expr, FunCall, FunDef, FunName, Lit, Pat,
-            Var,
+            Anno, AnnoPat, Atom, CallModule, Clause, Const, Expr, FunDef, FunName, Lit, Pat, Var,
         },
     },
     spec_extractor::{
@@ -24,7 +23,6 @@ use super::{
     ast::{self, CClause, CExpr, CFunClause, CModule, CPat, CType, OptWarnings},
     types::{BaseType, SessionTypesList},
 };
-use crate::contract_cerl::ast::CFunCall;
 use crate::spec_extractor::ast::BaseSpecElm::Base;
 use crate::st_parser::ast::SessionSpecElm::ConsumeSpec;
 use crate::st_parser::ast::SessionSpecElm::NewSpec;
@@ -167,7 +165,7 @@ fn compose_function_with_contract(
         .vars
         .clone()
         .into_iter()
-        .map(|v| Rc::unwrap_or_clone(v.name))
+        .map(|v| (*v.name).clone())
         .collect();
 
     // A top-level function expression may contain multiplte clauses.
@@ -181,7 +179,7 @@ fn compose_function_with_contract(
         .vars
         .clone()
         .into_iter()
-        .map(|v| CPat::Var(Rc::unwrap_or_clone(v.name).into()))
+        .map(|v| CPat::Var(Rc::new((*v.name).clone())))
         .collect();
     let clauses = match &*fun_expr.body.inner.borrow() {
         Expr::Case(_top_cases_var, top_cases_clauses) => {
@@ -376,36 +374,45 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
             }
             Ok(CExpr::Case(base_expr, contract_clauses))
         }
-        Expr::Call(fun_call, args) => {
-            let fun_call = match *fun_call.borrow() {
-                FunCall::PrimOp(AnnoExpr {
-                    anno: _anno,
-                    inner: Expr::AtomLit(Lit::Atom(a)),
-                }) => CFunCall::PrimOp(a),
-                FunCall::Apply(AnnoExpr {
-                    anno: _anno,
-                    inner: Expr::Fname(f),
-                }) => CFunCall::Apply(f),
-                FunCall::Call(
-                    AnnoExpr {
-                        anno: _anno0,
-                        inner: Expr::AtomLit(Lit::Atom(module_name)),
-                    },
-                    AnnoExpr {
-                        anno: _anno1,
-                        inner: Expr::AtomLit(Lit::Atom(call_name)),
-                    },
-                ) => CFunCall::Call(module_name, call_name),
-                _ => return Err("Function call arguments has unsupported types.".to_string()),
-            };
-
+        Expr::Call(fun_module, fun_call, args) => {
             let mut args_cexpr: Vec<CExpr> = Vec::new();
             for arg in args {
                 let cexpr = expr_to_cexpr(&arg.inner)?;
                 args_cexpr.push(cexpr);
             }
 
-            Ok(CExpr::Call(fun_call, args_cexpr))
+            match (*fun_call.inner).borrow() {
+                Expr::AtomLit(fun_call) => {
+                    let Lit::Atom(fun_call) = fun_call.borrow() else {
+                        return Err("Unsupported call name type.".to_string());
+                    };
+                    match fun_module {
+                        CallModule::PrimOp => Ok(CExpr::PrimOp(fun_call.clone(), args_cexpr)),
+                        CallModule::Call(module_name_call) => {
+                            let Expr::AtomLit(module_name_call) = module_name_call.inner.borrow()
+                            else {
+                                return Err("Unsupported module name type".to_string());
+                            };
+                            let Lit::Atom(module_name_call) = module_name_call.borrow() else {
+                                return Err("Unsupported module name type".to_string());
+                            };
+                            Ok(CExpr::Call(
+                                module_name_call.clone(),
+                                fun_call.clone(),
+                                args_cexpr,
+                            ))
+                        }
+                        _ => Err("Function call arguments has unsupported types.".to_string()),
+                    }
+                }
+                Expr::Fname(fname) => {
+                    if *fun_module != CallModule::Apply {
+                        return Err("Unsupported call type.".to_string());
+                    }
+                    return Ok(CExpr::Apply(fname.clone(), args_cexpr));
+                }
+                _ => Err("Unsupported call name type.".to_string()),
+            }
         }
         Expr::Do(e1, e2) => {
             let e1 = expr_to_cexpr(&e1.inner)?.into(); // TODO: Consider Rc at cerl AST

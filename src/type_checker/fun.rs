@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    cerl_parser::ast::{Atom, FunName},
+    cerl_parser::ast::Atom,
     contract_cerl::{
-        ast::{CExpr, CFunCall, CFunClause, CModule, CType},
+        ast::{CExpr, CFunClause, CModule, CType},
         types::{BaseType, SessionType, SessionTypesList},
     },
     type_checker::env::TypeEnv,
@@ -23,7 +23,7 @@ pub fn bif_fun(
     args: &[CExpr],
 ) -> Result<CType, String> {
     match (fun_mod, fun_name) {
-        ("io", "format") => Ok(CType::Base(BaseType::Atom(Atom("ok".to_string())))),
+        ("io", "format") => Ok(CType::Base(BaseType::Atom(Atom("ok".to_string()).into()))),
         ("erlang", "-") => {
             // TODO: Add support for other types and binary. Only unary minus supported now
             if args.len() != 1 {

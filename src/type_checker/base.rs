@@ -1,7 +1,9 @@
+use std::rc::Rc;
+
 use crate::{
-    cerl_parser::ast::{FunName, Lit, Var},
+    cerl_parser::ast::{Atom, FunName, Lit, Var},
     contract_cerl::{
-        ast::{CClause, CExpr, CFunCall, CModule, CPat, CType},
+        ast::{CClause, CExpr, CModule, CPat, CType},
         types::{BaseType, SessionType, SessionTypesList},
     },
     type_checker::{
@@ -24,13 +26,14 @@ pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, S
     );
     match e {
         CExpr::Var(v) => e_base(envs, v),
-        CExpr::Lit(l) => match l {
+        CExpr::Lit(l) => match (**l).clone() {
+            // TODO: Deduplicate. Avoid repeating cpat_to_ctype function here
             Lit::Atom(atom_val) => match atom_val.0.as_str() {
                 "true" => Ok(CType::Base(BaseType::Boolean)),
                 "false" => Ok(CType::Base(BaseType::Boolean)),
                 _ => Ok(CType::Base(BaseType::Atom(atom_val.clone()))),
             },
-            l => Ok(e_lit(l)),
+            l => Ok(e_lit(&l)),
         },
         CExpr::Cons(cons) => match expr_base_type_list(module, envs, cons) {
             Ok(res) => Ok(CType::Base(BaseType::Cons(res))),
@@ -42,7 +45,11 @@ pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, S
         },
         CExpr::Let(v, e1, e2) => e_let(module, envs, v, e1, e2),
         CExpr::Case(base_expr, clauses) => e_case(module, envs, base_expr, clauses),
-        CExpr::Call(call, args) => e_call(module, envs, call, args),
+        CExpr::PrimOp(_, _) => todo!("PrimOp not supported yet."),
+        CExpr::Apply(call_name, args) => e_apply(module, envs, call_name, args),
+        CExpr::Call(call_module, call_name, args) => {
+            e_call(module, envs, call_module, call_name, args)
+        }
         CExpr::Do(e1, e2) => e_do(module, envs, e1, e2),
     }
 }
@@ -73,11 +80,26 @@ fn expr_base_type_list(
     Ok(res)
 }
 
+fn e_apply(
+    module: &CModule,
+    envs: &mut TypeEnvs,
+    call_name: &Rc<FunName>,
+    args: &Vec<CExpr>,
+) -> Result<CType, String> {
+    if call_name.arity != args.len() {
+        return Err("Inconsistent Apply".to_string());
+    };
+
+    // Type as if it was a call to the same module avoid duplication of type checker code
+    e_call(module, envs, &module.name, &call_name.name, args)
+}
+
 // TODO: e-call function is too big, split into smaller parts.
 fn e_call(
     module: &CModule,
     envs: &mut TypeEnvs,
-    call: &CFunCall,
+    call_module: &Rc<Atom>,
+    call_name: &Rc<Atom>,
     args: &Vec<CExpr>,
 ) -> Result<CType, String> {
     // Call can be both a send operation and a "normal" call.
@@ -86,19 +108,6 @@ fn e_call(
     // 1a) Send base value  (e_send)
     // 1b) Send make choice (e_select)
     // 2)  A native call    (e_app, the fallback)
-
-    // New concept kinda like:
-    // 1) normalize call name
-    // 2) Lookup in defined functions
-    // 3) match on normalized name (module and call), arg count and true/false lookup result
-
-    // Normalize call name
-    let (call_module, call_name) = match call {
-        CFunCall::PrimOp(_) => todo!("PrimOp not supported yet."),
-        CFunCall::Apply(name) if name.arity == args.len() => (&module.name, &name.name),
-        CFunCall::Call(call_module_name, name) => (call_module_name, name),
-        _ => panic!("Inconsistent call."),
-    };
 
     // TODO: Improvement: Inter-module contract lookup
     // Lookup function in module
@@ -370,13 +379,13 @@ fn ctype_to_typeenv(t: &CType) -> TypeEnv {
 
 fn cpat_to_ctype(envs: &TypeEnvs, p: &CPat) -> CType {
     match p {
-        CPat::Lit(lit) => match lit {
+        CPat::Lit(lit) => match (**lit).clone() {
             Lit::Atom(atom_val) => match atom_val.0.as_str() {
                 "true" => CType::Base(BaseType::Boolean),
                 "false" => CType::Base(BaseType::Boolean),
                 _ => CType::Base(BaseType::Atom(atom_val.clone())),
             },
-            l => e_lit(l),
+            l => e_lit(&l),
         },
         CPat::Var(v) => {
             match envs.0.get(v) {
@@ -398,7 +407,7 @@ fn cpat_to_ctype(envs: &TypeEnvs, p: &CPat) -> CType {
 #[cfg(test)]
 mod tests {
 
-    use std::{collections::HashMap, rc::Rc};
+    use std::collections::HashMap;
 
     use crate::cerl_parser::ast::Atom;
 
@@ -408,34 +417,47 @@ mod tests {
     fn sanity_check_scope_test_e_do_let() {
         // To ensure scope isolation actually works and does not break by accident
         let module = CModule {
-            name: Atom("".to_owned()),
+            name: Atom("".to_owned()).into(),
             mspec: None,
             functions: HashMap::new(),
             fallback_args: HashMap::new(),
         };
         let mut envs = TypeEnvs(HashMap::new());
         let e1 = CExpr::Let(
-            CPat::Var(Var("X".to_owned())),
-            Rc::new(CExpr::Call(
-                CFunCall::Call(Atom("erlang".to_owned()), Atom("+".to_owned())),
-                vec![CExpr::Lit(Lit::Int(1)), CExpr::Lit(Lit::Int(2))],
-            )),
-            Rc::new(CExpr::Let(
-                CPat::Var(Var("Y".to_owned())),
-                Rc::new(CExpr::Call(
-                    CFunCall::Call(Atom("erlang".to_owned()), Atom("+".to_owned())),
-                    vec![CExpr::Var(Var("X".to_owned())), CExpr::Lit(Lit::Int(3))],
-                )),
-                Rc::new(CExpr::Call(
-                    CFunCall::Call(Atom("erlang".to_owned()), Atom("+".to_owned())),
+            CPat::Var(Var("X".to_owned()).into()).into(),
+            CExpr::Call(
+                Atom("erlang".to_owned()).into(),
+                Atom("+".to_owned()).into(),
+                vec![
+                    CExpr::Lit(Lit::Int(1).into()),
+                    CExpr::Lit(Lit::Int(2).into()),
+                ],
+            )
+            .into(),
+            CExpr::Let(
+                CPat::Var(Var("Y".to_owned()).into()).into(),
+                CExpr::Call(
+                    Atom("erlang".to_owned()).into(),
+                    Atom("+".to_owned()).into(),
                     vec![
-                        CExpr::Var(Var("X".to_owned())),
-                        CExpr::Var(Var("Y".to_owned())),
+                        CExpr::Var(Var("X".to_owned()).into()),
+                        CExpr::Lit(Lit::Int(3).into()),
                     ],
-                )),
-            )),
+                )
+                .into(),
+                CExpr::Call(
+                    Atom("erlang".to_owned()).into(),
+                    Atom("+".to_owned()).into(),
+                    vec![
+                        CExpr::Var(Var("X".to_owned()).into()),
+                        CExpr::Var(Var("Y".to_owned()).into()),
+                    ],
+                )
+                .into(),
+            )
+            .into(),
         );
-        let e2 = CExpr::Var(Var("Y".to_owned()));
+        let e2 = CExpr::Var(Var("Y".to_owned()).into());
         assert!(e_do(&module, &mut envs, &e1, &e2).is_err())
     }
 }

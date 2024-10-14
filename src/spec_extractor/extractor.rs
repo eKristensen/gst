@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::{
     cerl_parser::{
         self,
-        ast::{Atom, FunName, Lit},
+        ast::{FunName, Lit},
     },
     contract_cerl::types::BaseType,
 };
@@ -17,8 +17,7 @@ pub fn base_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<BaseSpecDef
 
     // Use attributes to get spec
     for attribute in &ast.attributes {
-        let Atom(a_name) = &attribute.name.name;
-        if *a_name == "spec" {
+        if attribute.name.name.0 == "spec" {
             match add_base_spec(&attribute.value.inner) {
                 Ok((fun_name, base_specs)) => {
                     if base_spec_def.0.contains_key(&fun_name) {
@@ -125,7 +124,7 @@ fn get_absform_clause(spec: &Lit) -> Result<(Lit, Lit), String> {
     let &[Lit::Atom(tag), _, Lit::Atom(tag2), Lit::Cons(io)] = &spec.as_slice() else {
         return Err("get_absform_clause: Wrong length tuple.".to_string());
     };
-    if *tag != Atom("type".to_owned()) || *tag2 != Atom("fun".to_owned()) {
+    if tag.0 != "type" || tag2.0 != "fun" {
         return Err("get_absform_clause wrong tags in tuple".to_string());
     }
 
@@ -155,7 +154,7 @@ fn get_absform_product_type(spec_in: &Lit) -> Result<Vec<BaseSpecElm>, String> {
         Lit::Nil => return Ok(vec![]),
         _ => return Err("Expected Cons or Nil when in get_absform_product_type".to_string()),
     };
-    if *tag == Atom("type".to_owned()) && *tag2 != Atom("product".to_owned()) {
+    if tag.0 == "type" && tag2.0 != "product" {
         // Not product type assume a it is a ordinary type instead
         let single_type = get_absform_type(spec_in)?;
         return Ok(vec![single_type]);

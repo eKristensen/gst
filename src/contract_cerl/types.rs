@@ -2,7 +2,7 @@
 // Used (at least) by analysis, spec_extractor and st_parser
 // Types at not known by the cerl_parser, but used almost everywhere after parsing cerl
 
-use std::{collections::BTreeMap, fmt};
+use std::{collections::BTreeMap, fmt, rc::Rc};
 
 use crate::cerl_parser::ast::{Atom, Var};
 
@@ -11,8 +11,8 @@ use crate::cerl_parser::ast::{Atom, Var};
 // TODO: Remember to test all cases
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum BaseType {
-    Atom(Atom), // Atom is named as it is a constant that can be checked statically
-    Pid,        // TODO: Add pid to paper?
+    Atom(Rc<Atom>), // Atom is named as it is a constant that can be checked statically
+    Pid,            // TODO: Add pid to paper?
     Reference,
     Integer,
     Float,
@@ -42,11 +42,11 @@ pub enum SessionType {
     // Why list? Easier to work with in Rust to avoid Boxing.
     MakeChoice(BTreeMap<Label, SessionTypesList>),
     OfferChoice(BTreeMap<Label, SessionTypesList>),
-    State(Atom), // for mspec to support gen server plus as a state machine.
-    End,         // End is never consumed
-    Var(Var),    // Recursion variable binder
-    Rec(Var, SessionTypesList), // Recursion
-                 // TODO: Missing variable and recursion. How do they work?
+    State(Rc<Atom>), // for mspec to support gen server plus as a state machine.
+    End,             // End is never consumed
+    Var(Rc<Var>),    // Recursion variable binder
+    Rec(Rc<Var>, SessionTypesList), // Recursion
+                     // TODO: Missing variable and recursion. How do they work?
 }
 
 // TODO: Reimplement new Display functions for the types above for pretty printing.
