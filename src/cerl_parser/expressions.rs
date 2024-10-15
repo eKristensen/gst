@@ -52,7 +52,7 @@ fn single_expression(i: &str) -> IResult<&str, Rc<Expr>, ErrorTree<&str>> {
             // Ready for extension: binary
             map(var, Expr::Var),
             map(fun_literal, Expr::FunLit),
-            map(fun_expr, |fun_expr| Expr::Fun(fun_expr)),
+            map(fun_expr, Expr::Fun),
             map(letrec_expr, |(defs, body)| {
                 // letrec must have higher precedence than let to avoid "let" substring match in letrec
                 Expr::LetRec(defs, body.into())
@@ -64,12 +64,10 @@ fn single_expression(i: &str) -> IResult<&str, Rc<Expr>, ErrorTree<&str>> {
             map(receive_expr, |receive_expr| {
                 Expr::Receive(receive_expr.into())
             }),
-            map(call_expr, |(module, name, args)| {
-                Expr::Call(module, name, args)
-            }), // Merge apply, call and primop.
-            map(try_expr, |try_expr| Expr::Try(try_expr)),
+            call_expr, // Merge apply, call and primop.
+            map(try_expr, Expr::Try),
             map(sequence, |(e1, e2)| Expr::Do(e1, e2)),
-            map(catch_expr, |catch_expr| Expr::Catch(catch_expr)),
+            map(catch_expr, Expr::Catch),
             map(map_expr, Expr::Map),
         )),
         |o| o.into(),
@@ -194,7 +192,7 @@ fn clause_pattern(i: &str) -> IResult<&str, Vec<AnnoPat>, ErrorTree<&str>> {
 
 // Merge apply, call and primop as they are very similar.
 // WSA OK
-fn call_expr(i: &str) -> IResult<&str, (CallModule, Rc<AnnoExpr>, Vec<AnnoExpr>), ErrorTree<&str>> {
+fn call_expr(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
     map(
         pair(
             alt((
@@ -214,7 +212,7 @@ fn call_expr(i: &str) -> IResult<&str, (CallModule, Rc<AnnoExpr>, Vec<AnnoExpr>)
             )),
             comma_sep_list("(", ")", anno_expression),
         ),
-        |((m, c), a)| (m, c, a),
+        |((m, c), a)| Expr::Call(m, c, a),
     )(i)
 }
 

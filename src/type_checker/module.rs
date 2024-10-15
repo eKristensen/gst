@@ -381,7 +381,7 @@ fn mspec_handle_extractor(
                 // TODO: To offer label is converted into to receive label and send back received.
                 // The residual session type is checked recursively.
                 match inner.0.as_slice() {
-                    [SessionType::State(state_out), remainder @ ..] if remainder.len() > 0 => {
+                    [SessionType::State(state_out), remainder @ ..] if !remainder.is_empty() => {
                         map.0.insert(
                             MSpec {
                                 state_in: state_in.clone(),

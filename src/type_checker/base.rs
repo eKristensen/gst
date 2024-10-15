@@ -125,20 +125,14 @@ fn e_call(
         args.as_slice(),
         known_call,
     ) {
-        ("gen_server_plus", "new", [server_pid], None) => return gsp_new(module, envs, server_pid),
-        ("gen_server_plus", "new", _, _) => return Err("Invalid gs+:new call".to_string()),
+        ("gen_server_plus", "new", [server_pid], None) => gsp_new(module, envs, server_pid),
+        ("gen_server_plus", "new", _, _) => Err("Invalid gs+:new call".to_string()),
         ("gen_server_plus", "call", [_, session_id, sending_expr], None) => {
             println!("TODO: First and second argument are not checked right now. Should they?");
-            return gsp_sync_send(module, envs, session_id, sending_expr);
+            gsp_sync_send(module, envs, session_id, sending_expr)
         }
-        ("gen_server_plus", "call", [_, session_id, sending_expr], None) => {
-            return Err("Invalid gs+:call call".to_string())
-        }
-        (call_module, call_name, args, None) => {
-            return bif_fun(module, envs, call_module, call_name, &args)
-        }
-        (_, _, args, Some(fun_clauses)) => return e_app(module, envs, args, fun_clauses),
-        _ => panic!("Invalid call. Issue unknown."),
+        (call_module, call_name, args, None) => bif_fun(module, envs, call_module, call_name, args),
+        (_, _, args, Some(fun_clauses)) => e_app(module, envs, args, fun_clauses),
     }
 }
 
@@ -352,11 +346,8 @@ fn pattern_matching(
         acceptable = true;
     }
     if acceptable {
-        match v {
-            CPat::Var(v) => {
-                envs.0.insert(v.clone(), ctype_to_typeenv(&e_ctype));
-            }
-            _ => (),
+        if let CPat::Var(v) = v {
+            envs.0.insert(v.clone(), ctype_to_typeenv(&e_ctype));
         };
         return Ok(());
     }

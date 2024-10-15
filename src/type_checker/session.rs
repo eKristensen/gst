@@ -1,11 +1,10 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     rc::Rc,
-    time::Duration,
 };
 
 use crate::{
-    cerl_parser::ast::{Atom, Lit, Var},
+    cerl_parser::ast::{Lit, Var},
     contract_cerl::{
         ast::{CClause, CExpr, CModule, CPat, CType},
         types::{BaseType, Label, SessionType, SessionTypesList},
@@ -210,18 +209,8 @@ pub fn diff_consumed(before_envs: &TypeEnvs, after_envs: &TypeEnvs) -> Result<()
     // Check all that should be consumed, has been consumed (aka "finished" function)
     // Aka: Check all newly defined variables are consumed (if required).
     // Two stage: Find all to check, and then to check their value.
-    let before_vars = before_envs
-        .0
-        .keys()
-        .into_iter()
-        .map(|k| (**k).clone())
-        .collect();
-    let after_vars: HashSet<Var> = after_envs
-        .0
-        .keys()
-        .into_iter()
-        .map(|k| (**k).clone())
-        .collect();
+    let before_vars = before_envs.0.keys().map(|k| (**k).clone()).collect();
+    let after_vars: HashSet<Var> = after_envs.0.keys().map(|k| (**k).clone()).collect();
     println!(
         "DEBUG: Before vars {:?}, After vars: {:?}",
         before_vars, after_vars
@@ -304,12 +293,7 @@ pub fn must_st_consume_expr(
 // Task: Ensure that we preserve isolation of all environments but except Delta. Remove new values and restore old values.
 // Used to e.g. ensure arguments are evaluated in an isolated environment.
 fn envs_isolation(old_envs: &TypeEnvs, new_envs: &mut TypeEnvs) {
-    let new_vars: HashSet<Var> = new_envs
-        .0
-        .keys()
-        .into_iter()
-        .map(|k| (**k).clone())
-        .collect();
+    let new_vars: HashSet<Var> = new_envs.0.keys().map(|k| (**k).clone()).collect();
     // Check current env. For all that is not Delta, the definition must be the same as in before. Remove or update as needed
     for var_key in new_vars {
         let cur_val = new_envs.0.get(&var_key).unwrap();
@@ -439,8 +423,8 @@ fn substitution(
             if var == binder && free_var == var =>
         {
             let mut output: Vec<SessionType> = Vec::new();
-            output.append(&mut full.clone().to_vec()); // Clone to ensure I dont consume
-                                                       // TODO: Check if needed for "full""
+            output.append(&mut full.to_vec()); // Clone to ensure I dont consume
+                                               // TODO: Check if needed for "full""
             let mut tail = substitution(binder, full, tail, tail_names).0;
             output.append(&mut tail);
             SessionTypesList(output)
@@ -508,7 +492,7 @@ fn substitution(
 struct EqualityPairs(BTreeSet<BTreeSet<SessionTypesList>>);
 
 fn equality(s1: &[SessionType], s2: &[SessionType]) -> bool {
-    let mut seen_pairs = BTreeSet::new();
+    let seen_pairs = BTreeSet::new();
     equality_aux(&mut EqualityPairs(seen_pairs), s1, s2)
 }
 

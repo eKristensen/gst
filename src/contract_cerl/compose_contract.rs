@@ -181,7 +181,7 @@ fn compose_function_with_contract(
         .into_iter()
         .map(|v| CPat::Var(Rc::new((*v.name).clone())))
         .collect();
-    let clauses = match &*fun_expr.body.inner.borrow() {
+    let clauses = match &fun_expr.body.inner.borrow() {
         Expr::Case(_top_cases_var, top_cases_clauses) => {
             match &fun_expr.body.anno.0 {
                 None => {
@@ -216,7 +216,7 @@ fn compose_function_with_contract(
             }
         }
 
-        single_clause => match expr_to_cexpr(&single_clause) {
+        single_clause => match expr_to_cexpr(single_clause) {
             Ok(cexpr) => vec![(single_clause_std_args, cexpr)],
             _ => todo!("Unable to to process function expression"),
         },
@@ -293,18 +293,10 @@ fn pat_to_cpat(pat: &Pat) -> CPat {
     match pat {
         Pat::Var(v) => CPat::Var(v.name.clone()),
         Pat::Lit(l) => CPat::Lit(l.clone()),
-        Pat::Cons(pat_cons) => CPat::Cons(
-            pat_cons
-                .into_iter()
-                .map(|p| pat_to_cpat(&p.inner))
-                .collect(),
-        ),
-        Pat::Tuple(pat_tuple) => CPat::Tuple(
-            pat_tuple
-                .into_iter()
-                .map(|p| pat_to_cpat(&p.inner))
-                .collect(),
-        ),
+        Pat::Cons(pat_cons) => CPat::Cons(pat_cons.iter().map(|p| pat_to_cpat(&p.inner)).collect()),
+        Pat::Tuple(pat_tuple) => {
+            CPat::Tuple(pat_tuple.iter().map(|p| pat_to_cpat(&p.inner)).collect())
+        }
         Pat::Alias(var, pat) => CPat::Alias(var.name.clone(), pat_to_cpat(&pat.inner).into()),
     }
 }
@@ -409,7 +401,7 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                     if *fun_module != CallModule::Apply {
                         return Err("Unsupported call type.".to_string());
                     }
-                    return Ok(CExpr::Apply(fname.clone(), args_cexpr));
+                    Ok(CExpr::Apply(fname.clone(), args_cexpr))
                 }
                 _ => Err("Unsupported call name type.".to_string()),
             }
