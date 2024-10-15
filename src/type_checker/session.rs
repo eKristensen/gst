@@ -73,7 +73,6 @@ pub fn gsp_sync_send(
         return Err("e_call gsp_sync_send second argument must be session type".to_string());
     };
 
-    println!("Unfolding once here #1");
     let session_type = unfold(&session_type).0;
     let session_type = session_type.as_slice();
 
@@ -98,19 +97,11 @@ pub fn gsp_sync_send(
                 ));
             };
             let try_label = Label(atom_label.0.clone());
-            println!(
-                "Try label: {:?} with session_var: {:?} in offers: {:?}",
-                try_label, session_var, offers
-            );
             match offers.get(&try_label) {
                 Some(continuation) => {
                     // TODO: Update ENV, gotta get session_var from argument.
                     envs.0
                         .insert(session_var.clone(), TypeEnv::Delta(continuation.clone()));
-                    println!(
-                        "---------!!!! MakeChoice DEBUG: {:?} {:?} {:?}",
-                        try_label, continuation, envs
-                    );
                     Ok(CType::Consume(continuation.clone()))
                 }
                 None => Err("Trying to make choice not offered by session".to_string()),
@@ -174,7 +165,6 @@ pub fn e_case_offer(
         // think so?
 
         // TODO: Potential optimization: Before vars are computed for each clause, where they could be computed outside loop.
-        println!("must_st_consume_expr via e_case_offer");
         let clause_res =
             must_st_consume_expr(module, &case_start_envs, &mut clause_envs, &clause.res);
         if clause_res.is_err() {
@@ -201,7 +191,6 @@ pub fn e_case_offer(
 // Check that all sessions are finished
 pub fn finished(envs: &TypeEnvs) -> Result<(), String> {
     let empty: TypeEnvs = TypeEnvs(HashMap::new());
-    println!("diff_consumed via finished");
     diff_consumed(&empty, envs)
 }
 
@@ -211,11 +200,6 @@ pub fn diff_consumed(before_envs: &TypeEnvs, after_envs: &TypeEnvs) -> Result<()
     // Two stage: Find all to check, and then to check their value.
     let before_vars = before_envs.0.keys().map(|k| (**k).clone()).collect();
     let after_vars: HashSet<Var> = after_envs.0.keys().map(|k| (**k).clone()).collect();
-    println!(
-        "DEBUG: Before vars {:?}, After vars: {:?}",
-        before_vars, after_vars
-    );
-    // must_be_consumed == new variables that only exist within the enclosed let in
     let must_be_consumed: HashSet<&Var> = after_vars.difference(&before_vars).collect();
     for check_var in must_be_consumed {
         match after_envs.0.get(check_var).unwrap() {
@@ -255,12 +239,6 @@ pub fn must_st_consume_expr(
     match expr(module, current_envs, e) {
         Ok(return_type) => {
             // Check finished for all new sessions, diff between environments
-            println!(
-                "diff consumed via must_st_consume_expr, before env: {:?}, after envs {:?}, for expr: {:?}",
-                before_envs.0.keys(),
-                current_envs.0.keys(),
-                e
-            );
             let diff_ok = diff_consumed(before_envs, current_envs);
             if let Err(err_val) = diff_ok {
                 return Err(format!(
@@ -271,17 +249,7 @@ pub fn must_st_consume_expr(
 
             // Env isolation step: Remove all new definitions, unless they are session identifiers
             // In this case, it would have been easier to have the envs separate
-            println!(
-                "\nDEBUG ISOLATION BEFORE STATUS: {:?} ||| {:?}",
-                before_envs.0.keys(),
-                current_envs.0.keys()
-            );
             envs_isolation(before_envs, current_envs);
-            println!(
-                "DEBUG ISOLATION BEFORE STATUS: {:?} ||| {:?}",
-                before_envs.0.keys(),
-                current_envs.0.keys()
-            );
 
             // Return return_type
             Ok(return_type)
@@ -317,12 +285,9 @@ pub fn unfold(input: &SessionTypesList) -> SessionTypesList {
 }
 
 fn unfold_once(input: &SessionTypesList) -> SessionTypesList {
-    //std::thread::sleep(Duration::from_millis(200));
     match input.0.as_slice() {
         [SessionType::Rec(binder, inner)] => {
             let free_names = free_names(&inner.0);
-            // println!("Found free names: {:?}", free_names);
-            // println!("For this inner: {:?}", inner);
             substitution(binder, &input.0, &inner.0, &free_names.0)
         }
         _ => input.clone(), // TODO: Avoid clone here should be possible
@@ -545,10 +510,7 @@ fn equality_aux(seen_pairs: &mut EqualityPairs, s1: &[SessionType], s2: &[Sessio
         }
         ([s1_head], [s2_head]) if s1_head == s2_head => true,
         ([], []) => true,
-        _ => {
-            println!("deub false: {:?} {:?}", s1, s2);
-            false
-        }
+        _ => false,
     }
 }
 

@@ -66,7 +66,6 @@ pub fn parse(filename: &str, src: &str) -> Result<OptWarnings<CModule>> {
                                 });
                             }
                             GenericErrorTree::Stack { base, contexts } => {
-                                //println!("Base:  {:?}", base);
                                 for (one_str, stack) in contexts {
                                     println!("Str: {:?}", one_str);
                                     println!("Stack: {:?}", stack);

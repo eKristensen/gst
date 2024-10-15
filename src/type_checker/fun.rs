@@ -44,11 +44,8 @@ pub fn bif_fun(
             let [val_1, val_2] = args else {
                 return Err("Expected two args for erlang:+".to_string());
             };
-            println!("Am here: {:?} {:?}", val_1, envs);
             let type_1_in = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, val_1)?;
-            println!("Am here 2");
             let type_2_in = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, val_2)?;
-            println!("Am here 3");
             if CType::Base(BaseType::Integer) == type_1_in && type_1_in == type_2_in {
                 Ok(CType::Base(BaseType::Integer))
             } else {
@@ -74,7 +71,6 @@ pub fn e_app(
     // 2a) Get types of arguments
     let mut input_types: Vec<CType> = Vec::new();
     for elm in args {
-        println!("must_st_consume_expr called by e_app");
         match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, elm) {
             Ok(ok_val) => input_types.push(ok_val),
             Err(err_val) => {
@@ -141,7 +137,6 @@ fn e_app_contract(
     inputs: &[CExpr],
 ) -> Result<(), String> {
     for (contract_elm, input_elm) in contract.iter().zip(inputs.iter()) {
-        println!("must_st_consume_expr called by e_app_contract");
         let ctype_input_elm =
             match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, input_elm) {
                 Ok(ok_val) => ok_val,
@@ -268,13 +263,11 @@ fn st_consume_aux(
     // TODO: Wellformed check to ensure nothing comes after "end".
 
     // Unfold first ?
-    println!("st consume unfolding");
     let current_session = unfold(&SessionTypesList(current_session.to_vec())).0;
     let to_consume = unfold(&SessionTypesList(to_consume.to_vec())).0;
 
     let pair = (current_session.clone(), to_consume.clone());
     if seen_pairs.contains(&pair) {
-        println!("Found pair, returning current session");
         return Ok(SessionTypesList(current_session));
     } else {
         seen_pairs.insert(pair);

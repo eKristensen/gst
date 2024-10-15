@@ -19,11 +19,6 @@ use super::{
 };
 
 pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, String> {
-    println!(
-        "DEBUG: START EXPR CHECK: Env var names are {:?} before {:?}",
-        envs.0.keys(),
-        e
-    );
     match e {
         CExpr::Var(v) => e_base(envs, v),
         CExpr::Lit(l) => match (**l).clone() {
@@ -200,13 +195,6 @@ fn e_let(
     // OR NOT? It makes sense that V1 is not defined before the let expr for V1...
     // NO! It is in E1 that V1 is not defined, not the continuation !
 
-    println!(
-        "\n!!!! DEBUG:\ne1 is: {:?}\ne2 is {:?}\n Env \n{:?}",
-        e1,
-        e2,
-        envs.0.keys()
-    );
-    println!("must_st_consume_expr called by e_let");
     match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, e2) {
         Ok(ok_val) => Ok(ok_val),
         Err(err_val) => Err(format!("e_let failed #2 because {}", err_val)),

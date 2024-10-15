@@ -37,7 +37,6 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
 
     // TODO: Consistency sanity check: If mspec also expect behavior('gen_server_plus')
     // If mspec is defined check module mspec first
-    println!("mspec: {:?}", module.mspec);
     if let Some(mspec) = &module.mspec {
         // Approach: Something ala: Generate input to run checker
         //
@@ -59,7 +58,6 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
             &Atom("session_start".to_string()).into(),
             mspec.0.as_slice(),
         );
-        println!("==DEBUG: mspec extractor res: {:?}", handle_map);
 
         //
         //
@@ -75,43 +73,31 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
             arity: 3,
         }) {
             for new_session_clause in new_session_clauses {
-                println!(
-                    "Clause spec to check: {:?} {:?}",
-                    new_session_clause.spec, new_session_clause.return_type
-                );
                 let [val_in, _, _] = new_session_clause.spec.as_slice() else {
-                    println!("Debug #1");
                     continue;
                 };
                 // TODO: Here we assume base type for value in. Always true?
                 let CType::Base(val_in) = val_in else {
-                    println!("Debug #2");
                     continue;
                 };
                 let BaseType::Tuple(return_type_tuple) = &new_session_clause.return_type else {
-                    println!("Debug #3");
                     continue;
                 };
                 let [handle_action, val_out, state_out, _global_state] =
                     return_type_tuple.as_slice()
                 else {
-                    println!("Debug #4");
                     continue;
                 };
                 if handle_action != &BaseType::Atom(Atom("reply".to_string()).into()) {
-                    println!("Debug #5");
                     continue;
                 }
                 let BaseType::Tuple(state_out) = state_out else {
-                    println!("Debug #7");
                     continue;
                 };
                 let [state_out, _] = state_out.as_slice() else {
-                    println!("Debug #8");
                     continue;
                 };
                 let BaseType::Atom(state_out) = state_out else {
-                    println!("Debug #6: {:?}", state_out);
                     continue;
                 };
                 let find_mspec = MSpec {
@@ -138,59 +124,43 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
             arity: 4,
         }) {
             for plus_clause in plus_calls {
-                println!(
-                    "Clause spec to check: {:?} {:?}",
-                    plus_clause.spec, plus_clause.return_type
-                );
                 let [val_in, _, state_in, _] = plus_clause.spec.as_slice() else {
-                    println!("Debug #1");
                     continue;
                 };
                 // TODO: Here we assume base type for value in. Always true?
                 let CType::Base(val_in) = val_in else {
-                    println!("Debug #2");
                     continue;
                 };
                 let CType::Base(state_in) = state_in else {
-                    println!("Debug #12");
                     continue;
                 };
                 let BaseType::Tuple(state_in) = state_in else {
-                    println!("Debug #9");
                     continue;
                 };
                 let [state_in, _] = state_in.as_slice() else {
-                    println!("Debug #10");
                     continue;
                 };
                 let BaseType::Atom(state_in) = state_in else {
-                    println!("Debug #11: {:?}", state_in);
                     continue;
                 };
                 let BaseType::Tuple(return_type_tuple) = &plus_clause.return_type else {
-                    println!("Debug #3");
                     continue;
                 };
                 let [handle_action, val_out, state_out, _global_state] =
                     return_type_tuple.as_slice()
                 else {
-                    println!("Debug #4");
                     continue;
                 };
                 if handle_action != &BaseType::Atom(Atom("reply".to_string()).into()) {
-                    println!("Debug #5");
                     continue;
                 }
                 let BaseType::Tuple(state_out) = state_out else {
-                    println!("Debug #7");
                     continue;
                 };
                 let [state_out, _] = state_out.as_slice() else {
-                    println!("Debug #8");
                     continue;
                 };
                 let BaseType::Atom(state_out) = state_out else {
-                    println!("Debug #6: {:?}", state_out);
                     continue;
                 };
                 let find_mspec = MSpec {
@@ -199,7 +169,6 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
                     val_in: val_in.clone(),
                     val_out: val_out.clone(),
                 };
-                println!("mspec handle to find: {:?}", find_mspec);
                 match handle_map.0.get(&find_mspec) {
                     Some(res) => {
                         if !res {
@@ -212,11 +181,6 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
                 };
             }
         }
-
-        println!(
-            "==DEBUG: mspec extractor res after new session: {:?}",
-            handle_map
-        );
 
         for (mspec, val) in handle_map.0 {
             if !val {
