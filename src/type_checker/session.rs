@@ -280,8 +280,14 @@ fn envs_isolation(old_envs: &TypeEnvs, new_envs: &mut TypeEnvs) {
 }
 
 pub fn unfold(input: &SessionTypesList) -> SessionTypesList {
-    // TODO: Very important! Unfold more than once!
-    unfold_once(input)
+    // First onfold once
+    let out = unfold_once(input);
+
+    // Then check and unfold again if possible
+    match out.0.as_slice() {
+        [SessionType::Rec(_, _)] => unfold(&out),
+        _ => out,
+    }
 }
 
 fn unfold_once(input: &SessionTypesList) -> SessionTypesList {
@@ -388,8 +394,7 @@ fn substitution(
             if var == binder && free_var == var =>
         {
             let mut output: Vec<SessionType> = Vec::new();
-            output.append(&mut full.to_vec()); // Clone to ensure I dont consume
-                                               // TODO: Check if needed for "full""
+            output.extend_from_slice(full);
             let mut tail = substitution(binder, full, tail, tail_names).0;
             output.append(&mut tail);
             SessionTypesList(output)
@@ -631,5 +636,25 @@ mod tests {
             ]),
         )]);
         assert!(!equality(&s1.0, &s2.0));
+    }
+
+    #[test]
+    fn equality_test_03() {
+        let s1 = SessionTypesList(vec![SessionType::Rec(
+            Var("t".to_string()).into(),
+            SessionTypesList(vec![
+                SessionType::Send(BaseType::Integer),
+                SessionType::Var(Var("t".to_string()).into()),
+            ]),
+        )]);
+        let s2 = SessionTypesList(vec![SessionType::Rec(
+            Var("t".to_string()).into(),
+            SessionTypesList(vec![
+                SessionType::Send(BaseType::Integer),
+                SessionType::Send(BaseType::Integer),
+                SessionType::Var(Var("t".to_string()).into()),
+            ]),
+        )]);
+        assert!(equality(&s1.0, &s2.0));
     }
 }
