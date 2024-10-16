@@ -372,12 +372,12 @@ fn mspec_handle_extractor(
                 }
             }
         }
-        [SessionType::Rec(var, rec)] => {
+        [SessionType::Rec(var), remainder @ ..] => {
             if rec_states.contains_key(var) {
                 todo!("Handle shadowing");
             }
             rec_states.insert(var.clone(), state_in.clone());
-            mspec_handle_extractor(map, rec_states, state_in, rec.0.as_slice())
+            mspec_handle_extractor(map, rec_states, state_in, remainder)
         }
         x => todo!(
             "Not supported mspec. Failed in mspec handle extraction: {:?}",

@@ -198,6 +198,7 @@ pub fn diff_consumed(before_envs: &TypeEnvs, after_envs: &TypeEnvs) -> Result<()
     // Check all that should be consumed, has been consumed (aka "finished" function)
     // Aka: Check all newly defined variables are consumed (if required).
     // Two stage: Find all to check, and then to check their value.
+    // TODO: Maybe deep copy clone below can be avoided?
     let before_vars = before_envs.0.keys().map(|k| (**k).clone()).collect();
     let after_vars: HashSet<Var> = after_envs.0.keys().map(|k| (**k).clone()).collect();
     let must_be_consumed: HashSet<&Var> = after_vars.difference(&before_vars).collect();
@@ -261,7 +262,7 @@ pub fn must_st_consume_expr(
 // Task: Ensure that we preserve isolation of all environments but except Delta. Remove new values and restore old values.
 // Used to e.g. ensure arguments are evaluated in an isolated environment.
 fn envs_isolation(old_envs: &TypeEnvs, new_envs: &mut TypeEnvs) {
-    let new_vars: HashSet<Var> = new_envs.0.keys().map(|k| (**k).clone()).collect();
+    let new_vars: HashSet<Rc<Var>> = new_envs.0.keys().cloned().collect();
     // Check current env. For all that is not Delta, the definition must be the same as in before. Remove or update as needed
     for var_key in new_vars {
         let cur_val = new_envs.0.get(&var_key).unwrap();
@@ -269,7 +270,7 @@ fn envs_isolation(old_envs: &TypeEnvs, new_envs: &mut TypeEnvs) {
             TypeEnv::Delta(_) => continue, // Keep only changes in Delta
             _ => match old_envs.0.get(&var_key) {
                 Some(old_val) => {
-                    new_envs.0.insert(var_key.clone().into(), old_val.clone());
+                    new_envs.0.insert(var_key.clone(), old_val.clone());
                 }
                 None => {
                     new_envs.0.remove(&var_key);
@@ -284,17 +285,18 @@ pub fn unfold(input: &SessionTypesList) -> SessionTypesList {
     let out = unfold_once(input);
 
     // Then check and unfold again if possible
-    match out.0.as_slice() {
-        [SessionType::Rec(_, _)] => unfold(&out),
-        _ => out,
+    if let Some(SessionType::Rec(_)) = out.0.first() {
+        unfold(&out)
+    } else {
+        out
     }
 }
 
 fn unfold_once(input: &SessionTypesList) -> SessionTypesList {
     match input.0.as_slice() {
-        [SessionType::Rec(binder, inner)] => {
-            let free_names = free_names(&inner.0);
-            substitution(binder, &input.0, &inner.0, &free_names.0)
+        [SessionType::Rec(binder), inner @ ..] => {
+            let free_names = free_names(inner);
+            substitution(binder, &input.0, inner, &free_names.0)
         }
         _ => input.clone(), // TODO: Avoid clone here should be possible
     }
@@ -327,13 +329,13 @@ fn free_names_aux(seen: &mut HashSet<Rc<Var>>, input: &[SessionType]) -> FreeNam
             output.append(&mut tail);
             FreeNames(output)
         }
-        [SessionType::Rec(var, next)] => {
+        [SessionType::Rec(var), tail @ ..] => {
             let mut output: Vec<FreeName> = Vec::new();
             if seen.contains(var) {
                 todo!("Handle shadowing!")
             }
             output.push(FreeName::None);
-            let mut tail = free_names_aux(seen, &next.0).0;
+            let mut tail = free_names_aux(seen, tail).0;
             output.append(&mut tail);
             FreeNames(output)
         }
@@ -377,7 +379,10 @@ fn free_names_aux(seen: &mut HashSet<Rc<Var>>, input: &[SessionType]) -> FreeNam
             let output: Vec<FreeName> = vec![FreeName::Branch(branch)];
             FreeNames(output)
         }
-        _ => todo!("Invalid session type not supported by free name lookup."),
+        x => todo!(
+            "Invalid session type not supported by free name lookup: {:?}",
+            x
+        ),
     }
 }
 
@@ -406,10 +411,10 @@ fn substitution(
             output.append(&mut tail);
             SessionTypesList(output)
         }
-        ([SessionType::Rec(var, next)], [_, tail_names @ ..]) => {
-            let mut output: Vec<SessionType> = Vec::new();
-            let tail = substitution(binder, full, &next.0, tail_names);
-            output.push(SessionType::Rec(var.clone(), tail));
+        ([SessionType::Rec(var), tail @ ..], [_, tail_names @ ..]) => {
+            let mut output: Vec<SessionType> = vec![SessionType::Rec(var.clone())];
+            let mut tail = substitution(binder, full, tail, tail_names).0;
+            output.append(&mut tail);
             SessionTypesList(output)
         }
         ([SessionType::End], [_]) => SessionTypesList(vec![SessionType::End]),
@@ -476,9 +481,9 @@ fn equality_aux(seen_pairs: &mut EqualityPairs, s1: &[SessionType], s2: &[Sessio
     seen_pairs.0.insert(current_pair);
 
     // Unfold if needed , unfold_once does nothing if unfold is not needed
-    let s1 = unfold_once(&SessionTypesList(s1.to_vec())).0;
+    let s1 = unfold(&SessionTypesList(s1.to_vec())).0;
     let s1 = s1.as_slice();
-    let s2 = unfold_once(&SessionTypesList(s2.to_vec())).0;
+    let s2 = unfold(&SessionTypesList(s2.to_vec())).0;
     let s2 = s2.as_slice();
 
     match (s1, s2) {
@@ -515,7 +520,10 @@ fn equality_aux(seen_pairs: &mut EqualityPairs, s1: &[SessionType], s2: &[Sessio
         }
         ([s1_head], [s2_head]) if s1_head == s2_head => true,
         ([], []) => true,
-        _ => false,
+        x => {
+            println!("DEBUG Rejected this {:?}", x);
+            false
+        }
     }
 }
 
@@ -536,13 +544,11 @@ mod tests {
     #[test]
     fn unfold_once_test_01() {
         // Session Type without recursion.
-        let input = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()).into(),
-            SessionTypesList(vec![
-                SessionType::Send(BaseType::Any),
-                SessionType::Var(Var("t".to_string()).into()),
-            ]),
-        )]);
+        let input = SessionTypesList(vec![
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Send(BaseType::Any),
+            SessionType::Var(Var("t".to_string()).into()),
+        ]);
 
         // Change is expected. Nothing changed == bad
         assert_ne!(unfold_once(&input.clone()), input);
@@ -550,13 +556,9 @@ mod tests {
         // Expeted change:
         let expected = SessionTypesList(vec![
             SessionType::Send(BaseType::Any),
-            SessionType::Rec(
-                Var("t".to_string()).into(),
-                SessionTypesList(vec![
-                    SessionType::Send(BaseType::Any),
-                    SessionType::Var(Var("t".to_string()).into()),
-                ]),
-            ),
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Send(BaseType::Any),
+            SessionType::Var(Var("t".to_string()).into()),
         ]);
 
         // Check expected is the output:
@@ -568,24 +570,18 @@ mod tests {
         // E.g.:      rec t. !int. t.
         // Would be:         !int. rec t !int. t.
         // Session Type without recursion.
-        let input = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()).into(),
-            SessionTypesList(vec![
-                SessionType::Send(BaseType::Integer),
-                SessionType::Var(Var("t".to_string()).into()),
-            ]),
-        )]);
+        let input = SessionTypesList(vec![
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Var(Var("t".to_string()).into()),
+        ]);
 
         // Expeted change:
         let expected = SessionTypesList(vec![
             SessionType::Send(BaseType::Integer),
-            SessionType::Rec(
-                Var("t".to_string()).into(),
-                SessionTypesList(vec![
-                    SessionType::Send(BaseType::Integer),
-                    SessionType::Var(Var("t".to_string()).into()),
-                ]),
-            ),
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Var(Var("t".to_string()).into()),
         ]);
 
         // Check expected is the output:
@@ -593,68 +589,126 @@ mod tests {
     }
 
     #[test]
+    fn unfold_many_test_00() {
+        let input = SessionTypesList(vec![
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Rec(Var("u".to_string()).into()),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Var(Var("u".to_string()).into()),
+            SessionType::Var(Var("t".to_string()).into()),
+        ]);
+
+        // Expeted change:
+        let expected = SessionTypesList(vec![SessionType::Send(BaseType::Integer)]);
+
+        // Check expected is the output:
+        assert_eq!(unfold(&input.clone()), expected);
+    }
+
+    #[test]
+    fn unfold_many_test_01() {
+        let input = SessionTypesList(vec![
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Rec(Var("u".to_string()).into()),
+            SessionType::MakeChoice(BTreeMap::from([
+                (
+                    Label("first".to_owned()),
+                    SessionTypesList(vec![
+                        SessionType::Send(BaseType::Integer),
+                        SessionType::Var(Var("t".to_string()).into()),
+                    ]),
+                ),
+                (
+                    Label("second".to_owned()),
+                    SessionTypesList(vec![
+                        SessionType::Send(BaseType::String),
+                        SessionType::Var(Var("u".to_string()).into()),
+                    ]),
+                ),
+            ])),
+        ]);
+
+        // Expeted change:
+        let expected = SessionTypesList(vec![SessionType::Send(BaseType::Integer)]);
+
+        // Check expected is the output:
+        assert_eq!(unfold(&input.clone()), expected);
+    }
+
+    #[test]
     fn equality_test_00() {
+        // Sanity check: If we clone the input it should be equal.
         let input = SessionTypesList(vec![SessionType::End]);
         assert!(equality(&input.clone().0, &input.0));
     }
 
     #[test]
     fn equality_test_01() {
-        let s1 = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()).into(),
-            SessionTypesList(vec![
-                SessionType::Send(BaseType::Integer),
-                SessionType::Var(Var("t".to_string()).into()),
-            ]),
-        )]);
-        let s2 = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()).into(),
-            SessionTypesList(vec![
-                SessionType::Send(BaseType::Integer),
-                SessionType::Send(BaseType::Integer),
-                SessionType::Var(Var("t".to_string()).into()),
-            ]),
-        )]);
+        // Simple recursive type check: rec t. !int t. = rec t. !int !int t.
+        let s1 = SessionTypesList(vec![
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Var(Var("t".to_string()).into()),
+        ]);
+        let s2 = SessionTypesList(vec![
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Var(Var("t".to_string()).into()),
+        ]);
         assert!(equality(&s1.0, &s2.0));
     }
 
     #[test]
     fn equality_test_02() {
-        let s1 = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()).into(),
-            SessionTypesList(vec![
-                SessionType::Send(BaseType::Integer),
-                SessionType::Var(Var("t".to_string()).into()),
-            ]),
-        )]);
-        let s2 = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()).into(),
-            SessionTypesList(vec![
-                SessionType::Send(BaseType::Integer),
-                SessionType::Receive(BaseType::Integer),
-                SessionType::Var(Var("t".to_string()).into()),
-            ]),
-        )]);
+        // Sanity check: rec t. !int t. != rec t. !int ?int t.
+        let s1 = SessionTypesList(vec![
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Var(Var("t".to_string()).into()),
+        ]);
+        let s2 = SessionTypesList(vec![
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Receive(BaseType::Integer),
+            SessionType::Var(Var("t".to_string()).into()),
+        ]);
         assert!(!equality(&s1.0, &s2.0));
     }
 
     #[test]
     fn equality_test_03() {
-        let s1 = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()).into(),
-            SessionTypesList(vec![
-                SessionType::Send(BaseType::Integer),
-                SessionType::Var(Var("t".to_string()).into()),
-            ]),
-        )]);
-        let s2 = SessionTypesList(vec![SessionType::Rec(
-            Var("t".to_string()).into(),
-            SessionTypesList(vec![
-                SessionType::Send(BaseType::Integer),
-                SessionType::Send(BaseType::Integer),
-                SessionType::Var(Var("t".to_string()).into()),
-            ]),
-        )]);
+        // Simple recursive type check: rec t. !int t. = rec u. !int !int u.
+        let s1 = SessionTypesList(vec![
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Var(Var("t".to_string()).into()),
+        ]);
+        let s2 = SessionTypesList(vec![
+            SessionType::Rec(Var("u".to_string()).into()),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Var(Var("u".to_string()).into()),
+        ]);
+        assert!(equality(&s1.0, &s2.0));
+    }
+
+    #[test]
+    fn equality_test_04() {
+        // Test double unfold: rec t. rec u. !int u. t. = rec t. !int !int t.
+        let s1 = SessionTypesList(vec![
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Rec(Var("u".to_string()).into()),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Var(Var("t".to_string()).into()),
+            SessionType::Var(Var("u".to_string()).into()),
+        ]);
+        let s2 = SessionTypesList(vec![
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Send(BaseType::Integer),
+            SessionType::Var(Var("t".to_string()).into()),
+        ]);
         assert!(equality(&s1.0, &s2.0));
     }
 }

@@ -87,12 +87,14 @@ pub fn st_inner(i: &str) -> IResult<&str, SessionTypesList, ErrorTree<&str>> {
                     value(SessionType::End, tag("end")),
                     mspec_state,
                     map(var, SessionType::Var),
+                    // TODO: Well formed check for recusion. No longer parses the set of rec and
+                    // the inner at once.
                     map(
-                        tuple((ws(tag("rec")), var, ws(tag(".")), ws(st_inner))),
-                        |(_, binder, _, inner)| SessionType::Rec(binder, inner),
+                        delimited(ws(tag("rec")), var, ws(tag("."))),
+                        SessionType::Rec,
                     ),
                 )),
-            ), // TODO: Add branch and choice
+            ),
             tag("."),
         ),
         |(o, _)| SessionTypesList(o),

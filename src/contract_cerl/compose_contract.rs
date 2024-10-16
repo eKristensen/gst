@@ -344,13 +344,13 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                     v.iter().map(|v| CPat::Var(v.name.clone())).collect(),
                 )),
             };
-            let e1 = Rc::new(expr_to_cexpr(&e1.inner)?); // TODO: Consider Rc at cerl AST
-            let e2 = Rc::new(expr_to_cexpr(&e2.inner)?); // TODO: Consider Rc at cerl AST
+            let e1 = expr_to_cexpr(&e1.inner)?.into();
+            let e2 = expr_to_cexpr(&e2.inner)?.into();
 
             Ok(CExpr::Let(v.clone(), e1, e2))
         }
         Expr::Case(e1, e2) => {
-            let base_expr = expr_to_cexpr(&e1.inner)?.into(); // TODO: Consider RC at cerl AST
+            let base_expr = expr_to_cexpr(&e1.inner)?.into();
             let mut contract_clauses: Vec<CClause> = Vec::new();
             for clause in e2 {
                 if Anno(Some(vec![Const(Lit::Atom(
@@ -407,8 +407,8 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
             }
         }
         Expr::Do(e1, e2) => {
-            let e1 = expr_to_cexpr(&e1.inner)?.into(); // TODO: Consider Rc at cerl AST
-            let e2 = expr_to_cexpr(&e2.inner)?.into(); // TODO: Consider Rc at cerl AST
+            let e1 = expr_to_cexpr(&e1.inner)?.into();
+            let e2 = expr_to_cexpr(&e2.inner)?.into();
             Ok(CExpr::Do(e1, e2))
         }
         _ => Err("Expression not supported in Contract Core Erlang yet.".to_string()),

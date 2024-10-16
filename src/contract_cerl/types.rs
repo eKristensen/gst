@@ -8,7 +8,7 @@ use crate::cerl_parser::ast::{Atom, Var};
 
 // Type support is limited to the ones below.
 // TODO: Allow generic/new types.
-// TODO: Remember to test all cases
+// TODO: Remember to test all cases, i.e. to include all possible types in tests to ensure they work as intended.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum BaseType {
     Atom(Rc<Atom>), // Atom is named as it is a constant that can be checked statically
@@ -35,18 +35,22 @@ pub struct Label(pub String); // To differentiate between atoms and labels in th
 pub struct SessionTypesList(pub Vec<SessionType>);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum ChoiceType {
+    Make,
+    Offer,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SessionType {
     Send(BaseType),
     Receive(BaseType),
     // TODO: Add wellformed check: No elements after MakeChoice/OfferChoice/End
     // Why list? Easier to work with in Rust to avoid Boxing.
-    MakeChoice(BTreeMap<Label, SessionTypesList>),
-    OfferChoice(BTreeMap<Label, SessionTypesList>),
+    Choice(ChoiceType, BTreeMap<Label, SessionTypesList>),
     State(Rc<Atom>), // for mspec to support gen server plus as a state machine.
     End,             // End is never consumed
     Var(Rc<Var>),    // Recursion variable binder
-    Rec(Rc<Var>, SessionTypesList), // Recursion
-                     // TODO: Missing variable and recursion. How do they work?
+    Rec(Rc<Var>),    // Recursion
 }
 
 // TODO: Reimplement new Display functions for the types above for pretty printing.
