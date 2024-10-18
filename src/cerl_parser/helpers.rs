@@ -72,20 +72,6 @@ pub fn wsc(i: &str) -> IResult<&str, (), ErrorTree<&str>> {
     value((), tuple((multispace0, many0(comment), multispace0)))(i)
 }
 
-// Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#wrapper-combinators-that-eat-whitespace-before-and-after-a-parser
-/// A combinator that takes a parser `inner` and produces a parser that also consumes both leading and
-/// trailing whitespace, returning the output of `inner`.
-// TODO: Stupid comment implementation maybe something better exists?
-pub fn ws<'a, F, O>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O, ErrorTree<&str>>
-where
-    F: Parser<&'a str, O, ErrorTree<&'a str>>,
-    &'a str: nom::InputLength + nom::InputTakeAtPosition + Clone,
-    <&'a str as nom::InputTakeAtPosition>::Item: nom::AsChar,
-    <&'a str as nom::InputTakeAtPosition>::Item: Clone,
-{
-    map(tuple((wsc, inner, wsc)), |(_, o, _)| o)
-}
-
 // Run internal parser and remove whitespace after
 pub fn wsa<'a, F, O>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O, ErrorTree<&str>>
 where

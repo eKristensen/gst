@@ -4,7 +4,7 @@ use crate::{
     cerl_parser::ast::{Atom, FunName, Lit, Var},
     contract_cerl::{
         ast::{CClause, CExpr, CModule, CPat, CType},
-        types::{BaseType, SessionType, SessionTypesList},
+        types::{BaseType, ChoiceType, SessionType, SessionTypesList},
     },
     type_checker::{
         fun::bif_fun,
@@ -242,7 +242,7 @@ fn e_case(
         // basic let in again
         // - Can we select something here? No, again it would just be a basic let in again
         // - Can we offer something here? Yes, that is the whole point.
-        if let SessionType::MakeChoice(offers) = st.0.first().unwrap() {
+        if let SessionType::Choice(ChoiceType::Make, offers) = st.0.first().unwrap() {
             let case_res = e_case_offer(module, envs, offers, clauses)?;
             // TODO: Write down typing system "assumption"
             // When we are here in the code, it means at least one offer has matched

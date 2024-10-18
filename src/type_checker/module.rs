@@ -4,7 +4,7 @@ use crate::{
     cerl_parser::ast::{Atom, FunName, Var},
     contract_cerl::{
         ast::{CModule, CType, OptWarnings},
-        types::{BaseType, SessionType},
+        types::{BaseType, ChoiceType, SessionType},
     },
 };
 
@@ -340,7 +340,7 @@ fn mspec_handle_extractor(
             );
             mspec_handle_extractor(map, rec_states, state_out, remainder)
         }
-        [SessionType::OfferChoice(offers)] => {
+        [SessionType::Choice(ct, offers)] if *ct == ChoiceType::Offer => {
             for (label, inner) in offers {
                 // TODO: To offer label is converted into to receive label and send back received.
                 // The residual session type is checked recursively.

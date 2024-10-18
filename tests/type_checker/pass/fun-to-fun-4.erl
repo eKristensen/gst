@@ -1,4 +1,4 @@
--module('fun-to-fun').
+-module('fun-to-fun-4').
 
 % Function calling another function to consume part of session type
 % By Emil Kristensen, ITU 2024
@@ -11,9 +11,9 @@
 
 % TODO: Bad: Syntax does not allow custom tags after function definitions! Maybe we should have used comments instead?
 % Though I would have ad to use erlang directly then.
--session("'foo'(new(!integer. ?integer. !integer. ?integer.  end.))   ").
+-session("'foo'(new(!integer. ?integer. !integer. ?integer.  end))   ").
 % Duplicating new(!integer. ?string. !string. ?integer.  end.) here is not nice.
--session("'bar'(new(!integer. ?integer. !integer. ?integer.  end.),consume(!integer. ?integer.),_) ").
+-session("'bar'(new(!integer. ?integer. !integer. ?integer.  end),consume(!integer. ?integer),_) ").
 
 % TODO (maybe) Consider to rename consume to lin og linear
 

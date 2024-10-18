@@ -12,7 +12,7 @@ use crate::cerl_parser::ast::{Atom, Var};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum BaseType {
     Atom(Rc<Atom>), // Atom is named as it is a constant that can be checked statically
-    Pid,            // TODO: Add pid to paper?
+    Pid,
     Reference,
     Integer,
     Float,
@@ -49,6 +49,7 @@ pub enum SessionType {
     Choice(ChoiceType, BTreeMap<Label, SessionTypesList>),
     State(Rc<Atom>), // for mspec to support gen server plus as a state machine.
     End,             // End is never consumed
+    Cut,             // For consume, stop consuming here, "cut" session type here
     Var(Rc<Var>),    // Recursion variable binder
     Rec(Rc<Var>),    // Recursion
 }

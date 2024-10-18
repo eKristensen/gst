@@ -11,8 +11,8 @@
 % I cannot type this module as is, without giving the whole function to the consume function.
 
 % TODO: Fix Session type syntax, dot is not predictable and err msg is very hard to read.
--session("'foo'(new(rec T. +{send(!integer. ?integer. T.), stop(end.)}..),_)").
--session("'bar'(new(rec T. +{send(!integer. ?integer. T.), stop(end.)}..),consume(rec T. +{send(!integer. ?integer. T.), stop(.)}..),_)").
+-session("'foo'(new(rec T. +{send:!integer. ?integer. T, stop: end }),_)").
+-session("'bar'(new(rec T. +{send:!integer. ?integer. T, stop: end }),consume(rec T. +{send: !integer. ?integer. T, stop: -}),_)").
 %         &{send(!integer. ?integer. &{send(!integer. ?integer.)}.)}.),_)").
 
 

@@ -26,7 +26,7 @@
 % -consume("'negation/2: ServerPid=new(calculator)").
 
 % TO ADD: multi-options for session.
--session("'negation'(new(+{neg(!integer. ?integer. end.)}.),consume(end.),_)").
+-session("'negation'(new(+{neg: !integer. ?integer. end}),consume(end),_)").
 -spec negation(new(),consume(),integer()) -> integer().
 negation(ServerPid,SessionId0,V1) ->
     io:format("DEBUG: Started neg~n"),

@@ -4,9 +4,9 @@
 %% Preliminary Typing Idea
 % elp:ignore W0013 (misspelled_attribute)
 -mspec("&{
-        neg(['sel_neg']. ?integer. !integer. end.),
-        add(['sel_add']. ?integer. ['add_1']. ?integer. !integer. end.)
-       }.").
+        neg: <'sel_neg'>. ?integer. !integer. end,
+        add: <'sel_add'>. ?integer. <'add_1'>. ?integer. !integer. end
+       }").
 % TODO: Maybe using [] for state labels is a bad idea. Same symbol as used with lists...
 
 % TODO: Required because static type checker require full annotation. Make it work without

@@ -39,7 +39,10 @@ pub fn mspec_extractor(ast: &cerl_parser::ast::Module) -> Result<Option<SessionT
 
             // Convert encoded string to string. Move out to common part.
             match st_inner(st_string.as_str()) {
-                Ok((_, mspec)) => return Ok(Some(mspec)),
+                Ok(("", mspec)) => return Ok(Some(mspec)),
+                Ok((extra, _)) => {
+                    return Err(format!("Unexpected extra junk in session type: {}", extra))
+                }
                 Err(err_val) => {
                     return Err(format!("Failed mspec extraction. Reason: {:?}", err_val))
                 }

@@ -9,8 +9,8 @@
 -type new() :: {}. % changed from server() as constructor
 -type consume() :: {}. % changed from session()
 
--session("'foo'(new(!integer. ?string. !string. ?integer.  end.))").
--session("'bar'(_,consume(!string. ?integer. ),_)").
+-session("'foo'(new(!integer. ?string. !string. ?integer.  end))").
+-session("'bar'(_,consume(!string. ?integer ),_)").
 
 -spec foo(new()) -> integer().
 foo(ServerPid) ->

@@ -4,7 +4,7 @@ use crate::{
     cerl_parser::ast::Atom,
     contract_cerl::{
         ast::{CExpr, CFunClause, CModule, CType},
-        types::{BaseType, SessionType, SessionTypesList},
+        types::{BaseType, ChoiceType, SessionType, SessionTypesList},
     },
     type_checker::env::TypeEnv,
 };
@@ -217,19 +217,9 @@ fn is_st_subtype_aux(
                 &SessionTypesList(t2_tail.to_vec()),
             )
         }
-        ([SessionType::MakeChoice(t1_choices)], [SessionType::MakeChoice(t2_choices)]) => {
-            for (t1_label, t1_st) in t1_choices {
-                if let Some(t2_st) = t2_choices.get(t1_label) {
-                    if !is_st_subtype_aux(seen_pairs, t1_st, t2_st) {
-                        return false;
-                    }
-                } else {
-                    return false;
-                }
-            }
-            true
-        }
-        ([SessionType::OfferChoice(t1_choices)], [SessionType::OfferChoice(t2_choices)]) => {
+        ([SessionType::Choice(ct1, t1_choices)], [SessionType::Choice(ct2, t2_choices)])
+            if ct1 == ct2 =>
+        {
             for (t1_label, t1_st) in t1_choices {
                 if let Some(t2_st) = t2_choices.get(t1_label) {
                     if !is_st_subtype_aux(seen_pairs, t1_st, t2_st) {
@@ -276,9 +266,14 @@ fn st_consume_aux(
     let to_consume = to_consume.as_slice();
 
     match (current_session, to_consume) {
+        // TODO: Should cut be required instead of allow "emptyness" to define the end of a
+        // consume? Right now both are allowed in this type checker...
         (_, []) => Ok(SessionTypesList(current_session.to_vec())),
+        (_, [SessionType::Cut]) => Ok(SessionTypesList(current_session.to_vec())),
         ([SessionType::End], [SessionType::End]) => Ok(SessionTypesList(vec![SessionType::End])),
-        ([SessionType::MakeChoice(cur_choices)], [SessionType::MakeChoice(consume_choices)]) => {
+        ([SessionType::Choice(ct1, cur_choices)], [SessionType::Choice(ct2, consume_choices)])
+            if ct1 == ct2 && *ct1 == ChoiceType::Make =>
+        {
             // TODO: Subtyping. For now we require the same labels on both sides
             // One way is checked in the session type consume check, here we check the reverse. If
             // both are equal the same labels exists both ways

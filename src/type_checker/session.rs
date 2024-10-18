@@ -7,7 +7,7 @@ use crate::{
     cerl_parser::ast::{Lit, Var},
     contract_cerl::{
         ast::{CClause, CExpr, CModule, CPat, CType},
-        types::{BaseType, Label, SessionType, SessionTypesList},
+        types::{BaseType, ChoiceType, Label, SessionType, SessionTypesList},
     },
     type_checker::base::expr,
 };
@@ -88,7 +88,7 @@ pub fn gsp_sync_send(
             );
             Ok(CType::Base(received.clone()))
         }
-        [SessionType::MakeChoice(offers)] => {
+        [SessionType::Choice(ct, offers)] if *ct == ChoiceType::Make => {
             // Make choice
             let BaseType::Atom(atom_label) = sending_val else {
                 return Err(format!(
@@ -313,67 +313,61 @@ enum FreeName {
 }
 
 fn free_names(input: &[SessionType]) -> FreeNames {
-    let mut seen: HashSet<Rc<Var>> = HashSet::new();
-    free_names_aux(&mut seen, input)
+    let mut bound: HashSet<Rc<Var>> = HashSet::new();
+    free_names_aux(&mut bound, input)
 }
 
 // The concept is give the free variable at each element in the same order as original to rematch.
-fn free_names_aux(seen: &mut HashSet<Rc<Var>>, input: &[SessionType]) -> FreeNames {
+// TODO: Right now shadowing is handled by marking the variable as bound. Maybe rename is better?
+fn free_names_aux(bound: &mut HashSet<Rc<Var>>, input: &[SessionType]) -> FreeNames {
     match input {
         [] => FreeNames(vec![]),
-        [SessionType::Var(var), tail @ ..] => {
-            seen.insert(var.clone());
+        [SessionType::Var(var), tail @ ..] if tail.is_empty() => {
             let mut output: Vec<FreeName> = Vec::new();
-            output.push(FreeName::Free(var.clone()));
-            let mut tail = free_names_aux(seen, tail).0;
+            if bound.contains(var) {
+                output.push(FreeName::None)
+            } else {
+                output.push(FreeName::Free(var.clone()));
+            }
+            let mut tail = free_names_aux(bound, tail).0;
             output.append(&mut tail);
             FreeNames(output)
         }
         [SessionType::Rec(var), tail @ ..] => {
             let mut output: Vec<FreeName> = Vec::new();
-            if seen.contains(var) {
-                todo!("Handle shadowing!")
-            }
+            bound.insert(var.clone());
             output.push(FreeName::None);
-            let mut tail = free_names_aux(seen, tail).0;
+            let mut tail = free_names_aux(bound, tail).0;
             output.append(&mut tail);
             FreeNames(output)
         }
         [SessionType::End] => FreeNames(vec![FreeName::None]),
+        [SessionType::Cut] => FreeNames(vec![FreeName::None]),
         [SessionType::Send(_), tail @ ..] => {
             let mut output: Vec<FreeName> = Vec::new();
             output.push(FreeName::None);
-            let mut tail = free_names_aux(seen, tail).0;
+            let mut tail = free_names_aux(bound, tail).0;
             output.append(&mut tail);
             FreeNames(output)
         }
         [SessionType::Receive(_), tail @ ..] => {
             let mut output: Vec<FreeName> = Vec::new();
             output.push(FreeName::None);
-            let mut tail = free_names_aux(seen, tail).0;
+            let mut tail = free_names_aux(bound, tail).0;
             output.append(&mut tail);
             FreeNames(output)
         }
         [SessionType::State(_), tail @ ..] => {
             let mut output: Vec<FreeName> = Vec::new();
             output.push(FreeName::None);
-            let mut tail = free_names_aux(seen, tail).0;
+            let mut tail = free_names_aux(bound, tail).0;
             output.append(&mut tail);
             FreeNames(output)
         }
-        [SessionType::MakeChoice(choices)] => {
+        [SessionType::Choice(_, choices)] => {
             let mut branch: HashMap<Label, FreeNames> = HashMap::new();
             for (label, choice) in choices {
-                let res = free_names_aux(&mut seen.clone(), choice.0.as_slice());
-                branch.insert(label.clone(), res);
-            }
-            let output: Vec<FreeName> = vec![FreeName::Branch(branch)];
-            FreeNames(output)
-        }
-        [SessionType::OfferChoice(choices)] => {
-            let mut branch: HashMap<Label, FreeNames> = HashMap::new();
-            for (label, choice) in choices {
-                let res = free_names_aux(&mut seen.clone(), choice.0.as_slice());
+                let res = free_names_aux(&mut bound.clone(), choice.0.as_slice());
                 branch.insert(label.clone(), res);
             }
             let output: Vec<FreeName> = vec![FreeName::Branch(branch)];
@@ -396,7 +390,7 @@ fn substitution(
     match (input, free_names) {
         ([], []) => SessionTypesList(vec![]),
         ([SessionType::Var(var), tail @ ..], [FreeName::Free(free_var), tail_names @ ..])
-            if var == binder && free_var == var =>
+            if var == binder && free_var == var && tail.is_empty() =>
         {
             let mut output: Vec<SessionType> = Vec::new();
             output.extend_from_slice(full);
@@ -404,7 +398,7 @@ fn substitution(
             output.append(&mut tail);
             SessionTypesList(output)
         }
-        ([SessionType::Var(var), tail @ ..], [_, tail_names @ ..]) => {
+        ([SessionType::Var(var), tail @ ..], [_, tail_names @ ..]) if tail.is_empty() => {
             let mut output: Vec<SessionType> = Vec::new();
             output.push(SessionType::Var(var.clone()));
             let mut tail = substitution(binder, full, tail, tail_names).0;
@@ -418,6 +412,7 @@ fn substitution(
             SessionTypesList(output)
         }
         ([SessionType::End], [_]) => SessionTypesList(vec![SessionType::End]),
+        ([SessionType::Cut], [_]) => SessionTypesList(vec![SessionType::Cut]),
         ([SessionType::Send(send), tail @ ..], [_, tail_names @ ..]) => {
             let mut output: Vec<SessionType> = Vec::new();
             output.push(SessionType::Send(send.clone()));
@@ -439,24 +434,14 @@ fn substitution(
             output.append(&mut tail);
             SessionTypesList(output)
         }
-        ([SessionType::MakeChoice(choices)], [FreeName::Branch(names_map)]) => {
+        ([SessionType::Choice(ct, choices)], [FreeName::Branch(names_map)]) => {
             let mut branch: BTreeMap<Label, SessionTypesList> = BTreeMap::new();
             for (label, choice) in choices {
                 let this_name = names_map.get(label).unwrap();
                 let res = substitution(binder, full, choice.0.as_slice(), this_name.0.as_slice());
                 branch.insert(label.clone(), res);
             }
-            let output: Vec<SessionType> = vec![SessionType::MakeChoice(branch)];
-            SessionTypesList(output)
-        }
-        ([SessionType::OfferChoice(choices)], [FreeName::Branch(names_map)]) => {
-            let mut branch: BTreeMap<Label, SessionTypesList> = BTreeMap::new();
-            for (label, choice) in choices {
-                let this_name = names_map.get(label).unwrap();
-                let res = substitution(binder, full, choice.0.as_slice(), this_name.0.as_slice());
-                branch.insert(label.clone(), res);
-            }
-            let output: Vec<SessionType> = vec![SessionType::OfferChoice(branch)];
+            let output: Vec<SessionType> = vec![SessionType::Choice(ct.clone(), branch)];
             SessionTypesList(output)
         }
         _ => todo!("Invalid session type not supported by substitution."),
@@ -487,21 +472,9 @@ fn equality_aux(seen_pairs: &mut EqualityPairs, s1: &[SessionType], s2: &[Sessio
     let s2 = s2.as_slice();
 
     match (s1, s2) {
-        ([SessionType::OfferChoice(s1_choices)], [SessionType::OfferChoice(s2_choices)]) => {
-            if s1_choices.len() != s2_choices.len() {
-                return false;
-            }
-            for (s1_elm_label, s1_elm_tail) in s1_choices {
-                let Some(s2_elm_tail) = s2_choices.get(s1_elm_label) else {
-                    return false;
-                };
-                if !equality_aux(&mut seen_pairs.clone(), &s1_elm_tail.0, &s2_elm_tail.0) {
-                    return false;
-                }
-            }
-            true
-        }
-        ([SessionType::MakeChoice(s1_choices)], [SessionType::MakeChoice(s2_choices)]) => {
+        ([SessionType::Choice(ct1, s1_choices)], [SessionType::Choice(ct2, s2_choices)])
+            if ct1 == ct2 =>
+        {
             if s1_choices.len() != s2_choices.len() {
                 return false;
             }
@@ -589,7 +562,9 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn unfold_many_test_00() {
+        // Not wellformed, must panic
         let input = SessionTypesList(vec![
             SessionType::Rec(Var("t".to_string()).into()),
             SessionType::Rec(Var("u".to_string()).into()),
@@ -598,38 +573,135 @@ mod tests {
             SessionType::Var(Var("t".to_string()).into()),
         ]);
 
-        // Expeted change:
-        let expected = SessionTypesList(vec![SessionType::Send(BaseType::Integer)]);
-
-        // Check expected is the output:
-        assert_eq!(unfold(&input.clone()), expected);
+        // Expect panic here:
+        unfold(&input);
     }
 
     #[test]
+    #[should_panic]
     fn unfold_many_test_01() {
+        // Not wellformed, must panic
         let input = SessionTypesList(vec![
             SessionType::Rec(Var("t".to_string()).into()),
             SessionType::Rec(Var("u".to_string()).into()),
-            SessionType::MakeChoice(BTreeMap::from([
+            SessionType::Send(BaseType::Integer),
+            SessionType::Var(Var("t".to_string()).into()),
+            SessionType::Var(Var("u".to_string()).into()),
+        ]);
+
+        // Expect panic here:
+        unfold(&input);
+    }
+
+    #[test]
+    fn unfold_many_test_02() {
+        let input = SessionTypesList(vec![
+            SessionType::Rec(Var("t".to_string()).into()),
+            SessionType::Rec(Var("u".to_string()).into()),
+            SessionType::Choice(
+                ChoiceType::Make,
+                BTreeMap::from([
+                    (
+                        Label("first".to_owned()),
+                        SessionTypesList(vec![
+                            SessionType::Send(BaseType::Integer),
+                            SessionType::Var(Var("t".to_string()).into()),
+                        ]),
+                    ),
+                    (
+                        Label("second".to_owned()),
+                        SessionTypesList(vec![
+                            SessionType::Send(BaseType::String),
+                            SessionType::Var(Var("u".to_string()).into()),
+                        ]),
+                    ),
+                ]),
+            ),
+        ]);
+
+        // Expeted change:
+        let expected = SessionTypesList(vec![SessionType::Choice(
+            ChoiceType::Make,
+            BTreeMap::from([
                 (
                     Label("first".to_owned()),
                     SessionTypesList(vec![
                         SessionType::Send(BaseType::Integer),
-                        SessionType::Var(Var("t".to_string()).into()),
+                        SessionType::Rec(Var("t".to_string()).into()),
+                        SessionType::Rec(Var("u".to_string()).into()),
+                        SessionType::Choice(
+                            ChoiceType::Make,
+                            BTreeMap::from([
+                                (
+                                    Label("first".to_owned()),
+                                    SessionTypesList(vec![
+                                        SessionType::Send(BaseType::Integer),
+                                        SessionType::Var(Var("t".to_string()).into()),
+                                    ]),
+                                ),
+                                (
+                                    Label("second".to_owned()),
+                                    SessionTypesList(vec![
+                                        SessionType::Send(BaseType::String),
+                                        SessionType::Var(Var("u".to_string()).into()),
+                                    ]),
+                                ),
+                            ]),
+                        ),
                     ]),
                 ),
                 (
                     Label("second".to_owned()),
                     SessionTypesList(vec![
                         SessionType::Send(BaseType::String),
-                        SessionType::Var(Var("u".to_string()).into()),
+                        SessionType::Rec(Var("u".to_string()).into()),
+                        SessionType::Choice(
+                            ChoiceType::Make,
+                            BTreeMap::from([
+                                (
+                                    Label("first".to_owned()),
+                                    SessionTypesList(vec![
+                                        SessionType::Send(BaseType::Integer),
+                                        SessionType::Rec(Var("t".to_string()).into()),
+                                        SessionType::Rec(Var("u".to_string()).into()),
+                                        SessionType::Choice(
+                                            ChoiceType::Make,
+                                            BTreeMap::from([
+                                                (
+                                                    Label("first".to_owned()),
+                                                    SessionTypesList(vec![
+                                                        SessionType::Send(BaseType::Integer),
+                                                        SessionType::Var(
+                                                            Var("t".to_string()).into(),
+                                                        ),
+                                                    ]),
+                                                ),
+                                                (
+                                                    Label("second".to_owned()),
+                                                    SessionTypesList(vec![
+                                                        SessionType::Send(BaseType::String),
+                                                        SessionType::Var(
+                                                            Var("u".to_string()).into(),
+                                                        ),
+                                                    ]),
+                                                ),
+                                            ]),
+                                        ),
+                                    ]),
+                                ),
+                                (
+                                    Label("second".to_owned()),
+                                    SessionTypesList(vec![
+                                        SessionType::Send(BaseType::String),
+                                        SessionType::Var(Var("u".to_string()).into()),
+                                    ]),
+                                ),
+                            ]),
+                        ),
                     ]),
                 ),
-            ])),
-        ]);
-
-        // Expeted change:
-        let expected = SessionTypesList(vec![SessionType::Send(BaseType::Integer)]);
+            ]),
+        )]);
 
         // Check expected is the output:
         assert_eq!(unfold(&input.clone()), expected);
@@ -694,8 +766,10 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn equality_test_04() {
         // Test double unfold: rec t. rec u. !int u. t. = rec t. !int !int t.
+        // This must panic, it is nonsense to do this!
         let s1 = SessionTypesList(vec![
             SessionType::Rec(Var("t".to_string()).into()),
             SessionType::Rec(Var("u".to_string()).into()),

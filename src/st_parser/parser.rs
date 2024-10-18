@@ -10,22 +10,29 @@ use nom::{
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
-use crate::st_parser::ast::SessionSpecElm::NewSpec;
-use crate::{cerl_parser::tokeniser::atom, st_parser::ast::SessionSpecElm::BasePlaceholder};
-use crate::{cerl_parser::tokeniser::var, st_parser::ast::SessionSpecElm::ConsumeSpec};
 use crate::{
-    cerl_parser::{ast::FunName, helpers::ws},
+    cerl_parser::ast::FunName,
     contract_cerl::types::{BaseType, Label, SessionType, SessionTypesList},
 };
+use crate::{cerl_parser::tokeniser::var, st_parser::ast::SessionSpecElm::ConsumeSpec};
+use crate::{
+    cerl_parser::{helpers::wsa, tokeniser::atom},
+    st_parser::ast::SessionSpecElm::BasePlaceholder,
+};
+use crate::{contract_cerl::types::ChoiceType, st_parser::ast::SessionSpecElm::NewSpec};
 
 use super::ast::{SessionSpec, SessionSpecElm, SessionSpecs};
 
 // TODO: Reuse of functions from cerl parser allows for comments and maybe annotations inside the ST which is odd
 // Better to not reuse or rewrite so the core can be reused rather than the whole code.
 // Doing for now to get a working prototype
+// WSA OK
 pub fn st_parse(i: &str) -> IResult<&str, (FunName, SessionSpecs), ErrorTree<&str>> {
     map(
-        pair(atom, map(separated_list1(tag(";"), clause), SessionSpecs)),
+        pair(
+            atom,
+            map(separated_list1(wsa(tag(";")), clause), SessionSpecs),
+        ),
         |(fname, clauses)| {
             // TODO: WF Check: Duplicate var in st binders
             // TODO: WF Check: Consistent number of arguments
@@ -40,148 +47,126 @@ pub fn st_parse(i: &str) -> IResult<&str, (FunName, SessionSpecs), ErrorTree<&st
     )(i)
 }
 
+// WSA OK
 fn clause(i: &str) -> IResult<&str, SessionSpec, ErrorTree<&str>> {
     map(
         delimited(
-            ws(tag("(")),
+            wsa(tag("(")),
             separated_list0(
-                ws(tag(",")),
-                alt((new_spec, consume_spec, value(BasePlaceholder, ws(tag("_"))))),
+                wsa(tag(",")),
+                alt((
+                    new_spec,
+                    consume_spec,
+                    value(BasePlaceholder, wsa(tag("_"))),
+                )),
             ),
-            ws(tag(")")),
+            wsa(tag(")")),
         ),
         SessionSpec,
     )(i)
 }
 
+// WSA OK
 fn new_spec(i: &str) -> IResult<&str, SessionSpecElm, ErrorTree<&str>> {
     map(
-        tuple((
-            ws(tag("new")),
-            delimited(ws(tag("(")), st_inner, ws(tag(")"))),
-        )),
-        |(_, o)| NewSpec(o),
+        preceded(
+            tag("new"),
+            delimited(wsa(tag("(")), st_inner, wsa(tag(")"))),
+        ),
+        NewSpec,
     )(i)
 }
 
+// WSA OK
 fn consume_spec(i: &str) -> IResult<&str, SessionSpecElm, ErrorTree<&str>> {
     map(
-        tuple((
-            ws(tag("consume")),
-            delimited(ws(tag("(")), st_inner, ws(tag(")"))),
-        )),
-        |(_, o)| ConsumeSpec(o),
+        preceded(
+            tag("consume"),
+            delimited(wsa(tag("(")), st_inner, wsa(tag(")"))),
+        ),
+        ConsumeSpec,
     )(i)
 }
 
+// WSA OK
 pub fn st_inner(i: &str) -> IResult<&str, SessionTypesList, ErrorTree<&str>> {
     map(
-        pair(
-            separated_list0(
-                ws(tag(".")),
-                alt((
-                    st_send,
-                    st_receive,
-                    st_make_choice,
-                    st_offer_choice,
-                    value(SessionType::End, tag("end")),
-                    mspec_state,
-                    map(var, SessionType::Var),
-                    // TODO: Well formed check for recusion. No longer parses the set of rec and
-                    // the inner at once.
-                    map(
-                        delimited(ws(tag("rec")), var, ws(tag("."))),
-                        SessionType::Rec,
-                    ),
-                )),
-            ),
-            tag("."),
+        separated_list0(
+            wsa(tag(".")),
+            alt((
+                map(preceded(tag("!"), base_type), SessionType::Send),
+                map(preceded(tag("?"), base_type), SessionType::Receive),
+                st_choice,
+                value(SessionType::End, wsa(tag("end"))),
+                value(SessionType::Cut, wsa(tag("-"))),
+                mspec_state,
+                map(var, SessionType::Var),
+                // TODO: Well formed check for recusion. No longer parses the set of rec and
+                // the inner at once.
+                map(preceded(wsa(tag("rec")), var), SessionType::Rec),
+            )),
         ),
-        |(o, _)| SessionTypesList(o),
+        SessionTypesList,
     )(i)
 }
 
-// TODO: Why does it not work when rewritten to map(pair(..),|(_,o) [return here]) ??
-fn st_send(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
-    map(preceded(tag("!"), base_type), SessionType::Send)(i)
-}
-
-fn st_receive(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
-    map(preceded(tag("?"), base_type), SessionType::Receive)(i)
-}
-
+// WSA OK
 fn base_type(i: &str) -> IResult<&str, BaseType, ErrorTree<&str>> {
     alt((
         map(atom, BaseType::Atom),
-        value(BaseType::Pid, tag("pid")),
-        value(BaseType::Reference, tag("reference")),
-        value(BaseType::Integer, tag("integer")),
-        value(BaseType::Float, tag("float")),
-        value(BaseType::Boolean, tag("boolean")),
-        value(BaseType::String, tag("string")),
+        value(BaseType::Pid, wsa(tag("pid"))),
+        value(BaseType::Reference, wsa(tag("reference"))),
+        value(BaseType::Integer, wsa(tag("integer"))),
+        value(BaseType::Float, wsa(tag("float"))),
+        value(BaseType::Boolean, wsa(tag("boolean"))),
+        value(BaseType::String, wsa(tag("string"))),
         // TODO: How to do cons and tuple in a sensible way???
     ))(i)
 }
 
-// TODO: Avoid direct OK return
+// WSA OK
 // TODO: ElixirST has ? or ! on labels. Needed or not?
-fn st_offer_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
+fn st_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
     // TODO: Currently just like st_offer_choice make avoid duplicate code
     map(
-        delimited(
-            ws(tag("&{")),
-            separated_list1(ws(tag(",")), inner_choice),
-            ws(tag("}")),
+        pair(
+            alt((
+                value(ChoiceType::Make, tag("+")),
+                value(ChoiceType::Offer, tag("&")),
+            )),
+            delimited(
+                wsa(tag("{")),
+                separated_list1(wsa(tag(",")), inner_choice),
+                wsa(tag("}")),
+            ),
         ),
-        |o| {
-            let mut offer_choice = BTreeMap::new();
+        |(o1, o2)| {
+            let mut choices = BTreeMap::new();
 
-            for (label, elm) in o {
-                if offer_choice.insert(label.clone(), elm.clone()).is_some() {
+            for (label, elm) in o2 {
+                if choices.insert(label.clone(), elm.clone()).is_some() {
                     // TODO: Can i get rid of the panic here?
                     panic!("Duplicate label in offer choice")
                 }
             }
 
-            SessionType::OfferChoice(offer_choice)
+            SessionType::Choice(o1, choices)
         },
     )(i)
 }
 
-// TODO: Avoid direct OK return
-// TODO: ElixirST has ? or ! on labels. Needed or not?
-fn st_make_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
-    map(
-        delimited(
-            ws(tag("+{")),
-            separated_list1(ws(tag(",")), inner_choice),
-            ws(tag("}")),
-        ),
-        |o| {
-            let mut offer_choice = BTreeMap::new();
-
-            for (label, elm) in o {
-                if offer_choice.insert(label.clone(), elm.clone()).is_some() {
-                    // TODO: Can i get rid of the panic here?
-                    panic!("Duplicate label in offer choice")
-                }
-            }
-
-            SessionType::MakeChoice(offer_choice)
-        },
-    )(i)
-}
-
+// WSA OK
 fn inner_choice(i: &str) -> IResult<&str, (Label, SessionTypesList), ErrorTree<&str>> {
     map(
-        pair(alpha1, delimited(ws(tag("(")), st_inner, ws(tag(")")))),
-        |(o1, o2)| (Label(o1.to_string()), o2),
+        tuple((wsa(alpha1), wsa(tag(":")), st_inner)),
+        |(o1, _, o2)| (Label(o1.to_string()), o2),
     )(i)
 }
 
+// WSA OK
 fn mspec_state(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
     map(
-        delimited(ws(tag("[")), atom, ws(tag("]"))),
+        delimited(wsa(tag("<")), atom, wsa(tag(">"))),
         SessionType::State,
     )(i)
 }
@@ -197,7 +182,7 @@ mod tests {
     #[test]
     fn simple_constructor_00() {
         assert_eq!(
-            st_parse("'test'(_,new(!integer.))").unwrap(),
+            st_parse("'test'(_,new(!integer))").unwrap(),
             (
                 "",
                 (
@@ -217,7 +202,7 @@ mod tests {
     #[test]
     fn simple_constructor_01() {
         assert_eq!(
-            st_parse("'test'(_,new( !integer. ?float. end.))").unwrap(),
+            st_parse("'test'(_,new( !integer. ?float. end  ))").unwrap(),
             (
                 "",
                 (
@@ -241,7 +226,7 @@ mod tests {
     #[test]
     fn simple_constructor_02() {
         assert_eq!(
-            st_parse("'test'(_,new(!integer. ?float. end.)) ").unwrap(),
+            st_parse("'test'(_,new(!integer. ?float. end)) ").unwrap(),
             (
                 "",
                 (
@@ -265,7 +250,7 @@ mod tests {
     #[test]
     fn simple_constructor_03() {
         assert_eq!(
-            st_parse("'test'(_,new(!integer. ?float. end.)) ").unwrap(),
+            st_parse("'test'(_,new(!integer. ?float. end)) ").unwrap(),
             (
                 "",
                 (
@@ -289,7 +274,7 @@ mod tests {
     #[test]
     fn simple_consume_00() {
         assert_eq!(
-            st_parse("'test'(_,consume(!integer. ))").unwrap(),
+            st_parse("'test'(_,consume(!integer ))").unwrap(),
             (
                 "",
                 (
@@ -311,7 +296,7 @@ mod tests {
     #[test]
     fn simple_consume_01() {
         assert_eq!(
-            st_parse("'test'(_,consume(!integer. ?float.))").unwrap(),
+            st_parse("'test'(_,consume(!integer. ?float))").unwrap(),
             (
                 "",
                 (
@@ -334,7 +319,7 @@ mod tests {
     #[test]
     fn simple_consume_02() {
         assert_eq!(
-            st_parse("'test'(_,consume(!integer. ?float.))").unwrap(),
+            st_parse("'test'(_,consume(!integer. ?float))").unwrap(),
             (
                 "",
                 (
@@ -357,7 +342,7 @@ mod tests {
     #[test]
     fn simple_consume_03() {
         assert_eq!(
-            st_parse("'test'(_,consume(!integer. ?float.))").unwrap(),
+            st_parse("'test'(_,consume(!integer. ?float))").unwrap(),
             (
                 "",
                 (
@@ -380,13 +365,16 @@ mod tests {
     #[test]
     fn offer_choice_00() {
         assert_eq!(
-            st_offer_choice("&{test(!integer.)}").unwrap(),
+            st_choice("&{test:!integer}").unwrap(),
             (
                 "",
-                SessionType::OfferChoice(BTreeMap::from([(
-                    Label("test".to_owned()),
-                    SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
-                )]))
+                SessionType::Choice(
+                    ChoiceType::Offer,
+                    BTreeMap::from([(
+                        Label("test".to_owned()),
+                        SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
+                    )])
+                )
             )
         );
     }
@@ -394,7 +382,7 @@ mod tests {
     #[test]
     fn offer_choice_01() {
         assert_eq!(
-            st_parse("'test'(new( &{test(!integer.)}.))").unwrap(),
+            st_parse("'test'(new( &{test:!integer}))").unwrap(),
             (
                 "",
                 (
@@ -403,10 +391,13 @@ mod tests {
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
-                        SessionType::OfferChoice(BTreeMap::from([(
-                            Label("test".to_owned()),
-                            SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
-                        )]))
+                        SessionType::Choice(
+                            ChoiceType::Offer,
+                            BTreeMap::from([(
+                                Label("test".to_owned()),
+                                SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
+                            )])
+                        )
                     ))))))),
                 )
             )
@@ -416,7 +407,7 @@ mod tests {
     #[test]
     fn offer_choice_02() {
         assert_eq!(
-            st_parse("'test'(new( &{test(!integer. !integer. ?float. end.)}.))").unwrap(),
+            st_parse("'test'(new( &{test:!integer. !integer . ?float. end}))").unwrap(),
             (
                 "",
                 (
@@ -425,15 +416,18 @@ mod tests {
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
-                        SessionType::OfferChoice(BTreeMap::from([(
-                            Label("test".to_owned()),
-                            SessionTypesList(vec![
-                                SessionType::Send(BaseType::Integer),
-                                SessionType::Send(BaseType::Integer),
-                                SessionType::Receive(BaseType::Float),
-                                SessionType::End,
-                            ])
-                        )]))
+                        SessionType::Choice(
+                            ChoiceType::Offer,
+                            BTreeMap::from([(
+                                Label("test".to_owned()),
+                                SessionTypesList(vec![
+                                    SessionType::Send(BaseType::Integer),
+                                    SessionType::Send(BaseType::Integer),
+                                    SessionType::Receive(BaseType::Float),
+                                    SessionType::End,
+                                ])
+                            )])
+                        )
                     ))))))),
                 )
             )
@@ -443,8 +437,7 @@ mod tests {
     #[test]
     fn offer_choice_03() {
         assert_eq!(
-            st_parse("'test'(new( &{test(!integer. !integer. ?float. end.), alt(end.)}.))")
-                .unwrap(),
+            st_parse("'test'(new( &{test:!integer. !integer. ?float. end, alt: end}))").unwrap(),
             (
                 "",
                 (
@@ -453,21 +446,24 @@ mod tests {
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
-                        SessionType::OfferChoice(BTreeMap::from([
-                            (
-                                Label("test".to_owned()),
-                                SessionTypesList(vec![
-                                    SessionType::Send(BaseType::Integer),
-                                    SessionType::Send(BaseType::Integer),
-                                    SessionType::Receive(BaseType::Float),
-                                    SessionType::End,
-                                ])
-                            ),
-                            (
-                                Label("alt".to_owned()),
-                                SessionTypesList(vec![SessionType::End,])
-                            ),
-                        ]))
+                        SessionType::Choice(
+                            ChoiceType::Offer,
+                            BTreeMap::from([
+                                (
+                                    Label("test".to_owned()),
+                                    SessionTypesList(vec![
+                                        SessionType::Send(BaseType::Integer),
+                                        SessionType::Send(BaseType::Integer),
+                                        SessionType::Receive(BaseType::Float),
+                                        SessionType::End,
+                                    ])
+                                ),
+                                (
+                                    Label("alt".to_owned()),
+                                    SessionTypesList(vec![SessionType::End,])
+                                ),
+                            ])
+                        )
                     ))))))),
                 )
             )
@@ -477,13 +473,16 @@ mod tests {
     #[test]
     fn make_choice_00() {
         assert_eq!(
-            st_make_choice("+{test(!integer.)}").unwrap(),
+            st_choice("+{test: !integer}").unwrap(),
             (
                 "",
-                SessionType::MakeChoice(BTreeMap::from([(
-                    Label("test".to_owned()),
-                    SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
-                )]))
+                SessionType::Choice(
+                    ChoiceType::Make,
+                    BTreeMap::from([(
+                        Label("test".to_owned()),
+                        SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
+                    )])
+                )
             )
         );
     }
@@ -491,7 +490,7 @@ mod tests {
     #[test]
     fn make_choice_01() {
         assert_eq!(
-            st_parse("'test'( new( +{ test( !integer. ) } . ) )   ").unwrap(),
+            st_parse("'test'( new( +{ test: !integer }  ) )   ").unwrap(),
             (
                 "",
                 (
@@ -500,10 +499,13 @@ mod tests {
                         arity: 1,
                     },
                     SessionSpecs(vec!(SessionSpec(vec!(NewSpec(SessionTypesList(vec!(
-                        SessionType::MakeChoice(BTreeMap::from([(
-                            Label("test".to_owned()),
-                            SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
-                        )]))
+                        SessionType::Choice(
+                            ChoiceType::Make,
+                            BTreeMap::from([(
+                                Label("test".to_owned()),
+                                SessionTypesList(vec![SessionType::Send(BaseType::Integer)])
+                            )])
+                        )
                     ))))))),
                 )
             )
