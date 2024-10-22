@@ -51,80 +51,30 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
         //
         // Construct via recrsive function on the SessionTypesList
         let mut handle_map = MSpecEnv(HashMap::new());
-        // TODO: Assumption: The label "session_start" is used internally
+        // TODO: Assumption: The label "start" is used internally
         mspec_handle_extractor(
             &mut handle_map,
             &mut HashMap::new(),
-            &Atom("session_start".to_string()).into(),
+            &Atom("start".to_string()).into(),
             mspec.0.as_slice(),
         );
 
         //
         //
-        // For all handle call matche with the input above
+        // For all handle call match with the input above
         //
         // Ensure that all parts of the session type has one and only one implementation. If there
         // are none or more than one implementation be sure to fail the module wrt to the mspec
         // type checking.
         // Accept extra handle calls for now. TODO: Maybe this is a bad idea as they could
         //                                          interfere with the communication.
-        if let Some(new_session_clauses) = module.functions.get(&FunName {
-            name: Atom("handle_new_session_call".to_string()).into(),
-            arity: 3,
-        }) {
-            for new_session_clause in new_session_clauses {
-                let [val_in, _, _] = new_session_clause.spec.as_slice() else {
-                    continue;
-                };
-                // TODO: Here we assume base type for value in. Always true?
-                let CType::Base(val_in) = val_in else {
-                    continue;
-                };
-                let BaseType::Tuple(return_type_tuple) = &new_session_clause.return_type else {
-                    continue;
-                };
-                let [handle_action, val_out, state_out, _global_state] =
-                    return_type_tuple.as_slice()
-                else {
-                    continue;
-                };
-                if handle_action != &BaseType::Atom(Atom("reply".to_string()).into()) {
-                    continue;
-                }
-                let BaseType::Tuple(state_out) = state_out else {
-                    continue;
-                };
-                let [state_out, _] = state_out.as_slice() else {
-                    continue;
-                };
-                let BaseType::Atom(state_out) = state_out else {
-                    continue;
-                };
-                let find_mspec = MSpec {
-                    state_in: Atom("session_start".to_string()).into(),
-                    state_out: state_out.clone(),
-                    val_in: val_in.clone(),
-                    val_out: val_out.clone(),
-                };
-                match handle_map.0.get(&find_mspec) {
-                    Some(res) => {
-                        if !res {
-                            handle_map.0.insert(find_mspec, !res);
-                        } else {
-                            todo!("mspec failed, find proper err msg");
-                        }
-                    }
-                    None => continue,
-                };
-            }
-        }
 
         if let Some(plus_calls) = module.functions.get(&FunName {
             name: Atom("handle_plus_call".to_string()).into(),
-            arity: 4,
+            arity: 5,
         }) {
             for plus_clause in plus_calls {
-                let [val_in, _, state_in, _] = plus_clause.spec.as_slice() else {
+                let [val_in, _, state_in, _, _] = plus_clause.spec.as_slice() else {
                     continue;
                 };
                 // TODO: Here we assume base type for value in. Always true?
@@ -134,19 +84,13 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
                 let CType::Base(state_in) = state_in else {
                     continue;
                 };
-                let BaseType::Tuple(state_in) = state_in else {
-                    continue;
-                };
-                let [state_in, _] = state_in.as_slice() else {
-                    continue;
-                };
                 let BaseType::Atom(state_in) = state_in else {
                     continue;
                 };
                 let BaseType::Tuple(return_type_tuple) = &plus_clause.return_type else {
                     continue;
                 };
-                let [handle_action, val_out, state_out, _global_state] =
+                let [handle_action, val_out, state_out, _, _global_state] =
                     return_type_tuple.as_slice()
                 else {
                     continue;
@@ -154,12 +98,6 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
                 if handle_action != &BaseType::Atom(Atom("reply".to_string()).into()) {
                     continue;
                 }
-                let BaseType::Tuple(state_out) = state_out else {
-                    continue;
-                };
-                let [state_out, _] = state_out.as_slice() else {
-                    continue;
-                };
                 let BaseType::Atom(state_out) = state_out else {
                     continue;
                 };
@@ -293,25 +231,13 @@ fn mspec_handle_extractor(
             map.0.insert(
                 MSpec {
                     state_in: state_in.clone(),
-                    state_out: Atom("session_end".to_string()).into(),
+                    state_out: state_out.clone(),
                     val_in: recv.clone(),
                     val_out: send.clone(),
                 },
                 false,
             );
             mspec_handle_extractor(map, rec_states, state_out, remainder)
-        }
-        [SessionType::Receive(recv), SessionType::End] => {
-            map.0.insert(
-                MSpec {
-                    state_in: state_in.clone(),
-                    state_out: Atom("session_end".to_string()).into(),
-                    val_in: recv.clone(),
-                    val_out: BaseType::Atom(Atom("received".to_string()).into()), // TODO: Should implicit
-                                                                                  // value here be explicit?
-                },
-                false,
-            );
         }
         [SessionType::Receive(recv), SessionType::Send(send), SessionType::Var(var)] => {
             map.0.insert(

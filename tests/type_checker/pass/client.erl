@@ -35,6 +35,7 @@ negation(ServerPid,V1) ->
     % Updated is:
     Res = gen_server_plus:call(ServerPid,SessionID,V1),
     io:format("Client sent integer and got response: ~w~n", [Res]),
+    gen_server_plus:end(ServerPid, SessionID),
     Res.
 
 -spec addition(new(),integer(),integer()) -> integer().
@@ -54,4 +55,5 @@ addition(ServerPid,V1, V2) ->
     _ = gen_server_plus:call(ServerPid,SessionID,V1),
     Res = gen_server_plus:call(ServerPid,SessionID,V2),
     io:format("Client sent two integers and got response: ~w~n", [Res]),
+    gen_server_plus:end(ServerPid, SessionID),
     Res.

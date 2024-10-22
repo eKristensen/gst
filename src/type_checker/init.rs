@@ -29,7 +29,6 @@ pub fn init_env(
             CPat::Var(var) => var,
             CPat::Tuple(t) => {
                 // Try to bind sub elements
-                println!("sub bind: {:?} {:?}", t, elm_ctype);
                 // Interesting case:
                 // sub bind: [Lit(Atom(Atom("add_1"))), Var(Var("V1"))] Base(Tuple([Atom(Atom("add_1")), Integer]))
                 pat_init_envs(envs, t, elm_ctype);

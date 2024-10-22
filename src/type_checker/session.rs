@@ -214,6 +214,9 @@ pub fn diff_consumed(before_envs: &TypeEnvs, after_envs: &TypeEnvs) -> Result<()
                     if *check_consumed.0.first().unwrap() == SessionType::End {
                         continue;
                     }
+                    if *check_consumed.0.first().unwrap() == SessionType::Cut {
+                        continue;
+                    }
                     return Err(format!(
                         "{:?} Not consumed #1 {:?}",
                         check_var, check_consumed

@@ -13,8 +13,9 @@ use crate::{
 };
 
 use super::{
-    ast::{SessionSpecDef, SessionSpecs},
+    ast::{SessionSpecDef, SessionSpecElm, SessionSpecs},
     parser::{st_inner, st_parse},
+    wellformed::wellformed,
 };
 
 pub fn mspec_extractor(ast: &cerl_parser::ast::Module) -> Result<Option<SessionTypesList>, String> {
@@ -39,7 +40,10 @@ pub fn mspec_extractor(ast: &cerl_parser::ast::Module) -> Result<Option<SessionT
 
             // Convert encoded string to string. Move out to common part.
             match st_inner(st_string.as_str()) {
-                Ok(("", mspec)) => return Ok(Some(mspec)),
+                Ok(("", mspec)) => {
+                    wellformed(true, false, &mspec)?;
+                    return Ok(Some(mspec));
+                }
                 Ok((extra, _)) => {
                     return Err(format!("Unexpected extra junk in session type: {}", extra))
                 }
@@ -65,6 +69,15 @@ pub fn session_spec_extractor(ast: &cerl_parser::ast::Module) -> Result<SessionS
                             &fun_name
                         ));
                     } else {
+                        for st in &session_specs.0 {
+                            for elm in &st.0 {
+                                match elm {
+                                    SessionSpecElm::BasePlaceholder => continue,
+                                    SessionSpecElm::NewSpec(st) => wellformed(false, false, st)?,
+                                    SessionSpecElm::ConsumeSpec(st) => wellformed(false, true, st)?,
+                                }
+                            }
+                        }
                         session_spec_def.0.insert(fun_name.clone(), session_specs);
                     }
                 }
