@@ -154,10 +154,10 @@ fn e_app_contract(
                 }
             }
             (CType::New(t1), CType::New(t2)) => {
-                if !is_st_subtype(t1, &t2) {
-                    return Err("Partial session equality relation failed".to_string());
+                if *t1 != t2 {
+                    return Err("Cannot compare server session types. No subtype relation yet, new() type must be the same.".to_string());
                 }
-            } // Subtype check
+            }
             (CType::Consume(to_consume), CType::Consume(source_session)) => {
                 // do the consume
                 let updated_source_session =
@@ -194,6 +194,7 @@ fn is_st_subtype_aux(
     t1: &SessionTypesList,
     t2: &SessionTypesList,
 ) -> bool {
+    panic!("No subtyping yet!");
     // TODO: Unfold and memory...
     if seen_pairs.contains(&(t1.clone(), t2.clone())) {
         return true;
@@ -270,7 +271,7 @@ fn st_consume_aux(
         // consume? Right now both are allowed in this type checker...
         (_, []) => Ok(SessionTypesList(current_session.to_vec())),
         (_, [SessionType::Cut]) => Ok(SessionTypesList(current_session.to_vec())),
-        ([SessionType::End], [SessionType::End]) => Ok(SessionTypesList(vec![SessionType::End])),
+        ([SessionType::End], [SessionType::End]) => Ok(SessionTypesList(vec![])),
         ([SessionType::Choice(ct1, cur_choices)], [SessionType::Choice(ct2, consume_choices)])
             if ct1 == ct2 && *ct1 == ChoiceType::Make =>
         {

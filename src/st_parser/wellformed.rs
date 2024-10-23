@@ -5,6 +5,9 @@ use crate::{
     contract_cerl::types::{SessionType, SessionTypesList},
 };
 
+// TODO: Consider warning or requirment: Sessiontypes without end can never finish. At least warn
+// if session type does not contain any "end".
+
 // TODO: Wellformed add negative tests that ensure the well-formed function is captable of catching
 // the types of wellformedness that is targeted. They should be negativ tests that can detect type
 // of error precisely.

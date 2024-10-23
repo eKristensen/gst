@@ -26,10 +26,10 @@ module 'client' ['addition'/3,
 		'spec' =
 		    %% Line 22
 		    [{{'negation',2},[{'type',{22,15},'fun',[{'type',{22,15},'product',[{'user_type',{22,16},'new',[]}|[{'type',{22,22},'integer',[]}]]}|[{'type',{22,36},'integer',[]}]]}]}],
-		%% Line 40
+		%% Line 41
 		'spec' =
-		    %% Line 40
-		    [{{'addition',3},[{'type',{40,15},'fun',[{'type',{40,15},'product',[{'user_type',{40,16},'new',[]}|[{'type',{40,22},'integer',[]}|[{'type',{40,32},'integer',[]}]]]}|[{'type',{40,46},'integer',[]}]]}]}]]
+		    %% Line 41
+		    [{{'addition',3},[{'type',{41,15},'fun',[{'type',{41,15},'product',[{'user_type',{41,16},'new',[]}|[{'type',{41,22},'integer',[]}|[{'type',{41,32},'integer',[]}]]]}|[{'type',{41,46},'integer',[]}]]}]}]]
 'negation'/2 =
     %% Line 23
     ( fun (_0,_1) ->
@@ -63,50 +63,56 @@ module 'client' ['addition'/3,
 			      in  do  %% Line 37
 				      call 'io':'format'
 					  ([67|[108|[105|[101|[110|[116|[32|[115|[101|[110|[116|[32|[105|[110|[116|[101|[103|[101|[114|[32|[97|[110|[100|[32|[103|[111|[116|[32|[114|[101|[115|[112|[111|[110|[115|[101|[58|[32|[126|[119|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]], [Res|[]])
-				      %% Line 38
-				      Res
+				      do  %% Line 38
+					  call 'gen_server_plus':'close'
+					      (_0, SessionID)
+					  %% Line 39
+					  Res
       -| [{'function',{'negation',2}}] )
 'addition'/3 =
-    %% Line 41
+    %% Line 42
     ( fun (_0,_1,_2) ->
-	  do  %% Line 42
+	  do  %% Line 43
 	      call 'io':'format'
 		  ([68|[69|[66|[85|[71|[58|[32|[83|[116|[97|[114|[116|[101|[100|[32|[110|[101|[103|[126|[110]]]]]]]]]]]]]]]]]]]])
 	      let <SessionID> =
-		  call %% Line 44
-		       'gen_server_plus':%% Line 44
+		  call %% Line 45
+		       'gen_server_plus':%% Line 45
 					 'new'
 		      (_0)
-	      in  do  %% Line 45
+	      in  do  %% Line 46
 		      call 'io':'format'
 			  ([68|[69|[66|[85|[71|[58|[32|[67|[108|[105|[101|[110|[116|[32|[115|[116|[97|[114|[116|[101|[100|[32|[115|[101|[115|[115|[105|[111|[110|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
-		      do  %% Line 46
+		      do  %% Line 47
 			  ( call ( 'gen_server_plus'
 				   -| ['result_not_wanted'] ):( 'call'
 								-| ['result_not_wanted'] )
 				(_0, SessionID, ( 'add'
 						  -| ['result_not_wanted'] ))
 			    -| ['result_not_wanted'] )
-			  do  %% Line 47
+			  do  %% Line 48
 			      call 'io':'format'
 				  ([68|[69|[66|[85|[71|[58|[32|[67|[108|[105|[101|[110|[116|[32|[99|[104|[111|[115|[101|[32|[97|[100|[100|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]])
-			      do  %% Line 54
+			      do  %% Line 55
 				  ( call ( 'gen_server_plus'
 					   -| ['result_not_wanted'] ):( 'call'
 									-| ['result_not_wanted'] )
 					(_0, SessionID, _1)
 				    -| ['result_not_wanted'] )
 				  let <Res> =
-				      call %% Line 55
-					   'gen_server_plus':%% Line 55
+				      call %% Line 56
+					   'gen_server_plus':%% Line 56
 							     'call'
-					  (_0, %% Line 55
+					  (_0, %% Line 56
 					       SessionID, _2)
-				  in  do  %% Line 56
+				  in  do  %% Line 57
 					  call 'io':'format'
 					      ([67|[108|[105|[101|[110|[116|[32|[115|[101|[110|[116|[32|[116|[119|[111|[32|[105|[110|[116|[101|[103|[101|[114|[115|[32|[97|[110|[100|[32|[103|[111|[116|[32|[114|[101|[115|[112|[111|[110|[115|[101|[58|[32|[126|[119|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]], [Res|[]])
-					  %% Line 57
-					  Res
+					  do  %% Line 58
+					      call 'gen_server_plus':'close'
+						  (_0, SessionID)
+					      %% Line 59
+					      Res
       -| [{'function',{'addition',3}}] )
 'module_info'/0 =
     ( fun () ->

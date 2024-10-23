@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    cerl_parser::ast::{Lit, Var},
+    cerl_parser::ast::{Atom, Lit, Var},
     contract_cerl::{
         ast::{CClause, CExpr, CModule, CPat, CType},
         types::{BaseType, ChoiceType, Label, SessionType, SessionTypesList},
@@ -127,6 +127,43 @@ pub fn gsp_sync_send(
     // If it is not a base-value we assume it is select
 }
 
+// Gen Server Plus close session (end)
+pub fn gsp_close(
+    module: &CModule,
+    envs: &mut TypeEnvs,
+    session_id: &CExpr,
+) -> Result<CType, String> {
+    // Get current session
+    let CExpr::Var(session_var) = session_id else {
+        return Err(
+            "e_call gsp_close Session variable name must be used, not expression".to_string(),
+        );
+    };
+    let CType::Consume(session_type) =
+        (match expr(module, &mut TypeEnvs(envs.0.clone()), session_id) {
+            Ok(ok_val) => ok_val,
+            Err(err_val) => return Err(format!("e_call gsp_close failed because of {}", err_val)),
+        })
+    else {
+        return Err("e_call gsp_close second argument must be session type".to_string());
+    };
+
+    if let [SessionType::End] = session_type.0.as_slice() {
+        envs.0.insert(
+            session_var.clone(),
+            TypeEnv::Delta(SessionTypesList(vec![])),
+        );
+        Ok(CType::Base(BaseType::Atom(
+            Atom("received".to_string()).into(),
+        )))
+    } else {
+        Err(format!(
+            "e_call gsp_close requires session to be ready to be closed. Found {:?}",
+            session_type
+        ))
+    }
+}
+
 // Session type branching
 pub fn e_case_offer(
     module: &CModule,
@@ -211,9 +248,6 @@ pub fn diff_consumed(before_envs: &TypeEnvs, after_envs: &TypeEnvs) -> Result<()
                     continue;
                 }
                 if check_consumed.0.len() == 1 {
-                    if *check_consumed.0.first().unwrap() == SessionType::End {
-                        continue;
-                    }
                     if *check_consumed.0.first().unwrap() == SessionType::Cut {
                         continue;
                     }

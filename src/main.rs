@@ -52,7 +52,6 @@ fn main() -> Result<()> {
     match std::fs::read_to_string(filename) {
         Ok(src) => {
             let contract = parse(filename, &src)?;
-            println!("Contract core erlang debug text: {:?}", contract);
             if !contract.warnings.is_empty() {
                 println!("\nCore Erlang Contract created with the following warnings:");
                 for elm in contract.warnings {

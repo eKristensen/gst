@@ -48,7 +48,7 @@ pub enum SessionType {
     // Why list? Easier to work with in Rust to avoid Boxing.
     Choice(ChoiceType, BTreeMap<Label, SessionTypesList>),
     State(Rc<Atom>), // for mspec to support gen server plus as a state machine.
-    End,             // End is never consumed
+    End,             // End to close session
     Cut,             // For consume, stop consuming here, "cut" session type here
     Var(Rc<Var>),    // Recursion variable binder
     Rec(Rc<Var>),    // Recursion

@@ -26,10 +26,10 @@ module 'fun-to-fun-4' ['bar'/3,
 		'spec' =
 		    %% Line 20
 		    [{{'foo',1},[{'type',{20,10},'fun',[{'type',{20,10},'product',[{'user_type',{20,11},'new',[]}]}|[{'type',{20,21},'integer',[]}]]}]}],
-		%% Line 26
+		%% Line 28
 		'spec' =
-		    %% Line 26
-		    [{{'bar',3},[{'type',{26,10},'fun',[{'type',{26,10},'product',[{'user_type',{26,11},'new',[]}|[{'user_type',{26,17},'consume',[]}|[{'type',{26,27},'integer',[]}]]]}|[{'type',{26,41},'integer',[]}]]}]}]]
+		    %% Line 28
+		    [{{'bar',3},[{'type',{28,10},'fun',[{'type',{28,10},'product',[{'user_type',{28,11},'new',[]}|[{'user_type',{28,17},'consume',[]}|[{'type',{28,27},'integer',[]}]]]}|[{'type',{28,41},'integer',[]}]]}]}]]
 'foo'/1 =
     %% Line 21
     ( fun (_0) ->
@@ -43,15 +43,25 @@ module 'fun-to-fun-4' ['bar'/3,
 		  apply 'bar'/3
 		      (( _0
 			 -| [{'function',{'foo',1}}] ), SessionID, 42)
-		  %% Line 24
-		  call 'gen_server_plus':'call'
-		      (( _0
-			 -| [{'function',{'foo',1}}] ), SessionID, 45)
+		  let <Res> =
+		      call %% Line 24
+			   'gen_server_plus':%% Line 24
+					     'call'
+			  (( _0
+			     -| [{'function',{'foo',1}}] ), %% Line 24
+							    SessionID, %% Line 24
+								       45)
+		  in  do  %% Line 25
+			  call 'gen_server_plus':'close'
+			      (( _0
+				 -| [{'function',{'foo',1}}] ), SessionID)
+			  %% Line 26
+			  Res
       -| [{'function',{'foo',1}}] )
 'bar'/3 =
-    %% Line 27
+    %% Line 29
     ( fun (_0,_1,_2) ->
-	  %% Line 28
+	  %% Line 30
 	  call 'gen_server_plus':'call'
 	      (_0, _1, _2)
       -| [{'function',{'bar',3}}] )

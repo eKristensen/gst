@@ -8,7 +8,7 @@ use crate::{
     },
     type_checker::{
         fun::bif_fun,
-        session::{gsp_new, gsp_sync_send},
+        session::{gsp_close, gsp_new, gsp_sync_send},
     },
 };
 
@@ -125,6 +125,10 @@ fn e_call(
         ("gen_server_plus", "call", [_, session_id, sending_expr], None) => {
             println!("TODO: First and second argument are not checked right now. Should they?");
             gsp_sync_send(module, envs, session_id, sending_expr)
+        }
+        ("gen_server_plus", "close", [_, session_id], None) => {
+            println!("TODO: First argument is not checked right now. Should it?");
+            gsp_close(module, envs, session_id)
         }
         (call_module, call_name, args, None) => bif_fun(module, envs, call_module, call_name, args),
         (_, _, args, Some(fun_clauses)) => e_app(module, envs, args, fun_clauses),

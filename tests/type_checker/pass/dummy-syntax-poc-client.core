@@ -50,8 +50,14 @@ module 'dummy-syntax-poc-client' ['module_info'/0,
 			      in  do  %% Line 45
 				      call 'io':'format'
 					  ([67|[108|[105|[101|[110|[116|[32|[115|[101|[110|[116|[32|[105|[110|[116|[101|[103|[101|[114|[32|[97|[110|[100|[32|[103|[111|[116|[32|[114|[101|[115|[112|[111|[110|[115|[101|[58|[32|[126|[119|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]], [Res|[]])
-				      %% Line 46
-				      Res
+				      do  %% Line 46
+					  call 'gen_server_plus':'close'
+					      (_0, SessionID)
+					  do  %% Line 47
+					      call 'gen_server_plus':'close'
+						  (_0, _1)
+					      %% Line 48
+					      Res
       -| [{'function',{'negation',3}}] )
 'module_info'/0 =
     ( fun () ->
