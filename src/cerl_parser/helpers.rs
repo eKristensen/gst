@@ -11,7 +11,10 @@ use nom::{
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
-use super::{ast::Anno, constants::constant};
+use super::{
+    ast::{Anno, Loc},
+    constants::constant,
+};
 
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#-ceol-style-comments
 // Comment
@@ -55,7 +58,7 @@ where
 // WSA OK (if inner WSA OK)
 pub fn opt_annotation<'a, F, O>(
     inner: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, (O, Rc<Anno>), ErrorTree<&str>>
+) -> impl FnMut(&'a str) -> IResult<(&'a str, Loc), (O, Rc<Anno>), ErrorTree<&str>>
 where
     F: Parser<&'a str, O, ErrorTree<&'a str>> + Clone,
 {

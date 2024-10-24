@@ -8,35 +8,54 @@ use std::{
 // AST is based on: https://github.com/erlang/otp/blob/master/lib/compiler/src/core_parse.yrl
 // The goal is to parse core erlang as close as possible to the reference implementation.
 
+// Generic line column location
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct Loc {
+    pub line: usize,
+    pub column: usize,
+}
+
+// Core erlang specific to keep hints to original erl file.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct CLoc {
+    pub comment: Option<usize>, // Line number in comment inserted by erlc. Refers to original Erlang file.
+    pub start: Loc,
+    pub end: Loc,
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Anno(pub Option<Vec<Const>>);
+pub struct Anno(pub Option<(CLoc, Vec<Const>)>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoAtom {
+    pub loc: CLoc,
     pub anno: Rc<Anno>,
     pub name: Rc<Atom>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Atom(pub String);
+pub struct Atom(pub CLoc, pub String);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoVar {
+    pub loc: CLoc,
     pub anno: Rc<Anno>,
     pub name: Rc<Var>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Var(pub String);
+pub struct Var(pub CLoc, pub String);
 
 #[derive(Debug, Clone)]
 pub struct AnnoModule {
+    pub loc: CLoc,
     pub anno: Rc<Anno>,
     pub inner: Module,
 }
 
 #[derive(Debug, Clone)]
 pub struct Module {
+    pub loc: CLoc,
     pub name: Rc<Atom>,
     pub exports: Vec<AnnoFunName>,
     pub attributes: Vec<Attribute>,
@@ -45,6 +64,7 @@ pub struct Module {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Attribute {
+    pub loc: CLoc,
     pub name: Rc<AnnoAtom>,
     pub value: Rc<AnnoLit>,
 }
@@ -58,36 +78,42 @@ pub enum CallModule {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoFunName {
+    pub loc: CLoc,
     pub anno: Rc<Anno>,
     pub inner: Rc<FunName>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FunName {
+    pub loc: CLoc,
     pub name: Rc<Atom>, // Function name atom cannot be annotated.
     pub arity: usize,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoFun {
+    pub loc: CLoc,
     pub anno: Rc<Anno>,
     pub fun: Rc<Fun>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Fun {
+    pub loc: CLoc,
     pub vars: Vec<AnnoVar>,
     pub body: Rc<AnnoExpr>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct FunDef {
+    pub loc: CLoc,
     pub name: Rc<AnnoFunName>,
     pub body: Rc<AnnoFun>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct Float {
+    pub loc: CLoc,
     // Note: Why not store as float? Because floats do not implement Hash in Rust.
     //       Furthermore, this format is non-destructive - It represents exactly
     //       what the source code does.
@@ -98,20 +124,21 @@ pub struct Float {
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct AnnoLit {
+    pub loc: CLoc,
     pub anno: Rc<Anno>,
     pub inner: Rc<Lit>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub enum Lit {
-    Int(i64),
-    Float(Rc<Float>),
-    Atom(Rc<Atom>),
-    Char(char),
-    Cons(Vec<Lit>),
-    Tuple(Vec<Lit>),
-    String(String),
-    Nil,
+    Int(CLoc, i64),
+    Float(CLoc, Rc<Float>),
+    Atom(CLoc, Rc<Atom>),
+    Char(CLoc, char),
+    Cons(CLoc, Vec<Lit>),
+    Tuple(CLoc, Vec<Lit>),
+    String(CLoc, String),
+    Nil(CLoc),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -125,12 +152,14 @@ pub enum MapPairType {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoMapPair {
+    pub loc: CLoc,
     pub anno: Rc<Anno>,
     pub inner: MapPair,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MapPair {
+    pub loc: CLoc,
     pub op: MapPairType,
     pub key: AnnoExpr,
     pub value: AnnoExpr,
@@ -138,47 +167,50 @@ pub struct MapPair {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoExpr {
+    pub loc: CLoc,
     pub anno: Rc<Anno>,
     pub inner: Rc<Expr>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Expr {
-    Exprs(Vec<AnnoExpr>), // When expressions are in a "< e >" brackets
-    Var(Rc<Var>),
-    Fname(Rc<FunName>),
-    AtomLit(Rc<Lit>),
-    FunLit(Rc<FunLit>),
-    Fun(Rc<Fun>),
-    Cons(Vec<AnnoExpr>),
-    Tuple(Vec<AnnoExpr>),
-    Let(Vec<AnnoVar>, Rc<AnnoExpr>, Rc<AnnoExpr>), // Note: Let vars
-    Case(Rc<AnnoExpr>, Vec<AnnoClause>),
-    LetRec(Vec<FunDef>, Rc<AnnoExpr>),
-    Call(CallModule, Rc<AnnoExpr>, Vec<AnnoExpr>), // Merge call, apply and primop to avoid duplication
-    Receive(Rc<Receive>),
-    Try(Rc<Try>),
-    Do(Rc<AnnoExpr>, Rc<AnnoExpr>), // Sequence
-    Catch(Rc<AnnoExpr>),
-    Map(MapExpr), // TODO: More transparent way to allow "update" from map or variable that contains a map
-                  // Ready for extensions: Binary, Segments
+    Exprs(CLoc, Vec<AnnoExpr>), // When expressions are in a "< e >" brackets
+    Var(CLoc, Rc<Var>),
+    Fname(CLoc, Rc<FunName>),
+    AtomLit(CLoc, Rc<Lit>),
+    FunLit(CLoc, Rc<FunLit>),
+    Fun(CLoc, Rc<Fun>),
+    Cons(CLoc, Vec<AnnoExpr>),
+    Tuple(CLoc, Vec<AnnoExpr>),
+    Let(CLoc, Vec<AnnoVar>, Rc<AnnoExpr>, Rc<AnnoExpr>), // Note: Let vars
+    Case(CLoc, Rc<AnnoExpr>, Vec<AnnoClause>),
+    LetRec(CLoc, Vec<FunDef>, Rc<AnnoExpr>),
+    Call(CLoc, CallModule, Rc<AnnoExpr>, Vec<AnnoExpr>), // Merge call, apply and primop to avoid duplication
+    Receive(CLoc, Rc<Receive>),
+    Try(CLoc, Rc<Try>),
+    Do(CLoc, Rc<AnnoExpr>, Rc<AnnoExpr>), // Sequence
+    Catch(CLoc, Rc<AnnoExpr>),
+    Map(CLoc, MapExpr), // TODO: More transparent way to allow "update" from map or variable that contains a map
+                        // Ready for extensions: Binary, Segments
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum MapExpr {
-    OnlyPairs(Vec<AnnoMapPair>),
-    MapVar(Vec<AnnoMapPair>, Rc<AnnoVar>),
-    AnnoMap(Vec<AnnoMapPair>, Rc<AnnoMap>),
+    OnlyPairs(CLoc, Vec<AnnoMapPair>),
+    MapVar(CLoc, Vec<AnnoMapPair>, Rc<AnnoVar>),
+    AnnoMap(CLoc, Vec<AnnoMapPair>, Rc<AnnoMap>),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoMap {
+    pub loc: CLoc,
     pub anno: Rc<Anno>,
     pub inner: MapExpr,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Try {
+    pub loc: CLoc,
     pub arg: AnnoExpr,
     pub vars: Vec<AnnoVar>,
     pub body: AnnoExpr,
@@ -188,30 +220,35 @@ pub struct Try {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Receive {
+    pub loc: CLoc,
     pub clauses: Vec<AnnoClause>,
     pub timeout: Timeout,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Timeout {
+    pub loc: CLoc,
     pub guard: AnnoExpr,
     pub action: AnnoExpr,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FunLit {
+    pub loc: CLoc,
     pub module: Rc<Atom>,
     pub fname: Rc<FunName>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct AnnoClause {
+    pub loc: CLoc,
     pub anno: Rc<Anno>,
     pub inner: Rc<Clause>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct Clause {
+    pub loc: CLoc,
     pub pats: Vec<AnnoPat>,
     pub when: Rc<AnnoExpr>,
     pub res: Rc<AnnoExpr>,
@@ -219,17 +256,18 @@ pub struct Clause {
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct AnnoPat {
+    pub loc: CLoc,
     pub anno: Rc<Anno>,
     pub inner: Rc<Pat>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub enum Pat {
-    Var(Rc<AnnoVar>),
-    Lit(Rc<Lit>),
-    Cons(Vec<AnnoPat>),
-    Tuple(Vec<AnnoPat>),
-    Alias(Rc<AnnoVar>, Rc<AnnoPat>),
+    Var(CLoc, Rc<AnnoVar>),
+    Lit(CLoc, Rc<Lit>),
+    Cons(CLoc, Vec<AnnoPat>),
+    Tuple(CLoc, Vec<AnnoPat>),
+    Alias(CLoc, Rc<AnnoVar>, Rc<AnnoPat>),
     // Ready for extension: Maps, Segments, Binary
 }
 
@@ -247,7 +285,7 @@ struct AnnoClauseList<'a>(&'a Vec<AnnoClause>);
 
 fn anno_fmt(f: &mut Formatter, anno: &Anno, inner: &impl Display) -> Result {
     match &anno {
-        Anno(Some(anno)) => write!(f, "( '{}' -| {} )", inner, ConstList(anno)),
+        Anno(Some((_, anno))) => write!(f, "( '{}' -| {} )", inner, ConstList(anno)),
         _ => inner.fmt(f),
     }
 }
@@ -373,14 +411,14 @@ impl Display for AnnoLit {
 impl Display for Lit {
     fn fmt(&self, f: &mut Formatter) -> Result {
         match self {
-            Lit::Int(i) => i.fmt(f),
-            Lit::Float(x) => x.fmt(f),
-            Lit::Atom(a) => a.fmt(f),
-            Lit::Char(c) => c.fmt(f),
-            Lit::String(s) => s.fmt(f),
-            Lit::Nil => write!(f, "[]"),
-            Lit::Cons(cons) => square_list(f, cons),
-            Lit::Tuple(tuple) => curly_list(f, tuple),
+            Lit::Int(_, i) => i.fmt(f),
+            Lit::Float(_, x) => x.fmt(f),
+            Lit::Atom(_, a) => a.fmt(f),
+            Lit::Char(_, c) => c.fmt(f),
+            Lit::String(_, s) => s.fmt(f),
+            Lit::Nil(_) => write!(f, "[]"),
+            Lit::Cons(_, cons) => square_list(f, cons),
+            Lit::Tuple(_, tuple) => curly_list(f, tuple),
         }
     }
 }
@@ -406,7 +444,7 @@ impl Display for FunName {
 
 impl Display for Atom {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "'{}'", self.0)
+        write!(f, "'{}'", self.1)
     }
 }
 
@@ -418,7 +456,7 @@ impl Display for AnnoVar {
 
 impl Display for Var {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        self.0.fmt(f)
+        self.1.fmt(f)
     }
 }
 
@@ -474,27 +512,27 @@ impl Display for AnnoExpr {
 impl Display for Expr {
     fn fmt(&self, f: &mut Formatter) -> Result {
         match &self {
-            Expr::Exprs(exprs) => angle_list(f, exprs),
-            Expr::Var(v) => v.fmt(f),
-            Expr::Fname(fname) => fname.fmt(f),
-            Expr::AtomLit(l) => l.fmt(f),
-            Expr::FunLit(flit) => flit.fmt(f),
-            Expr::Fun(fexpr) => (*fexpr).fmt(f),
-            Expr::Cons(cons) => square_list(f, cons),
-            Expr::Tuple(tuple) => curly_list(f, tuple),
-            Expr::Let(vars, e1, e2) => write!(f, "let {} = {} in {}", LetVars(vars), e1, e2),
-            Expr::Case(arg, clauses) => {
+            Expr::Exprs(_, exprs) => angle_list(f, exprs),
+            Expr::Var(_, v) => v.fmt(f),
+            Expr::Fname(_, fname) => fname.fmt(f),
+            Expr::AtomLit(_, l) => l.fmt(f),
+            Expr::FunLit(_, flit) => flit.fmt(f),
+            Expr::Fun(_, fexpr) => (*fexpr).fmt(f),
+            Expr::Cons(_, cons) => square_list(f, cons),
+            Expr::Tuple(_, tuple) => curly_list(f, tuple),
+            Expr::Let(_, vars, e1, e2) => write!(f, "let {} = {} in {}", LetVars(vars), e1, e2),
+            Expr::Case(_, arg, clauses) => {
                 write!(f, "case {} of {} end", *arg, AnnoClauseList(clauses))
             }
-            Expr::LetRec(defs, body) => write!(f, "letrec {} in {}", DefList(defs), *body),
-            Expr::Call(module, call, args) => {
+            Expr::LetRec(_, defs, body) => write!(f, "letrec {} in {}", DefList(defs), *body),
+            Expr::Call(_, module, call, args) => {
                 write!(f, "{}{} {}", module, *call, AnnoExprList(args))
             } // Merge call, apply and primop to avoid duplication
-            Expr::Receive(receive) => (*receive).fmt(f),
-            Expr::Try(t) => (*t).fmt(f),
-            Expr::Do(e1, e2) => write!(f, "do {} {}", *e1, *e2),
-            Expr::Catch(e) => write!(f, "catch {}", *e),
-            Expr::Map(m) => m.fmt(f),
+            Expr::Receive(_, receive) => (*receive).fmt(f),
+            Expr::Try(_, t) => (*t).fmt(f),
+            Expr::Do(_, e1, e2) => write!(f, "do {} {}", *e1, *e2),
+            Expr::Catch(_, e) => write!(f, "catch {}", *e),
+            Expr::Map(_, m) => m.fmt(f),
         }
     }
 }
@@ -574,14 +612,14 @@ impl Display for MapExpr {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "~{{")?;
         match &self {
-            MapExpr::OnlyPairs(map_pairs) => {
+            MapExpr::OnlyPairs(_, map_pairs) => {
                 comma_sep(f, map_pairs)?;
             }
-            MapExpr::MapVar(map_pairs, var) => {
+            MapExpr::MapVar(_, map_pairs, var) => {
                 comma_sep(f, map_pairs)?;
                 write!(f, "|{}", var)?;
             }
-            MapExpr::AnnoMap(map_pairs, anno_map_expr) => {
+            MapExpr::AnnoMap(_, map_pairs, anno_map_expr) => {
                 comma_sep(f, map_pairs)?;
                 write!(f, "|{}", anno_map_expr)?;
             }
@@ -620,11 +658,11 @@ impl Display for AnnoPat {
 impl Display for Pat {
     fn fmt(&self, f: &mut Formatter) -> Result {
         match &self {
-            Pat::Var(v) => v.fmt(f),
-            Pat::Lit(l) => l.fmt(f),
-            Pat::Cons(cons) => square_list(f, cons),
-            Pat::Tuple(tuple) => curly_list(f, tuple),
-            Pat::Alias(var, pat) => write!(f, "{} = {}", var, pat),
+            Pat::Var(_, v) => v.fmt(f),
+            Pat::Lit(_, l) => l.fmt(f),
+            Pat::Cons(_, cons) => square_list(f, cons),
+            Pat::Tuple(_, tuple) => curly_list(f, tuple),
+            Pat::Alias(_, var, pat) => write!(f, "{} = {}", var, pat),
         }
     }
 }
