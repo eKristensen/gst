@@ -12,7 +12,7 @@ use nom::{
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
-    ast::{Anno, Loc},
+    ast::{Anno, CLoc, Loc},
     constants::constant,
 };
 
@@ -45,7 +45,7 @@ where
             wsa(tag("-|")),
             delimited(
                 wsa(tag("[")),
-                separated_list0(wsa(tag(",")), constant),
+                separated_list0(wsa(tag(",")), loc(constant)),
                 wsa(tag("]")),
             ),
             wsa(tag(")")),
@@ -58,7 +58,7 @@ where
 // WSA OK (if inner WSA OK)
 pub fn opt_annotation<'a, F, O>(
     inner: F,
-) -> impl FnMut(&'a str) -> IResult<(&'a str, Loc), (O, Rc<Anno>), ErrorTree<&str>>
+) -> impl FnMut(&'a str) -> IResult<&'a str, (O, Rc<Anno>), ErrorTree<&str>>
 where
     F: Parser<&'a str, O, ErrorTree<&'a str>> + Clone,
 {
@@ -139,4 +139,27 @@ where
         map(elements.clone(), |single_element| vec![single_element]),
         comma_sep_list("<", ">", elements),
     ))
+}
+
+// General helper for adding basic location information to parsed statements.
+pub fn loc<'a, O, F>(
+    mut inner: F,
+) -> impl FnMut(&'a str) -> IResult<&'a str, (CLoc, O), ErrorTree<&str>>
+where
+    F: Parser<&'a str, O, ErrorTree<&'a str>>,
+{
+    move |i: &'a str| {
+        let start = Loc { pos: i.len() };
+        inner.parse(i).map(|(i, o)| {
+            let end = Loc { pos: i.len() };
+
+            let cloc = CLoc {
+                comment: None,
+                start,
+                end,
+            };
+
+            (i, (cloc, o))
+        })
+    }
 }

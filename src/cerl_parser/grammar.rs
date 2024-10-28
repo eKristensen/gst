@@ -9,37 +9,39 @@ use nom::{
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
-    ast::{AnnoAtom, AnnoFun, AnnoFunName, AnnoLit, AnnoModule, Attribute, FunDef, Loc, Module},
+    ast::{AnnoAtom, AnnoFun, AnnoFunName, AnnoLit, AnnoModule, Attribute, FunDef, Module},
     expressions::{anno_function_name, fun_expr, literal},
-    helpers::{comma_sep_list, opt_annotation, wsa, wsc},
+    helpers::{comma_sep_list, loc, opt_annotation, wsa, wsc},
     tokeniser::atom,
 };
 
 // Top/parser start location
 // WSA OK
-pub fn run_parser(i: &str) -> IResult<(&str, Loc), AnnoModule, ErrorTree<&str>> {
+pub fn run_parser(i: &str) -> IResult<&str, AnnoModule, ErrorTree<&str>> {
     // We need to remove whitespace if any before we can start the parser
     let (i, _) = wsc(i)?;
     // Start the parser with the top-level compoment: optionally annotated module:
-    anno_module_definition((i, Loc { line: 0, column: 0 }))
+    anno_module_definition(i)
 }
 
 // WSA OK
-fn anno_module_definition((i: &str, loc: Loc)) -> IResult<(&str, Loc), AnnoModule, ErrorTree<&str>> {
-    map(opt_annotation(module_definition), |(inner, anno)| {
-        AnnoModule { anno, inner }
-    })((i, loc))
-}
-
-// WSA OK
-fn module_definition((i: &str, loc: Loc)) -> IResult<(&str, Loc), Module, ErrorTree<&str>> {
+fn anno_module_definition(i: &str) -> IResult<&str, AnnoModule, ErrorTree<&str>> {
     map(
-        delimited(
+        loc(opt_annotation(module_definition)),
+        |(loc, (inner, anno))| AnnoModule { loc, anno, inner },
+    )(i)
+}
+
+// WSA OK
+fn module_definition(i: &str) -> IResult<&str, Module, ErrorTree<&str>> {
+    map(
+        loc(delimited(
             wsa(tag("module")),
             tuple((atom, module_export, module_attribute, module_defs)),
             wsa(tag("end")),
-        ),
-        |(name, exports, attributes, defs)| Module {
+        )),
+        |(loc, (name, exports, attributes, defs))| Module {
+            loc,
             name,
             exports,
             attributes,
@@ -60,15 +62,16 @@ fn module_attribute(i: &str) -> IResult<&str, Vec<Attribute>, ErrorTree<&str>> {
 
 // WSA OK
 fn anno_atom(i: &str) -> IResult<&str, Rc<AnnoAtom>, ErrorTree<&str>> {
-    map(opt_annotation(atom), |(name, anno)| {
-        AnnoAtom { anno, name }.into()
+    map(loc(opt_annotation(atom)), |(loc, (name, anno))| {
+        AnnoAtom { loc, anno, name }.into()
     })(i)
 }
 
 // WSA OK
 fn anno_literal(i: &str) -> IResult<&str, Rc<AnnoLit>, ErrorTree<&str>> {
-    map(opt_annotation(literal), |(inner, anno)| {
+    map(loc(opt_annotation(literal)), |(loc, (inner, anno))| {
         AnnoLit {
+            loc,
             anno,
             inner: inner.into(),
         }
@@ -92,8 +95,9 @@ pub fn function_definitions(i: &str) -> IResult<&str, Vec<FunDef>, ErrorTree<&st
 // Do not Rc as FunDef is used in Vec
 fn function_definition(i: &str) -> IResult<&str, FunDef, ErrorTree<&str>> {
     map(
-        tuple((anno_function_name, wsa(tag("=")), anno_fun)),
-        |(name, _, body)| FunDef {
+        loc(tuple((anno_function_name, wsa(tag("=")), anno_fun))),
+        |(loc, (name, _, body))| FunDef {
+            loc,
             name: name.into(),
             body,
         },
@@ -102,16 +106,16 @@ fn function_definition(i: &str) -> IResult<&str, FunDef, ErrorTree<&str>> {
 
 // WSA OK
 fn anno_fun(i: &str) -> IResult<&str, Rc<AnnoFun>, ErrorTree<&str>> {
-    map(opt_annotation(fun_expr), |(fun, anno)| {
-        AnnoFun { anno, fun }.into()
+    map(loc(opt_annotation(fun_expr)), |(loc, (fun, anno))| {
+        AnnoFun { loc, anno, fun }.into()
     })(i)
 }
 
 // WSA OK
 fn attribute(i: &str) -> IResult<&str, Attribute, ErrorTree<&str>> {
     map(
-        tuple((anno_atom, wsa(tag("=")), anno_literal)),
-        |(name, _, value)| Attribute { name, value },
+        loc(tuple((anno_atom, wsa(tag("=")), anno_literal))),
+        |(loc, (name, _, value))| Attribute { loc, name, value },
     )(i)
 }
 

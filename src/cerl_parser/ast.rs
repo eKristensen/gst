@@ -11,8 +11,10 @@ use std::{
 // Generic line column location
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Loc {
-    pub line: usize,
-    pub column: usize,
+    pub pos: usize, // Very simple position to get started
+                    // TODO: Convert to line and column numbers instead
+                    // pub line: usize,
+                    // pub column: usize,
 }
 
 // Core erlang specific to keep hints to original erl file.
@@ -24,7 +26,7 @@ pub struct CLoc {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Anno(pub Option<(CLoc, Vec<Const>)>);
+pub struct Anno(pub Option<Vec<(CLoc, Const)>>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoAtom {
@@ -285,7 +287,10 @@ struct AnnoClauseList<'a>(&'a Vec<AnnoClause>);
 
 fn anno_fmt(f: &mut Formatter, anno: &Anno, inner: &impl Display) -> Result {
     match &anno {
-        Anno(Some((_, anno))) => write!(f, "( '{}' -| {} )", inner, ConstList(anno)),
+        Anno(Some(anno)) => {
+            let anno = anno.iter().map(|anno| anno.1.clone()).collect::<Vec<_>>();
+            write!(f, "( '{}' -| {} )", inner, ConstList(&anno))
+        }
         _ => inner.fmt(f),
     }
 }
