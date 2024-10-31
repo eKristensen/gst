@@ -16,7 +16,7 @@ use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
     ast::{Atom, Float, FunName, Var},
-    helpers::{wsa, wsc},
+    helpers::{loc, wsa, wsc},
 };
 
 #[inline]
@@ -109,20 +109,21 @@ pub fn atom(i: &str) -> IResult<&str, Rc<Atom>, ErrorTree<&str>> {
     // " character, the closing delimiter " would never match. When using
     // `delimited` with a looping parser (like fold), be sure that the
     // loop won't accidentally match your closing delimiter!
-    wsa(map(delimited(char('\''), build_string, char('\'')), |o| {
-        Atom(o.iter().collect()).into()
-    }))(i)
+    wsa(map(
+        loc(delimited(char('\''), build_string, char('\''))),
+        |(l, o)| Atom(l, o.iter().collect()).into(),
+    ))(i)
 }
 
 // WSA OK
 pub fn fname(i: &str) -> IResult<&str, Rc<FunName>, ErrorTree<&str>> {
     map(
-        tuple((
+        loc(tuple((
             atom,
             wsa(tag("/")),
             map_res(wsa(digit1), str::parse::<usize>),
-        )),
-        |(name, _, arity)| (FunName { name, arity }).into(),
+        ))),
+        |(loc, (name, _, arity))| (FunName { loc, name, arity }).into(),
     )(i)
 }
 
@@ -176,12 +177,26 @@ pub fn opt_sign_digit1<
 
 // The build in float function in nom is not enough.
 // WSA OK
-pub fn float<
+
+pub fn float(i: &str) -> IResult<&str, Rc<Float>, ErrorTree<&str>> {
+    map(loc(float_aux), |(loc, (base, decimal, exponent))| {
+        Float {
+            loc,
+            base,
+            decimal,
+            exponent,
+        }
+        .into()
+    })(i)
+}
+
+fn float_aux<
     'a,
     E: ParseError<&'a str> + nom::error::FromExternalError<&'a str, std::num::ParseIntError>,
 >(
     i: &'a str,
-) -> IResult<&str, Rc<Float>, E> {
+) -> IResult<&str, (i64, u64, i64), E> {
+    // TODO: usize and isize instead of u64 and i64
     let (i, (base, _, decimal, exponent)) = tuple((
         opt_sign_digit1,
         char('.'),
@@ -193,15 +208,7 @@ pub fn float<
         None => 1,
     };
     let (i, _) = wsc(i).unwrap(); // Safe since whitespace can never fail.
-    Ok((
-        i,
-        Float {
-            base,
-            decimal,
-            exponent,
-        }
-        .into(),
-    ))
+    Ok((i, (base, decimal, exponent)))
 }
 
 // WSA OK
@@ -290,7 +297,7 @@ fn uppercase(i: &str) -> IResult<&str, char, ErrorTree<&str>> {
 // WSA OK
 pub fn var(i: &str) -> IResult<&str, Rc<Var>, ErrorTree<&str>> {
     wsa(map(
-        pair(
+        loc(pair(
             alt((
                 uppercase,
                 char('_'), // Note: Odd but elc accepts "_" as a valid variable name despite it explicitly being invalid in the core erlang specification
@@ -299,11 +306,11 @@ pub fn var(i: &str) -> IResult<&str, Rc<Var>, ErrorTree<&str>> {
                 string.push(fragment);
                 string
             }),
-        ),
-        |(o1, o2)| {
+        )),
+        |(l, (o1, o2))| {
             let mut var_name = vec![o1];
             var_name.extend(o2);
-            Rc::new(Var(var_name.iter().collect()))
+            Rc::new(Var(l, var_name.iter().collect()))
         },
     ))(i)
 }

@@ -58,7 +58,7 @@ fn make_contract(
             }
             Err(err) => {
                 // TODO: Consider to make a strict mode that requires full annotation
-                if fname.name.0 == "module_info" && (fname.arity == 0 || fname.arity == 1) {
+                if fname.name.1 == "module_info" && (fname.arity == 0 || fname.arity == 1) {
                     // Ignore 'module_info'/0 and 'module_info'/1
                     continue;
                 }
