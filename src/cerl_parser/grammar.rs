@@ -11,7 +11,7 @@ use nom_supreme::{error::ErrorTree, tag::complete::tag};
 use super::{
     ast::{AnnoAtom, AnnoFun, AnnoFunName, AnnoLit, AnnoModule, Attribute, FunDef, Module},
     expressions::{anno_function_name, fun_expr, literal},
-    helpers::{comma_sep_list, loc, opt_annotation, wsa, wsc},
+    helpers::{comma_sep_list, loc, opt_annotation, wsa, wsc, CInput},
     tokeniser::atom,
 };
 
@@ -21,11 +21,11 @@ pub fn run_parser(i: &str) -> IResult<&str, AnnoModule, ErrorTree<&str>> {
     // We need to remove whitespace if any before we can start the parser
     let (i, _) = wsc(i)?;
     // Start the parser with the top-level compoment: optionally annotated module:
-    anno_module_definition(i)
+    anno_module_definition(CInput::new(i))
 }
 
 // WSA OK
-fn anno_module_definition(i: &str) -> IResult<&str, AnnoModule, ErrorTree<&str>> {
+fn anno_module_definition(i: CInput) -> IResult<CInput, AnnoModule, ErrorTree<&str>> {
     map(
         loc(opt_annotation(module_definition)),
         |(loc, (inner, anno))| AnnoModule { loc, anno, inner },
@@ -33,7 +33,7 @@ fn anno_module_definition(i: &str) -> IResult<&str, AnnoModule, ErrorTree<&str>>
 }
 
 // WSA OK
-fn module_definition(i: &str) -> IResult<&str, Module, ErrorTree<&str>> {
+fn module_definition(i: CInput) -> IResult<CInput, Module, ErrorTree<&str>> {
     map(
         loc(delimited(
             wsa(tag("module")),
