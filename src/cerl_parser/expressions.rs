@@ -16,21 +16,21 @@ use super::{
         Try,
     },
     grammar::function_definitions,
-    helpers::{comma_sep_list, cons, loc, opt_angle_bracket, opt_annotation, wsa},
+    helpers::{comma_sep_list, cons, loc, opt_angle_bracket, opt_annotation, wsa, CInput},
     patterns::{anno_pattern, anno_variable},
     tokeniser::{atom, char_char, float, fname, integer, string, var},
 };
 
 // WSA OK
 // Note: Do not wrap in Rc as AnnoExpr is used in Vec
-fn anno_expression(i: &str) -> IResult<&str, AnnoExpr, ErrorTree<&str>> {
+fn anno_expression(i: CInput) -> IResult<CInput, AnnoExpr, ErrorTree<&str>> {
     map(loc(opt_annotation(expression)), |(loc, (inner, anno))| {
         AnnoExpr { loc, anno, inner }
     })(i)
 }
 
 // WSA OK
-fn expression(i: &str) -> IResult<&str, Rc<Expr>, ErrorTree<&str>> {
+fn expression(i: CInput) -> IResult<CInput, Rc<Expr>, ErrorTree<&str>> {
     alt((
         map(
             map(loc(comma_sep_list("<", ">", anno_expression)), |(l, o)| {
@@ -43,7 +43,7 @@ fn expression(i: &str) -> IResult<&str, Rc<Expr>, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn single_expression(i: &str) -> IResult<&str, Rc<Expr>, ErrorTree<&str>> {
+fn single_expression(i: CInput) -> IResult<CInput, Rc<Expr>, ErrorTree<&str>> {
     map(
         alt((
             map(loc(fname), |(l, o)| Expr::Fname(l, o)), // fname must have higher precedence than atomic_literal.
@@ -79,19 +79,19 @@ fn single_expression(i: &str) -> IResult<&str, Rc<Expr>, ErrorTree<&str>> {
 
 // WSA OK
 // Do not Rc as AnnoFunName is used in Vec
-pub fn anno_function_name(i: &str) -> IResult<&str, AnnoFunName, ErrorTree<&str>> {
+pub fn anno_function_name(i: CInput) -> IResult<CInput, AnnoFunName, ErrorTree<&str>> {
     map(loc(opt_annotation(fname)), |(loc, (inner, anno))| {
         AnnoFunName { loc, anno, inner }
     })(i)
 }
 
 // WSA OK
-fn let_vars(i: &str) -> IResult<&str, Vec<AnnoVar>, ErrorTree<&str>> {
+fn let_vars(i: CInput) -> IResult<CInput, Vec<AnnoVar>, ErrorTree<&str>> {
     opt_angle_bracket(anno_variable)(i)
 }
 
 // WSA OK
-fn sequence(i: &str) -> IResult<&str, (Rc<AnnoExpr>, Rc<AnnoExpr>), ErrorTree<&str>> {
+fn sequence(i: CInput) -> IResult<CInput, (Rc<AnnoExpr>, Rc<AnnoExpr>), ErrorTree<&str>> {
     map(
         preceded(wsa(tag("do")), pair(anno_expression, anno_expression)),
         |(o1, o2)| (o1.into(), o2.into()),
@@ -99,7 +99,7 @@ fn sequence(i: &str) -> IResult<&str, (Rc<AnnoExpr>, Rc<AnnoExpr>), ErrorTree<&s
 }
 
 // WSA OK
-pub fn fun_expr(i: &str) -> IResult<&str, Rc<Fun>, ErrorTree<&str>> {
+pub fn fun_expr(i: CInput) -> IResult<CInput, Rc<Fun>, ErrorTree<&str>> {
     map(
         loc(tuple((
             wsa(tag("fun")),
@@ -119,7 +119,7 @@ pub fn fun_expr(i: &str) -> IResult<&str, Rc<Fun>, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn let_expr(i: &str) -> IResult<&str, (Vec<AnnoVar>, AnnoExpr, AnnoExpr), ErrorTree<&str>> {
+fn let_expr(i: CInput) -> IResult<CInput, (Vec<AnnoVar>, AnnoExpr, AnnoExpr), ErrorTree<&str>> {
     map(
         tuple((
             wsa(tag("let")),
@@ -134,7 +134,7 @@ fn let_expr(i: &str) -> IResult<&str, (Vec<AnnoVar>, AnnoExpr, AnnoExpr), ErrorT
 }
 
 // WSA OK
-fn letrec_expr(i: &str) -> IResult<&str, (Vec<FunDef>, AnnoExpr), ErrorTree<&str>> {
+fn letrec_expr(i: CInput) -> IResult<CInput, (Vec<FunDef>, AnnoExpr), ErrorTree<&str>> {
     map(
         tuple((
             wsa(tag("letrec")),
@@ -147,7 +147,7 @@ fn letrec_expr(i: &str) -> IResult<&str, (Vec<FunDef>, AnnoExpr), ErrorTree<&str
 }
 
 // WSA OK
-fn case_expr(i: &str) -> IResult<&str, (AnnoExpr, Vec<AnnoClause>), ErrorTree<&str>> {
+fn case_expr(i: CInput) -> IResult<CInput, (AnnoExpr, Vec<AnnoClause>), ErrorTree<&str>> {
     map(
         delimited(
             wsa(tag("case")),
@@ -160,14 +160,14 @@ fn case_expr(i: &str) -> IResult<&str, (AnnoExpr, Vec<AnnoClause>), ErrorTree<&s
 
 // WSA OK
 // Note: Do not Rc as AnnoClause is used in Vec
-fn anno_clause(i: &str) -> IResult<&str, AnnoClause, ErrorTree<&str>> {
+fn anno_clause(i: CInput) -> IResult<CInput, AnnoClause, ErrorTree<&str>> {
     map(loc(opt_annotation(clause)), |(loc, (inner, anno))| {
         AnnoClause { loc, anno, inner }
     })(i)
 }
 
 // WSA OK
-fn clause(i: &str) -> IResult<&str, Rc<Clause>, ErrorTree<&str>> {
+fn clause(i: CInput) -> IResult<CInput, Rc<Clause>, ErrorTree<&str>> {
     map(
         loc(tuple((
             clause_pattern,
@@ -189,13 +189,13 @@ fn clause(i: &str) -> IResult<&str, Rc<Clause>, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn clause_pattern(i: &str) -> IResult<&str, Vec<AnnoPat>, ErrorTree<&str>> {
+fn clause_pattern(i: CInput) -> IResult<CInput, Vec<AnnoPat>, ErrorTree<&str>> {
     opt_angle_bracket(anno_pattern)(i)
 }
 
 // Merge apply, call and primop as they are very similar.
 // WSA OK
-fn call_expr(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
+fn call_expr(i: CInput) -> IResult<CInput, Expr, ErrorTree<&str>> {
     map(
         loc(pair(
             alt((
@@ -220,7 +220,7 @@ fn call_expr(i: &str) -> IResult<&str, Expr, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn try_expr(i: &str) -> IResult<&str, Rc<Try>, ErrorTree<&str>> {
+fn try_expr(i: CInput) -> IResult<CInput, Rc<Try>, ErrorTree<&str>> {
     map(
         loc(preceded(
             wsa(tag("try")),
@@ -251,12 +251,12 @@ fn try_expr(i: &str) -> IResult<&str, Rc<Try>, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn catch_expr(i: &str) -> IResult<&str, Rc<AnnoExpr>, ErrorTree<&str>> {
+fn catch_expr(i: CInput) -> IResult<CInput, Rc<AnnoExpr>, ErrorTree<&str>> {
     map(preceded(wsa(tag("catch")), anno_expression), |o| o.into())(i)
 }
 
 // WSA OK
-fn receive_expr(i: &str) -> IResult<&str, Receive, ErrorTree<&str>> {
+fn receive_expr(i: CInput) -> IResult<CInput, Receive, ErrorTree<&str>> {
     map(
         loc(preceded(
             wsa(tag("receive")),
@@ -271,7 +271,7 @@ fn receive_expr(i: &str) -> IResult<&str, Receive, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn timeout_expr(i: &str) -> IResult<&str, Timeout, ErrorTree<&str>> {
+fn timeout_expr(i: CInput) -> IResult<CInput, Timeout, ErrorTree<&str>> {
     map(
         loc(preceded(
             wsa(tag("after")),
@@ -283,7 +283,7 @@ fn timeout_expr(i: &str) -> IResult<&str, Timeout, ErrorTree<&str>> {
 
 // WSA OK
 // Note:: Do not Rc as Lit is used in Vec
-pub fn literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
+pub fn literal(i: CInput) -> IResult<CInput, Lit, ErrorTree<&str>> {
     alt((
         atomic_literal,
         map(loc(tuple_literal), |(l, o)| Lit::Tuple(l, o)),
@@ -293,7 +293,7 @@ pub fn literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
 
 // WSA OK
 // Note: Do not Rc as Lit is used in Vec
-pub fn atomic_literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
+pub fn atomic_literal(i: CInput) -> IResult<CInput, Lit, ErrorTree<&str>> {
     alt((
         map(loc(char_char), |(l, o)| Lit::Char(l, o)),
         map(loc(float), |(l, o)| Lit::Float(l, o)),
@@ -307,7 +307,7 @@ pub fn atomic_literal(i: &str) -> IResult<&str, Lit, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn tuple_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
+fn tuple_literal(i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<&str>> {
     comma_sep_list("{", "}", literal)(i)
 }
 
@@ -323,7 +323,7 @@ fn tuple_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
 // the tail.
 // Fold does NOT work. What to iterate over?
 // BUT idea of accumulator is good, add it to tail function!
-fn cons_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
+fn cons_literal(i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<&str>> {
     let mut acc: Vec<Lit> = Vec::new();
     let (i, head) = preceded(wsa(tag("[")), literal)(i)?;
     acc.push(head);
@@ -331,7 +331,7 @@ fn cons_literal(i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
     Ok((i, res))
 }
 
-fn tail_literal(mut acc: Vec<Lit>, i: &str) -> IResult<&str, Vec<Lit>, ErrorTree<&str>> {
+fn tail_literal(mut acc: Vec<Lit>, i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<&str>> {
     if let Ok((i, _)) = wsa(tag("]"))(i) {
         return Ok((i, acc));
     };
@@ -355,7 +355,7 @@ fn tail_literal(mut acc: Vec<Lit>, i: &str) -> IResult<&str, Vec<Lit>, ErrorTree
 }
 
 // WSA OK
-fn fun_literal(i: &str) -> IResult<&str, Rc<FunLit>, ErrorTree<&str>> {
+fn fun_literal(i: CInput) -> IResult<CInput, Rc<FunLit>, ErrorTree<&str>> {
     map(
         loc(tuple((wsa(tag("fun")), atom, wsa(tag(":")), fname))),
         |(loc, (_, module, _, fname))| FunLit { loc, module, fname }.into(),
@@ -363,19 +363,19 @@ fn fun_literal(i: &str) -> IResult<&str, Rc<FunLit>, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn tuple_expression(i: &str) -> IResult<&str, Vec<AnnoExpr>, ErrorTree<&str>> {
+fn tuple_expression(i: CInput) -> IResult<CInput, Vec<AnnoExpr>, ErrorTree<&str>> {
     comma_sep_list("{", "}", anno_expression)(i)
 }
 
 // WSA OK
-fn anno_map_expr(i: &str) -> IResult<&str, AnnoMap, ErrorTree<&str>> {
+fn anno_map_expr(i: CInput) -> IResult<CInput, AnnoMap, ErrorTree<&str>> {
     map(loc(opt_annotation(map_expr)), |(loc, (inner, anno))| {
         AnnoMap { loc, anno, inner }
     })(i)
 }
 
 // WSA OK
-fn map_expr(i: &str) -> IResult<&str, MapExpr, ErrorTree<&str>> {
+fn map_expr(i: CInput) -> IResult<CInput, MapExpr, ErrorTree<&str>> {
     delimited(
         wsa(tag("~")),
         alt((
@@ -410,14 +410,14 @@ fn map_expr(i: &str) -> IResult<&str, MapExpr, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn anno_map_pair(i: &str) -> IResult<&str, AnnoMapPair, ErrorTree<&str>> {
+fn anno_map_pair(i: CInput) -> IResult<CInput, AnnoMapPair, ErrorTree<&str>> {
     map(loc(opt_annotation(map_pair)), |(loc, (inner, anno))| {
         AnnoMapPair { loc, anno, inner }
     })(i)
 }
 
 // WSA OK
-fn map_pair(i: &str) -> IResult<&str, MapPair, ErrorTree<&str>> {
+fn map_pair(i: CInput) -> IResult<CInput, MapPair, ErrorTree<&str>> {
     map(
         loc(tuple((
             anno_expression,
@@ -437,7 +437,7 @@ fn map_pair(i: &str) -> IResult<&str, MapPair, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn cons_expression(i: &str) -> IResult<&str, Vec<AnnoExpr>, ErrorTree<&str>> {
+fn cons_expression(i: CInput) -> IResult<CInput, Vec<AnnoExpr>, ErrorTree<&str>> {
     cons(anno_expression)(i)
 }
 

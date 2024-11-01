@@ -1,13 +1,7 @@
-use std::{collections::BTreeMap, rc::Rc};
+use std::rc::Rc;
 
 use nom::{
-    branch::alt,
-    bytes::complete::take_until,
-    character::complete::multispace0,
-    combinator::{map, value},
-    multi::{many0, separated_list0},
-    sequence::{delimited, pair, tuple},
-    IResult, Parser, AsBytes, CompareResult, Compare, FindSubstring
+    branch::alt, bytes::complete::take_until, character::complete::multispace0, combinator::{map, value}, multi::{many0, separated_list0}, sequence::{delimited, pair, tuple}, AsBytes, Compare, CompareResult, FindSubstring, FindToken, IResult, Parser
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
@@ -24,7 +18,7 @@ pub struct CInput<'a> {
 }
 
 impl<'a> CInput<'a> {
-    pub fn new(input: &str) -> Self {
+    pub fn new(input: &'a str) -> Self {
         let mut line_offsets = vec![0];
         for (i, c) in input.chars().enumerate() {
             if c == '\n' {
@@ -58,6 +52,12 @@ impl<'a, 'b> FindSubstring<CInput<'b>> for CInput<'a> {
   //returns byte index
   fn find_substring(&self, substr: CInput<'b>) -> Option<usize> {
     self.input.find(substr.input)
+  }
+}
+
+impl<'a, T> FindToken<T> for CInput<'a> {
+  fn find_token(&self, token: T) -> bool {
+    self.input.find_token(token)
   }
 }
 
@@ -137,9 +137,9 @@ pub fn comma_sep_list<'a, O, F>(
     start: &'static str, // TODO: Static not great, but idk what else to do now
     end: &'static str,   // TODO: Static lifetime not great
     elements: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, ErrorTree<&str>>
+) -> impl FnMut(CInput) -> IResult<CInput, Vec<O>, ErrorTree<&str>>
 where
-    F: Parser<&'a str, O, ErrorTree<&'a str>>,
+    F: Parser<CInput<'a>, O, ErrorTree<&'a str>>,
 {
     delimited(
         wsa(tag(start)),
@@ -153,9 +153,9 @@ where
 // WSA OK (if inner WSA OK)
 pub fn cons<'a, O, F>(
     elements: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, ErrorTree<&str>>
+) -> impl FnMut(CInput) -> IResult<CInput, Vec<O>, ErrorTree<&str>>
 where
-    F: Parser<&'a str, O, ErrorTree<&'a str>> + Clone,
+    F: Parser<CInput<'a>, O, ErrorTree<&'a str>> + Clone,
 {
     alt((
         comma_sep_list("[", "]", elements.clone()),
@@ -176,9 +176,9 @@ where
 // WSA OK (if inner WSA OK)
 pub fn opt_angle_bracket<'a, O, F>(
     elements: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, ErrorTree<&str>>
+) -> impl FnMut(CInput) -> IResult<CInput, Vec<O>, ErrorTree<&str>>
 where
-    F: Parser<&'a str, O, ErrorTree<&'a str>> + Clone,
+    F: Parser<CInput<'a>, O, ErrorTree<&'a str>> + Clone,
 {
     alt((
         map(elements.clone(), |single_element| vec![single_element]),

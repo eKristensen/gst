@@ -51,24 +51,24 @@ fn module_definition(i: CInput) -> IResult<CInput, Module, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn module_export(i: &str) -> IResult<&str, Vec<AnnoFunName>, ErrorTree<&str>> {
+fn module_export(i: CInput) -> IResult<CInput, Vec<AnnoFunName>, ErrorTree<&str>> {
     comma_sep_list("[", "]", anno_function_name)(i)
 }
 
 // WSA OK
-fn module_attribute(i: &str) -> IResult<&str, Vec<Attribute>, ErrorTree<&str>> {
+fn module_attribute(i: CInput) -> IResult<CInput, Vec<Attribute>, ErrorTree<&str>> {
     preceded(wsa(tag("attributes")), comma_sep_list("[", "]", attribute))(i)
 }
 
 // WSA OK
-fn anno_atom(i: &str) -> IResult<&str, Rc<AnnoAtom>, ErrorTree<&str>> {
+fn anno_atom(i: CInput) -> IResult<CInput, Rc<AnnoAtom>, ErrorTree<&str>> {
     map(loc(opt_annotation(atom)), |(loc, (name, anno))| {
         AnnoAtom { loc, anno, name }.into()
     })(i)
 }
 
 // WSA OK
-fn anno_literal(i: &str) -> IResult<&str, Rc<AnnoLit>, ErrorTree<&str>> {
+fn anno_literal(i: CInput) -> IResult<CInput, Rc<AnnoLit>, ErrorTree<&str>> {
     map(loc(opt_annotation(literal)), |(loc, (inner, anno))| {
         AnnoLit {
             loc,
@@ -80,12 +80,12 @@ fn anno_literal(i: &str) -> IResult<&str, Rc<AnnoLit>, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn module_defs(i: &str) -> IResult<&str, Vec<FunDef>, ErrorTree<&str>> {
+fn module_defs(i: CInput) -> IResult<CInput, Vec<FunDef>, ErrorTree<&str>> {
     function_definitions(i)
 }
 
 // WSA OK
-pub fn function_definitions(i: &str) -> IResult<&str, Vec<FunDef>, ErrorTree<&str>> {
+pub fn function_definitions(i: CInput) -> IResult<CInput, Vec<FunDef>, ErrorTree<&str>> {
     // TODO: For debuggin the number of functions required is set to one.
     // TODO: Change to many0 instead of many1
     many0(function_definition)(i)
@@ -93,7 +93,7 @@ pub fn function_definitions(i: &str) -> IResult<&str, Vec<FunDef>, ErrorTree<&st
 
 // WSA OK
 // Do not Rc as FunDef is used in Vec
-fn function_definition(i: &str) -> IResult<&str, FunDef, ErrorTree<&str>> {
+fn function_definition(i: CInput) -> IResult<CInput, FunDef, ErrorTree<&str>> {
     map(
         loc(tuple((anno_function_name, wsa(tag("=")), anno_fun))),
         |(loc, (name, _, body))| FunDef {
@@ -105,14 +105,14 @@ fn function_definition(i: &str) -> IResult<&str, FunDef, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn anno_fun(i: &str) -> IResult<&str, Rc<AnnoFun>, ErrorTree<&str>> {
+fn anno_fun(i: CInput) -> IResult<CInput, Rc<AnnoFun>, ErrorTree<&str>> {
     map(loc(opt_annotation(fun_expr)), |(loc, (fun, anno))| {
         AnnoFun { loc, anno, fun }.into()
     })(i)
 }
 
 // WSA OK
-fn attribute(i: &str) -> IResult<&str, Attribute, ErrorTree<&str>> {
+fn attribute(i: CInput) -> IResult<CInput, Attribute, ErrorTree<&str>> {
     map(
         loc(tuple((anno_atom, wsa(tag("=")), anno_literal))),
         |(loc, (name, _, value))| Attribute { loc, name, value },
