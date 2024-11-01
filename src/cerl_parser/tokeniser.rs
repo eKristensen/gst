@@ -16,7 +16,8 @@ use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
     ast::{Atom, Float, FunName, Var},
-    helpers::{loc, wsa, wsc, CInput},
+    cinput::CInput,
+    helpers::{loc, wsa, wsc},
 };
 
 #[inline]
@@ -50,7 +51,7 @@ fn is_ctlchar(chr: u8) -> bool {
 }
 // Built into nom: is_oct_digit(chr)
 
-fn escapechar(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
+fn escapechar(i: CInput) -> IResult<CInput, char, ErrorTree<CInput>> {
     alt((
         value(0x0008 as char, char('b')), // escapechar
         value(0x007F as char, char('d')),
@@ -67,18 +68,20 @@ fn escapechar(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
     ))(i)
 }
 
-fn octal(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
-    map(oct_digit1, |o| u8::from_str_radix(o, 8).unwrap() as char)(i)
+fn octal(i: CInput) -> IResult<CInput, char, ErrorTree<CInput>> {
+    map(oct_digit1, |o: CInput| {
+        u8::from_str_radix(o.input, 8).unwrap() as char
+    })(i)
 }
 
-fn escape(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
+fn escape(i: CInput) -> IResult<CInput, char, ErrorTree<CInput>> {
     preceded(
         char('\\'),
         alt((octal, preceded(char('^'), ctrlchar), escapechar)),
     )(i)
 }
 
-fn ctrlchar(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
+fn ctrlchar(i: CInput) -> IResult<CInput, char, ErrorTree<CInput>> {
     map(verify(anychar, |o| is_ctlchar(*o as u8)), |o| {
         (o as u8 - 64) as char
     })(i)
@@ -89,7 +92,7 @@ fn ctrlchar(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
 // - https://docs.rs/nom/latest/nom/recipes/index.html#escaped-strings
 // - https://github.com/rust-bakery/nom/blob/main/examples/string.rs
 // WSA OK
-pub fn atom(i: CInput) -> IResult<CInput, Rc<Atom>, ErrorTree<&str>> {
+pub fn atom(i: CInput) -> IResult<CInput, Rc<Atom>, ErrorTree<CInput>> {
     // fold is the equivalent of iterator::fold. It runs a parser in a loop,
     // and for each output value, calls a folding function on each output value.
     let build_string = fold_many0(
@@ -116,12 +119,12 @@ pub fn atom(i: CInput) -> IResult<CInput, Rc<Atom>, ErrorTree<&str>> {
 }
 
 // WSA OK
-pub fn fname(i: CInput) -> IResult<CInput, Rc<FunName>, ErrorTree<&str>> {
+pub fn fname(i: CInput) -> IResult<CInput, Rc<FunName>, ErrorTree<CInput>> {
     map(
         loc(tuple((
             atom,
             wsa(tag("/")),
-            map_res(wsa(digit1), str::parse::<usize>),
+            map_res(wsa(digit1), |o: CInput| str::parse::<usize>(o.input)),
         ))),
         |(loc, (name, _, arity))| (FunName { loc, name, arity }).into(),
     )(i)
@@ -130,7 +133,9 @@ pub fn fname(i: CInput) -> IResult<CInput, Rc<FunName>, ErrorTree<&str>> {
 // WSA OK
 pub fn integer<
     'a,
-    E: ParseError<CInput<'a>> + nom::error::FromExternalError<CInput<'a>, std::num::ParseIntError>,
+    E: ParseError<CInput<'a>>
+        + nom::error::FromExternalError<CInput<'a>, std::num::ParseIntError>
+        + nom::error::ParseError<CInput<'a>>,
 >(
     i: CInput,
 ) -> IResult<CInput, i64, E> {
@@ -143,7 +148,7 @@ pub fn integer<
                 success(true),
             )),
             // Read integer value
-            map_res(digit1, str::parse::<i64>),
+            map_res(digit1, |o: CInput| str::parse::<i64>(o.input)),
         )),
         |(plus, i)| {
             if plus {
@@ -165,10 +170,10 @@ pub fn opt_sign_digit1<
 ) -> IResult<CInput, i64, E> {
     let (i, sign) = opt(alt((char('+'), char('-'))))(i)?;
     match sign {
-        None => map_res(digit1, str::parse::<i64>)(i),
+        None => map_res(digit1, |o: CInput| str::parse::<i64>(o.input))(i),
         Some(sign) => match sign {
-            '+' => map_res(digit1, str::parse::<i64>)(i),
-            '-' => {let (i, res) = map_res(digit1, str::parse::<i64>)(i)?; Ok((i,-res))},
+            '+' => map_res(digit1, |o: CInput| str::parse::<i64>(o.input))(i),
+            '-' => {let (i, res) = map_res(digit1, |o:CInput| str::parse::<i64>(o.input))(i)?; Ok((i,-res))},
             // TODO: Can I get rid of the panic here ?
             _ => panic!("Sign not + or - should never be reachable after checking the value is either of those two.")
         }
@@ -178,7 +183,7 @@ pub fn opt_sign_digit1<
 // The build in float function in nom is not enough.
 // WSA OK
 
-pub fn float(i: CInput) -> IResult<CInput, Rc<Float>, ErrorTree<&str>> {
+pub fn float(i: CInput) -> IResult<CInput, Rc<Float>, ErrorTree<CInput>> {
     map(loc(float_aux), |(loc, (base, decimal, exponent))| {
         Float {
             loc,
@@ -200,7 +205,7 @@ fn float_aux<
     let (i, (base, _, decimal, exponent)) = tuple((
         opt_sign_digit1,
         char('.'),
-        map_res(digit1, str::parse::<u64>),
+        map_res(digit1, |o: CInput| str::parse::<u64>(o.input)),
         opt(tuple((alt((char('E'), char('e'))), opt_sign_digit1))),
     ))(i)?;
     let exponent = match exponent {
@@ -212,7 +217,7 @@ fn float_aux<
 }
 
 // WSA OK
-pub fn string(i: CInput) -> IResult<CInput, String, ErrorTree<&str>> {
+pub fn string(i: CInput) -> IResult<CInput, String, ErrorTree<CInput>> {
     // From the cerl spec versin 1.0.3 section 3:
     // > The tokenisation should concatenate all adjacent string literals (these may
     // > be separated by any numb er of whitespace characters, line terminators and
@@ -224,7 +229,7 @@ pub fn string(i: CInput) -> IResult<CInput, String, ErrorTree<&str>> {
     })(i)
 }
 
-fn quoted_string(i: CInput) -> IResult<CInput, String, ErrorTree<&str>> {
+fn quoted_string(i: CInput) -> IResult<CInput, String, ErrorTree<CInput>> {
     // fold is the equivalent of iterator::fold. It runs a parser in a loop,
     // and for each output value, calls a folding function on each output value.
     let build_string = fold_many0(
@@ -251,7 +256,7 @@ fn quoted_string(i: CInput) -> IResult<CInput, String, ErrorTree<&str>> {
 }
 
 // WSA OK
-pub fn char_char(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
+pub fn char_char(i: CInput) -> IResult<CInput, char, ErrorTree<CInput>> {
     wsa(preceded(
         char('$'),
         alt((
@@ -263,7 +268,7 @@ pub fn char_char(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
     ))(i)
 }
 
-fn atom_char(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
+fn atom_char(i: CInput) -> IResult<CInput, char, ErrorTree<CInput>> {
     alt((
         verify(inputchar, |o| {
             !is_control(*o as u8) && *o != '\\' && *o != '\''
@@ -272,7 +277,7 @@ fn atom_char(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
     ))(i)
 }
 
-fn string_char(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
+fn string_char(i: CInput) -> IResult<CInput, char, ErrorTree<CInput>> {
     alt((
         verify(inputchar, |o| {
             !is_control(*o as u8) && *o != '\\' && *o != '"'
@@ -281,21 +286,21 @@ fn string_char(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
     ))(i)
 }
 
-fn inputchar(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
+fn inputchar(i: CInput) -> IResult<CInput, char, ErrorTree<CInput>> {
     verify(anychar, |o| is_inputchar(*o as u8))(i)
 }
 
 // TODO: There must exist a easier way to do this
-fn namechar(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
+fn namechar(i: CInput) -> IResult<CInput, char, ErrorTree<CInput>> {
     verify(anychar, |o| is_namechar(*o as u8))(i)
 }
 
-fn uppercase(i: CInput) -> IResult<CInput, char, ErrorTree<&str>> {
+fn uppercase(i: CInput) -> IResult<CInput, char, ErrorTree<CInput>> {
     verify(anychar, |o| is_uppercase(*o as u8))(i)
 }
 
 // WSA OK
-pub fn var(i: CInput) -> IResult<CInput, Rc<Var>, ErrorTree<&str>> {
+pub fn var(i: CInput) -> IResult<CInput, Rc<Var>, ErrorTree<CInput>> {
     wsa(map(
         loc(pair(
             alt((
@@ -334,17 +339,35 @@ mod tests {
     #[test]
     fn test_integer_literals() {
         // Tests based on Core Erlang 1.03 specification Appendix A
-        assert_eq!(integer::<()>("8"), Ok(("", 8)));
-        assert_eq!(integer::<()>("+17"), Ok(("", 17)));
-        assert_eq!(integer::<()>("299792458"), Ok(("", 299792458)));
-        assert_eq!(integer::<()>("-4711"), Ok(("", -4711)));
+        assert_eq!(integer::<()>(CInput::new("8")), Ok((CInput::new(""), 8)));
+        assert_eq!(integer::<()>(CInput::new("+17")), Ok((CInput::new(""), 17)));
+        assert_eq!(
+            integer::<()>(CInput::new("299792458")),
+            Ok((CInput::new(""), 299792458))
+        );
+        assert_eq!(
+            integer::<()>(CInput::new("-4711")),
+            Ok((CInput::new(""), -4711))
+        );
 
         // TODO Move "lit" tests to lex.rs ?
         // TODO: Somehow make "::<()>" optional instead of having to type it...
-        assert_eq!(literal("8").unwrap(), ("", Lit::Int(8)));
-        assert_eq!(literal("+17").unwrap(), ("", Lit::Int(17)));
-        assert_eq!(literal("299792458").unwrap(), ("", Lit::Int(299792458)));
-        assert_eq!(literal("-4711").unwrap(), ("", Lit::Int(-4711)));
+        assert_eq!(
+            literal(CInput::new("8")).unwrap(),
+            (CInput::new(""), Lit::Int(8))
+        );
+        assert_eq!(
+            literal(CInput::new("+17")).unwrap(),
+            (CInput::new(""), Lit::Int(17))
+        );
+        assert_eq!(
+            literal(CInput::new("299792458")).unwrap(),
+            (CInput::new(""), Lit::Int(299792458))
+        );
+        assert_eq!(
+            literal(CInput::new("-4711")).unwrap(),
+            (CInput::new(""), Lit::Int(-4711))
+        );
 
         // Mindless sanity check
         assert_ne!(literal("8").unwrap(), ("", Lit::Int(42)));

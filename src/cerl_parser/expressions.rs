@@ -15,22 +15,23 @@ use super::{
         Clause, Expr, Fun, FunDef, FunLit, Lit, MapExpr, MapPair, MapPairType, Receive, Timeout,
         Try,
     },
+    cinput::CInput,
     grammar::function_definitions,
-    helpers::{comma_sep_list, cons, loc, opt_angle_bracket, opt_annotation, wsa, CInput},
+    helpers::{comma_sep_list, cons, loc, opt_angle_bracket, opt_annotation, wsa},
     patterns::{anno_pattern, anno_variable},
     tokeniser::{atom, char_char, float, fname, integer, string, var},
 };
 
 // WSA OK
 // Note: Do not wrap in Rc as AnnoExpr is used in Vec
-fn anno_expression(i: CInput) -> IResult<CInput, AnnoExpr, ErrorTree<&str>> {
+fn anno_expression(i: CInput) -> IResult<CInput, AnnoExpr, ErrorTree<CInput>> {
     map(loc(opt_annotation(expression)), |(loc, (inner, anno))| {
         AnnoExpr { loc, anno, inner }
     })(i)
 }
 
 // WSA OK
-fn expression(i: CInput) -> IResult<CInput, Rc<Expr>, ErrorTree<&str>> {
+fn expression(i: CInput) -> IResult<CInput, Rc<Expr>, ErrorTree<CInput>> {
     alt((
         map(
             map(loc(comma_sep_list("<", ">", anno_expression)), |(l, o)| {
@@ -43,7 +44,7 @@ fn expression(i: CInput) -> IResult<CInput, Rc<Expr>, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn single_expression(i: CInput) -> IResult<CInput, Rc<Expr>, ErrorTree<&str>> {
+fn single_expression(i: CInput) -> IResult<CInput, Rc<Expr>, ErrorTree<CInput>> {
     map(
         alt((
             map(loc(fname), |(l, o)| Expr::Fname(l, o)), // fname must have higher precedence than atomic_literal.
@@ -79,19 +80,19 @@ fn single_expression(i: CInput) -> IResult<CInput, Rc<Expr>, ErrorTree<&str>> {
 
 // WSA OK
 // Do not Rc as AnnoFunName is used in Vec
-pub fn anno_function_name(i: CInput) -> IResult<CInput, AnnoFunName, ErrorTree<&str>> {
+pub fn anno_function_name(i: CInput) -> IResult<CInput, AnnoFunName, ErrorTree<CInput>> {
     map(loc(opt_annotation(fname)), |(loc, (inner, anno))| {
         AnnoFunName { loc, anno, inner }
     })(i)
 }
 
 // WSA OK
-fn let_vars(i: CInput) -> IResult<CInput, Vec<AnnoVar>, ErrorTree<&str>> {
+fn let_vars(i: CInput) -> IResult<CInput, Vec<AnnoVar>, ErrorTree<CInput>> {
     opt_angle_bracket(anno_variable)(i)
 }
 
 // WSA OK
-fn sequence(i: CInput) -> IResult<CInput, (Rc<AnnoExpr>, Rc<AnnoExpr>), ErrorTree<&str>> {
+fn sequence(i: CInput) -> IResult<CInput, (Rc<AnnoExpr>, Rc<AnnoExpr>), ErrorTree<CInput>> {
     map(
         preceded(wsa(tag("do")), pair(anno_expression, anno_expression)),
         |(o1, o2)| (o1.into(), o2.into()),
@@ -99,7 +100,7 @@ fn sequence(i: CInput) -> IResult<CInput, (Rc<AnnoExpr>, Rc<AnnoExpr>), ErrorTre
 }
 
 // WSA OK
-pub fn fun_expr(i: CInput) -> IResult<CInput, Rc<Fun>, ErrorTree<&str>> {
+pub fn fun_expr(i: CInput) -> IResult<CInput, Rc<Fun>, ErrorTree<CInput>> {
     map(
         loc(tuple((
             wsa(tag("fun")),
@@ -119,7 +120,7 @@ pub fn fun_expr(i: CInput) -> IResult<CInput, Rc<Fun>, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn let_expr(i: CInput) -> IResult<CInput, (Vec<AnnoVar>, AnnoExpr, AnnoExpr), ErrorTree<&str>> {
+fn let_expr(i: CInput) -> IResult<CInput, (Vec<AnnoVar>, AnnoExpr, AnnoExpr), ErrorTree<CInput>> {
     map(
         tuple((
             wsa(tag("let")),
@@ -134,7 +135,7 @@ fn let_expr(i: CInput) -> IResult<CInput, (Vec<AnnoVar>, AnnoExpr, AnnoExpr), Er
 }
 
 // WSA OK
-fn letrec_expr(i: CInput) -> IResult<CInput, (Vec<FunDef>, AnnoExpr), ErrorTree<&str>> {
+fn letrec_expr(i: CInput) -> IResult<CInput, (Vec<FunDef>, AnnoExpr), ErrorTree<CInput>> {
     map(
         tuple((
             wsa(tag("letrec")),
@@ -147,7 +148,7 @@ fn letrec_expr(i: CInput) -> IResult<CInput, (Vec<FunDef>, AnnoExpr), ErrorTree<
 }
 
 // WSA OK
-fn case_expr(i: CInput) -> IResult<CInput, (AnnoExpr, Vec<AnnoClause>), ErrorTree<&str>> {
+fn case_expr(i: CInput) -> IResult<CInput, (AnnoExpr, Vec<AnnoClause>), ErrorTree<CInput>> {
     map(
         delimited(
             wsa(tag("case")),
@@ -160,14 +161,14 @@ fn case_expr(i: CInput) -> IResult<CInput, (AnnoExpr, Vec<AnnoClause>), ErrorTre
 
 // WSA OK
 // Note: Do not Rc as AnnoClause is used in Vec
-fn anno_clause(i: CInput) -> IResult<CInput, AnnoClause, ErrorTree<&str>> {
+fn anno_clause(i: CInput) -> IResult<CInput, AnnoClause, ErrorTree<CInput>> {
     map(loc(opt_annotation(clause)), |(loc, (inner, anno))| {
         AnnoClause { loc, anno, inner }
     })(i)
 }
 
 // WSA OK
-fn clause(i: CInput) -> IResult<CInput, Rc<Clause>, ErrorTree<&str>> {
+fn clause(i: CInput) -> IResult<CInput, Rc<Clause>, ErrorTree<CInput>> {
     map(
         loc(tuple((
             clause_pattern,
@@ -189,13 +190,13 @@ fn clause(i: CInput) -> IResult<CInput, Rc<Clause>, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn clause_pattern(i: CInput) -> IResult<CInput, Vec<AnnoPat>, ErrorTree<&str>> {
+fn clause_pattern(i: CInput) -> IResult<CInput, Vec<AnnoPat>, ErrorTree<CInput>> {
     opt_angle_bracket(anno_pattern)(i)
 }
 
 // Merge apply, call and primop as they are very similar.
 // WSA OK
-fn call_expr(i: CInput) -> IResult<CInput, Expr, ErrorTree<&str>> {
+fn call_expr(i: CInput) -> IResult<CInput, Expr, ErrorTree<CInput>> {
     map(
         loc(pair(
             alt((
@@ -220,7 +221,7 @@ fn call_expr(i: CInput) -> IResult<CInput, Expr, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn try_expr(i: CInput) -> IResult<CInput, Rc<Try>, ErrorTree<&str>> {
+fn try_expr(i: CInput) -> IResult<CInput, Rc<Try>, ErrorTree<CInput>> {
     map(
         loc(preceded(
             wsa(tag("try")),
@@ -251,12 +252,12 @@ fn try_expr(i: CInput) -> IResult<CInput, Rc<Try>, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn catch_expr(i: CInput) -> IResult<CInput, Rc<AnnoExpr>, ErrorTree<&str>> {
+fn catch_expr(i: CInput) -> IResult<CInput, Rc<AnnoExpr>, ErrorTree<CInput>> {
     map(preceded(wsa(tag("catch")), anno_expression), |o| o.into())(i)
 }
 
 // WSA OK
-fn receive_expr(i: CInput) -> IResult<CInput, Receive, ErrorTree<&str>> {
+fn receive_expr(i: CInput) -> IResult<CInput, Receive, ErrorTree<CInput>> {
     map(
         loc(preceded(
             wsa(tag("receive")),
@@ -271,7 +272,7 @@ fn receive_expr(i: CInput) -> IResult<CInput, Receive, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn timeout_expr(i: CInput) -> IResult<CInput, Timeout, ErrorTree<&str>> {
+fn timeout_expr(i: CInput) -> IResult<CInput, Timeout, ErrorTree<CInput>> {
     map(
         loc(preceded(
             wsa(tag("after")),
@@ -283,7 +284,7 @@ fn timeout_expr(i: CInput) -> IResult<CInput, Timeout, ErrorTree<&str>> {
 
 // WSA OK
 // Note:: Do not Rc as Lit is used in Vec
-pub fn literal(i: CInput) -> IResult<CInput, Lit, ErrorTree<&str>> {
+pub fn literal(i: CInput) -> IResult<CInput, Lit, ErrorTree<CInput>> {
     alt((
         atomic_literal,
         map(loc(tuple_literal), |(l, o)| Lit::Tuple(l, o)),
@@ -293,7 +294,7 @@ pub fn literal(i: CInput) -> IResult<CInput, Lit, ErrorTree<&str>> {
 
 // WSA OK
 // Note: Do not Rc as Lit is used in Vec
-pub fn atomic_literal(i: CInput) -> IResult<CInput, Lit, ErrorTree<&str>> {
+pub fn atomic_literal(i: CInput) -> IResult<CInput, Lit, ErrorTree<CInput>> {
     alt((
         map(loc(char_char), |(l, o)| Lit::Char(l, o)),
         map(loc(float), |(l, o)| Lit::Float(l, o)),
@@ -307,7 +308,7 @@ pub fn atomic_literal(i: CInput) -> IResult<CInput, Lit, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn tuple_literal(i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<&str>> {
+fn tuple_literal(i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<CInput>> {
     comma_sep_list("{", "}", literal)(i)
 }
 
@@ -323,7 +324,7 @@ fn tuple_literal(i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<&str>> {
 // the tail.
 // Fold does NOT work. What to iterate over?
 // BUT idea of accumulator is good, add it to tail function!
-fn cons_literal(i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<&str>> {
+fn cons_literal(i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<CInput>> {
     let mut acc: Vec<Lit> = Vec::new();
     let (i, head) = preceded(wsa(tag("[")), literal)(i)?;
     acc.push(head);
@@ -331,7 +332,7 @@ fn cons_literal(i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<&str>> {
     Ok((i, res))
 }
 
-fn tail_literal(mut acc: Vec<Lit>, i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<&str>> {
+fn tail_literal(mut acc: Vec<Lit>, i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<CInput>> {
     if let Ok((i, _)) = wsa(tag("]"))(i) {
         return Ok((i, acc));
     };
@@ -355,7 +356,7 @@ fn tail_literal(mut acc: Vec<Lit>, i: CInput) -> IResult<CInput, Vec<Lit>, Error
 }
 
 // WSA OK
-fn fun_literal(i: CInput) -> IResult<CInput, Rc<FunLit>, ErrorTree<&str>> {
+fn fun_literal(i: CInput) -> IResult<CInput, Rc<FunLit>, ErrorTree<CInput>> {
     map(
         loc(tuple((wsa(tag("fun")), atom, wsa(tag(":")), fname))),
         |(loc, (_, module, _, fname))| FunLit { loc, module, fname }.into(),
@@ -363,19 +364,19 @@ fn fun_literal(i: CInput) -> IResult<CInput, Rc<FunLit>, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn tuple_expression(i: CInput) -> IResult<CInput, Vec<AnnoExpr>, ErrorTree<&str>> {
+fn tuple_expression(i: CInput) -> IResult<CInput, Vec<AnnoExpr>, ErrorTree<CInput>> {
     comma_sep_list("{", "}", anno_expression)(i)
 }
 
 // WSA OK
-fn anno_map_expr(i: CInput) -> IResult<CInput, AnnoMap, ErrorTree<&str>> {
+fn anno_map_expr(i: CInput) -> IResult<CInput, AnnoMap, ErrorTree<CInput>> {
     map(loc(opt_annotation(map_expr)), |(loc, (inner, anno))| {
         AnnoMap { loc, anno, inner }
     })(i)
 }
 
 // WSA OK
-fn map_expr(i: CInput) -> IResult<CInput, MapExpr, ErrorTree<&str>> {
+fn map_expr(i: CInput) -> IResult<CInput, MapExpr, ErrorTree<CInput>> {
     delimited(
         wsa(tag("~")),
         alt((
@@ -410,14 +411,14 @@ fn map_expr(i: CInput) -> IResult<CInput, MapExpr, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn anno_map_pair(i: CInput) -> IResult<CInput, AnnoMapPair, ErrorTree<&str>> {
+fn anno_map_pair(i: CInput) -> IResult<CInput, AnnoMapPair, ErrorTree<CInput>> {
     map(loc(opt_annotation(map_pair)), |(loc, (inner, anno))| {
         AnnoMapPair { loc, anno, inner }
     })(i)
 }
 
 // WSA OK
-fn map_pair(i: CInput) -> IResult<CInput, MapPair, ErrorTree<&str>> {
+fn map_pair(i: CInput) -> IResult<CInput, MapPair, ErrorTree<CInput>> {
     map(
         loc(tuple((
             anno_expression,
@@ -437,7 +438,7 @@ fn map_pair(i: CInput) -> IResult<CInput, MapPair, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn cons_expression(i: CInput) -> IResult<CInput, Vec<AnnoExpr>, ErrorTree<&str>> {
+fn cons_expression(i: CInput) -> IResult<CInput, Vec<AnnoExpr>, ErrorTree<CInput>> {
     cons(anno_expression)(i)
 }
 
@@ -447,20 +448,32 @@ mod tests {
 
     #[test]
     fn precedence_testing() {
-        assert!(anno_clause("( <'false'> when 'true' -> ( apply 'recv$^0'/0 () -| ['dialyzer_ignore'] ) -| ['dialyzer_ignore'] )").is_ok());
-        assert!(expression("apply 'recv$^0'/0 ()").is_ok());
-        assert!(expression("case _3 of
+        assert!(anno_clause(CInput::new("( <'false'> when 'true' -> ( apply 'recv$^0'/0 () -| ['dialyzer_ignore'] ) -| ['dialyzer_ignore'] )")).is_ok());
+        assert!(expression(CInput::new("apply 'recv$^0'/0 ()")).is_ok());
+        assert!(expression(CInput::new("case _3 of
     <'true'> when 'true' -> 'true'
     ( <'false'> when 'true' -> ( apply 'recv$^0'/0 () -| ['dialyzer_ignore'] ) -| ['dialyzer_ignore'] )
-   end").is_ok())
+   end")).is_ok())
     }
 
     #[test]
     fn flatten_cons() {
-        assert_eq!(literal("[1,2]").unwrap(), literal("[1|[2]]").unwrap());
-        assert_eq!(literal("[1,2,3]").unwrap(), literal("[1|[2|[3]]]").unwrap());
-        assert_eq!(literal("[1,2,3]").unwrap(), literal("[1,2|[3]]").unwrap());
-        assert_eq!(literal("[1,2,3]").unwrap(), literal("[1|[2,3]]").unwrap());
+        assert_eq!(
+            literal(CInput::new("[1,2]")).unwrap(),
+            literal(CInput::new("[1|[2]]")).unwrap()
+        );
+        assert_eq!(
+            literal(CInput::new("[1,2,3]")).unwrap(),
+            literal(CInput::new("[1|[2|[3]]]")).unwrap()
+        );
+        assert_eq!(
+            literal(CInput::new("[1,2,3]")).unwrap(),
+            literal(CInput::new("[1,2|[3]]")).unwrap()
+        );
+        assert_eq!(
+            literal(CInput::new("[1,2,3]")).unwrap(),
+            literal(CInput::new("[1|[2,3]]")).unwrap()
+        );
     }
     // Test case where the issue was the args list. Wrapping for completeness
     // TODO: Check output maybe?

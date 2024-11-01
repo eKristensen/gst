@@ -1,69 +1,25 @@
 use std::rc::Rc;
 
 use nom::{
-    branch::alt, bytes::complete::take_until, character::complete::multispace0, combinator::{map, value}, multi::{many0, separated_list0}, sequence::{delimited, pair, tuple}, AsBytes, Compare, CompareResult, FindSubstring, FindToken, IResult, Parser
+    branch::alt,
+    bytes::complete::take_until,
+    character::complete::multispace0,
+    combinator::{map, value},
+    multi::{many0, separated_list0},
+    sequence::{delimited, pair, tuple},
+    IResult, Parser,
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
     ast::{Anno, CLoc, Loc},
+    cinput::CInput,
     constants::constant,
 };
 
-// https://github.com/rust-bakery/nom/blob/main/doc/custom_input_types.md
-#[derive(Debug, Clone)]
-pub struct CInput<'a> {
-    pub line_offsets: Vec<usize>,
-    pub input: &'a str,
-}
-
-impl<'a> CInput<'a> {
-    pub fn new(input: &'a str) -> Self {
-        let mut line_offsets = vec![0];
-        for (i, c) in input.chars().enumerate() {
-            if c == '\n' {
-                line_offsets.push(i + 1);
-            }
-        }
-        CInput { line_offsets, input }
-    }
-
-}
-
-impl<'a> AsBytes for CInput<'a> {
-  #[inline(always)]
-  fn as_bytes(&self) -> &[u8] {
-    (*self.input).as_bytes()
-  }
-}
-
-impl<'a, 'b> Compare<CInput<'b>> for CInput<'a> {
-  #[inline(always)]
-  fn compare(&self, t: CInput<'b>) -> CompareResult {
-    AsBytes::as_bytes(self.input).compare(t.input)
-  }
-  #[inline(always)]
-  fn compare_no_case(&self, t: CInput<'b>) -> CompareResult {
-    AsBytes::as_bytes(self.input).compare_no_case(t.input)
-  }
-}
-
-impl<'a, 'b> FindSubstring<CInput<'b>> for CInput<'a> {
-  //returns byte index
-  fn find_substring(&self, substr: CInput<'b>) -> Option<usize> {
-    self.input.find(substr.input)
-  }
-}
-
-impl<'a, T> FindToken<T> for CInput<'a> {
-  fn find_token(&self, token: T) -> bool {
-    self.input.find_token(token)
-  }
-}
-
 // Based on: https://github.com/rust-bakery/nom/blob/main/doc/nom_recipes.md#-ceol-style-comments
 // Comment
-fn comment(i: CInput) -> IResult<CInput, (), ErrorTree<&str>> {
+fn comment(i: CInput) -> IResult<CInput, (), ErrorTree<CInput>> {
     map(
         tuple((
             nom::character::complete::char('%'),
@@ -78,9 +34,9 @@ fn comment(i: CInput) -> IResult<CInput, (), ErrorTree<&str>> {
 // WSA OK (if inner WSA OK)
 fn annotation<'a, F, O>(
     inner: F,
-) -> impl FnMut(CInput) -> IResult<CInput, (O, Rc<Anno>), ErrorTree<&str>>
+) -> impl FnMut(CInput<'a>) -> IResult<CInput<'a>, (O, Rc<Anno>), ErrorTree<CInput<'a>>>
 where
-    F: Parser<CInput<'a>, O, ErrorTree<&'a str>>,
+    F: Parser<CInput<'a>, O, ErrorTree<CInput<'a>>>,
 {
     // We assume the caller has taken care of whitespace on top of input.
     map(
@@ -103,9 +59,9 @@ where
 // WSA OK (if inner WSA OK)
 pub fn opt_annotation<'a, F, O>(
     inner: F,
-) -> impl FnMut(CInput) -> IResult<CInput, (O, Rc<Anno>), ErrorTree<&str>>
+) -> impl FnMut(CInput<'a>) -> IResult<CInput<'a>, (O, Rc<Anno>), ErrorTree<CInput<'a>>>
 where
-    F: Parser<CInput<'a>, O, ErrorTree<&'a str>> + Clone,
+    F: Parser<CInput<'a>, O, ErrorTree<CInput<'a>>> + Clone,
 {
     // We assume the caller has taken care of whitespace on top of input.
     alt((
@@ -116,14 +72,16 @@ where
 
 // Consumes whitespace and any comments.
 // The parser has no effect if there are no whitespace to consume.
-pub fn wsc(i: CInput) -> IResult<CInput, (), ErrorTree<&str>> {
+pub fn wsc(i: CInput) -> IResult<CInput, (), ErrorTree<CInput>> {
     value((), tuple((multispace0, many0(comment), multispace0)))(i)
 }
 
 // Run internal parser and remove whitespace after
-pub fn wsa<'a, F, O>(inner: F) -> impl FnMut(CInput) -> IResult<CInput, O, ErrorTree<&str>>
+pub fn wsa<'a, F, O>(
+    inner: F,
+) -> impl FnMut(CInput<'a>) -> IResult<CInput<'a>, O, ErrorTree<CInput<'a>>>
 where
-    F: Parser<CInput<'a>, O, ErrorTree<&'a str>>,
+    F: Parser<CInput<'a>, O, ErrorTree<CInput<'a>>>,
     &'a str: nom::InputLength + nom::InputTakeAtPosition + Clone,
     <&'a str as nom::InputTakeAtPosition>::Item: nom::AsChar,
     <&'a str as nom::InputTakeAtPosition>::Item: Clone,
@@ -137,9 +95,9 @@ pub fn comma_sep_list<'a, O, F>(
     start: &'static str, // TODO: Static not great, but idk what else to do now
     end: &'static str,   // TODO: Static lifetime not great
     elements: F,
-) -> impl FnMut(CInput) -> IResult<CInput, Vec<O>, ErrorTree<&str>>
+) -> impl FnMut(CInput<'a>) -> IResult<CInput<'a>, Vec<O>, ErrorTree<CInput<'a>>>
 where
-    F: Parser<CInput<'a>, O, ErrorTree<&'a str>>,
+    F: Parser<CInput<'a>, O, ErrorTree<CInput<'a>>>,
 {
     delimited(
         wsa(tag(start)),
@@ -153,9 +111,9 @@ where
 // WSA OK (if inner WSA OK)
 pub fn cons<'a, O, F>(
     elements: F,
-) -> impl FnMut(CInput) -> IResult<CInput, Vec<O>, ErrorTree<&str>>
+) -> impl FnMut(CInput<'a>) -> IResult<CInput<'a>, Vec<O>, ErrorTree<CInput<'a>>>
 where
-    F: Parser<CInput<'a>, O, ErrorTree<&'a str>> + Clone,
+    F: Parser<CInput<'a>, O, ErrorTree<CInput<'a>>> + Clone,
 {
     alt((
         comma_sep_list("[", "]", elements.clone()),
@@ -176,9 +134,9 @@ where
 // WSA OK (if inner WSA OK)
 pub fn opt_angle_bracket<'a, O, F>(
     elements: F,
-) -> impl FnMut(CInput) -> IResult<CInput, Vec<O>, ErrorTree<&str>>
+) -> impl FnMut(CInput<'a>) -> IResult<CInput<'a>, Vec<O>, ErrorTree<CInput<'a>>>
 where
-    F: Parser<CInput<'a>, O, ErrorTree<&'a str>> + Clone,
+    F: Parser<CInput<'a>, O, ErrorTree<CInput<'a>>> + Clone,
 {
     alt((
         map(elements.clone(), |single_element| vec![single_element]),
@@ -189,15 +147,14 @@ where
 // General helper for adding basic location information to parsed statements.
 pub fn loc<'a, O, F>(
     mut inner: F,
-) -> impl FnMut(CInput) -> IResult<CInput, (CLoc, O), ErrorTree<&str>>
+) -> impl FnMut(CInput<'a>) -> IResult<CInput<'a>, (CLoc, O), ErrorTree<CInput<'a>>>
 where
-    F: Parser<CInput<'a>, O, ErrorTree<&'a str>>,
+    F: Parser<CInput<'a>, O, ErrorTree<CInput<'a>>>,
 {
     move |i: CInput| {
-        let start = Loc { pos: i.i.len() };
-        inner.pars
-            e(i).map(|(i, o)| {
-            let end = Loc { pos: i.i.len() };
+        let start = Loc { pos: i.input.len() };
+        inner.parse(i).map(|(i, o)| {
+            let end = Loc { pos: i.input.len() };
 
             let cloc = CLoc {
                 comment: None,
