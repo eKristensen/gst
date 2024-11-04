@@ -11,10 +11,8 @@ use std::{
 // Generic line column location
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Loc {
-    pub pos: usize, // Very simple position to get started
-                    // TODO: Convert to line and column numbers instead
-                    // pub line: usize,
-                    // pub column: usize,
+    pub line: usize,
+    pub column: usize,
 }
 
 // Core erlang specific to keep hints to original erl file.
@@ -36,7 +34,7 @@ pub struct AnnoAtom {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Atom(pub CLoc, pub String);
+pub struct Atom(pub String);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoVar {
@@ -46,7 +44,7 @@ pub struct AnnoVar {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct Var(pub CLoc, pub String);
+pub struct Var(pub String);
 
 #[derive(Debug, Clone)]
 pub struct AnnoModule {
@@ -87,7 +85,6 @@ pub struct AnnoFunName {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FunName {
-    pub loc: CLoc,
     pub name: Rc<Atom>, // Function name atom cannot be annotated.
     pub arity: usize,
 }
@@ -133,14 +130,14 @@ pub struct AnnoLit {
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub enum Lit {
-    Int(CLoc, i64),
-    Float(CLoc, Rc<Float>),
-    Atom(CLoc, Rc<Atom>),
-    Char(CLoc, char),
-    Cons(CLoc, Vec<Lit>),
-    Tuple(CLoc, Vec<Lit>),
-    String(CLoc, String),
-    Nil(CLoc),
+    Int(i64),
+    Float(Rc<Float>),
+    Atom(Rc<Atom>),
+    Char(char),
+    Cons(Vec<Lit>),
+    Tuple(Vec<Lit>),
+    String(String),
+    Nil,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -416,14 +413,14 @@ impl Display for AnnoLit {
 impl Display for Lit {
     fn fmt(&self, f: &mut Formatter) -> Result {
         match self {
-            Lit::Int(_, i) => i.fmt(f),
-            Lit::Float(_, x) => x.fmt(f),
-            Lit::Atom(_, a) => a.fmt(f),
-            Lit::Char(_, c) => c.fmt(f),
-            Lit::String(_, s) => s.fmt(f),
-            Lit::Nil(_) => write!(f, "[]"),
-            Lit::Cons(_, cons) => square_list(f, cons),
-            Lit::Tuple(_, tuple) => curly_list(f, tuple),
+            Lit::Int(i) => i.fmt(f),
+            Lit::Float(x) => x.fmt(f),
+            Lit::Atom(a) => a.fmt(f),
+            Lit::Char(c) => c.fmt(f),
+            Lit::String(s) => s.fmt(f),
+            Lit::Nil => write!(f, "[]"),
+            Lit::Cons(cons) => square_list(f, cons),
+            Lit::Tuple(tuple) => curly_list(f, tuple),
         }
     }
 }
@@ -449,7 +446,7 @@ impl Display for FunName {
 
 impl Display for Atom {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "'{}'", self.1)
+        write!(f, "'{}'", self.0)
     }
 }
 
@@ -461,7 +458,7 @@ impl Display for AnnoVar {
 
 impl Display for Var {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        self.1.fmt(f)
+        self.0.fmt(f)
     }
 }
 

@@ -6,6 +6,7 @@ mod type_checker;
 
 use crate::contract_cerl::compose_contract::compose_contract;
 use cerl_parser::ast::AnnoModule;
+use cerl_parser::cinput::CInput;
 use cerl_parser::grammar::run_parser;
 use contract_cerl::ast::{CModule, OptWarnings};
 use miette::{Diagnostic, SourceSpan};
@@ -42,7 +43,7 @@ struct ParseErrors {
     related: Vec<ParseError>,
 }
 
-fn cerl_final(input: &str) -> Result<AnnoModule, ErrorTree<&str>> {
+fn cerl_final(input: &str) -> Result<AnnoModule, ErrorTree<CInput>> {
     final_parser(run_parser)(input)
 }
 
@@ -58,7 +59,7 @@ pub fn parse(filename: &str, src: &str) -> Result<OptWarnings<CModule>> {
                     for elm in err_vec {
                         match elm {
                             GenericErrorTree::Base { location, kind } => {
-                                let location = Location::recreate_context(src, location);
+                                let location = Location::recreate_context(src, location.input);
 
                                 err_msgs.push(ParseError {
                                     bad_bit: (location.line, location.column).into(),

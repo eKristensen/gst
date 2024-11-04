@@ -58,7 +58,7 @@ fn make_contract(
             }
             Err(err) => {
                 // TODO: Consider to make a strict mode that requires full annotation
-                if fname.name.1 == "module_info" && (fname.arity == 0 || fname.arity == 1) {
+                if fname.name.0 == "module_info" && (fname.arity == 0 || fname.arity == 1) {
                     // Ignore 'module_info'/0 and 'module_info'/1
                     continue;
                 }
@@ -182,7 +182,7 @@ fn compose_function_with_contract(
         .map(|v| CPat::Var(Rc::new((*v.name).clone())))
         .collect();
     let clauses = match &fun_expr.body.inner.borrow() {
-        Expr::Case(_top_cases_var, top_cases_clauses) => {
+        Expr::Case(_location, _top_cases_var, top_cases_clauses) => {
             match &fun_expr.body.anno.0 {
                 None => {
                     let cexpr = expr_to_cexpr(&fun_expr.body.inner)?;
@@ -257,9 +257,9 @@ fn clause_pats_to_fun_header_args(arg_pat: &Vec<AnnoPat>) -> Result<Vec<CPat>, S
 
 fn clause_pats_to_fun_header_arg(arg_pat: &Pat) -> Result<CPat, String> {
     match arg_pat {
-        Pat::Var(v) => Ok(CPat::Var(v.name.clone())),
-        Pat::Lit(l) => Ok(CPat::Lit(l.clone())),
-        Pat::Tuple(t) => {
+        Pat::Var(_, v) => Ok(CPat::Var(v.name.clone())),
+        Pat::Lit(_, l) => Ok(CPat::Lit(l.clone())),
+        Pat::Tuple(_, t) => {
             let mut tuple_content: Vec<CPat> = Vec::new();
             for elm in t {
                 let res = clause_pats_to_fun_header_arg(&elm.inner)?;
@@ -291,21 +291,23 @@ fn clause_to_cclause(clause: &Clause) -> Result<CClause, String> {
 
 fn pat_to_cpat(pat: &Pat) -> CPat {
     match pat {
-        Pat::Var(v) => CPat::Var(v.name.clone()),
-        Pat::Lit(l) => CPat::Lit(l.clone()),
-        Pat::Cons(pat_cons) => CPat::Cons(pat_cons.iter().map(|p| pat_to_cpat(&p.inner)).collect()),
-        Pat::Tuple(pat_tuple) => {
+        Pat::Var(_, v) => CPat::Var(v.name.clone()),
+        Pat::Lit(_, l) => CPat::Lit(l.clone()),
+        Pat::Cons(_, pat_cons) => {
+            CPat::Cons(pat_cons.iter().map(|p| pat_to_cpat(&p.inner)).collect())
+        }
+        Pat::Tuple(_, pat_tuple) => {
             CPat::Tuple(pat_tuple.iter().map(|p| pat_to_cpat(&p.inner)).collect())
         }
-        Pat::Alias(var, pat) => CPat::Alias(var.name.clone(), pat_to_cpat(&pat.inner).into()),
+        Pat::Alias(_, var, pat) => CPat::Alias(var.name.clone(), pat_to_cpat(&pat.inner).into()),
     }
 }
 
 fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
     match expr {
-        Expr::Var(v) => Ok(CExpr::Var(v.clone())),
-        Expr::AtomLit(l) => Ok(CExpr::Lit(l.clone())),
-        Expr::Cons(exprs) => {
+        Expr::Var(_, v) => Ok(CExpr::Var(v.clone())),
+        Expr::AtomLit(_, l) => Ok(CExpr::Lit(l.clone())),
+        Expr::Cons(_, exprs) => {
             let mut tuple: Vec<CExpr> = Vec::new();
             for expr in exprs {
                 let cexpr = expr_to_cexpr(&expr.inner)?;
@@ -313,7 +315,7 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
             }
             Ok(CExpr::Cons(tuple))
         }
-        Expr::Exprs(exprs) => {
+        Expr::Exprs(_, exprs) => {
             // Convert to direct value if exprs is only one long
             if exprs.len() == 1 {
                 let [exprs] = exprs.as_slice() else {
@@ -329,7 +331,7 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                 Ok(CExpr::Tuple(tuple))
             }
         }
-        Expr::Tuple(exprs) => {
+        Expr::Tuple(_, exprs) => {
             let mut tuple: Vec<CExpr> = Vec::new();
             for expr in exprs {
                 let cexpr = expr_to_cexpr(&expr.inner)?;
@@ -337,7 +339,7 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
             }
             Ok(CExpr::Tuple(tuple))
         }
-        Expr::Let(v, e1, e2) => {
+        Expr::Let(_, v, e1, e2) => {
             let v = match v.as_slice() {
                 [v] => Rc::new(CPat::Var(v.name.clone())),
                 _ => Rc::new(CPat::Tuple(
@@ -349,24 +351,30 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
 
             Ok(CExpr::Let(v.clone(), e1, e2))
         }
-        Expr::Case(e1, e2) => {
+        Expr::Case(_, e1, e2) => {
             let base_expr = expr_to_cexpr(&e1.inner)?.into();
             let mut contract_clauses: Vec<CClause> = Vec::new();
             for clause in e2 {
-                if Anno(Some(vec![Const(Lit::Atom(
-                    Atom("compiler_generated".to_string()).into(),
-                ))]))
-                    == *clause.anno
-                {
-                    println!("Warning: Skipped compiler generated case."); // TODO: Proper warning
-                    continue;
+                match *clause.anno {
+                    Anno(Some(clause_anno)) => {
+                        match *clause_anno {
+                            [(_, Const(Lit::Atom(clause_anno)))]
+                                if clause_anno.0 == "compiler_generated" =>
+                            {
+                                println!("Warning: Skipped compiler generated case."); // TODO: Proper warning
+                                continue;
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
                 }
                 let res = clause_to_cclause(&clause.inner)?;
                 contract_clauses.push(res);
             }
             Ok(CExpr::Case(base_expr, contract_clauses))
         }
-        Expr::Call(fun_module, fun_call, args) => {
+        Expr::Call(_, fun_module, fun_call, args) => {
             let mut args_cexpr: Vec<CExpr> = Vec::new();
             for arg in args {
                 let cexpr = expr_to_cexpr(&arg.inner)?;
@@ -374,18 +382,20 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
             }
 
             match (*fun_call.inner).borrow() {
-                Expr::AtomLit(fun_call) => {
-                    let Lit::Atom(fun_call) = fun_call.borrow() else {
+                Expr::AtomLit(_, fun_call) => {
+                    let Lit::Atom(_loc, fun_call) = fun_call.borrow() else {
                         return Err("Unsupported call name type.".to_string());
                     };
                     match fun_module {
                         CallModule::PrimOp => Ok(CExpr::PrimOp(fun_call.clone(), args_cexpr)),
                         CallModule::Call(module_name_call) => {
-                            let Expr::AtomLit(module_name_call) = module_name_call.inner.borrow()
+                            let Expr::AtomLit(_loc, module_name_call) =
+                                module_name_call.inner.borrow()
                             else {
                                 return Err("Unsupported module name type".to_string());
                             };
-                            let Lit::Atom(module_name_call) = module_name_call.borrow() else {
+                            let Lit::Atom(_loc, module_name_call) = module_name_call.borrow()
+                            else {
                                 return Err("Unsupported module name type".to_string());
                             };
                             Ok(CExpr::Call(
@@ -397,7 +407,7 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                         _ => Err("Function call arguments has unsupported types.".to_string()),
                     }
                 }
-                Expr::Fname(fname) => {
+                Expr::Fname(_, fname) => {
                     if *fun_module != CallModule::Apply {
                         return Err("Unsupported call type.".to_string());
                     }
@@ -406,7 +416,7 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                 _ => Err("Unsupported call name type.".to_string()),
             }
         }
-        Expr::Do(e1, e2) => {
+        Expr::Do(_, e1, e2) => {
             let e1 = expr_to_cexpr(&e1.inner)?.into();
             let e2 = expr_to_cexpr(&e2.inner)?.into();
             Ok(CExpr::Do(e1, e2))

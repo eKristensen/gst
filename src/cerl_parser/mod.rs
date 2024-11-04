@@ -1,5 +1,5 @@
 pub mod ast;
-mod cinput;
+pub mod cinput;
 mod constants;
 mod expressions;
 pub mod grammar;

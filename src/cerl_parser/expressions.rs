@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use nom::{
     branch::alt,
-    combinator::{fail, map, value},
+    combinator::{map, value},
     multi::{many0, many1, separated_list0},
     sequence::{delimited, pair, preceded, tuple},
     IResult,
@@ -287,8 +287,8 @@ fn timeout_expr(i: CInput) -> IResult<CInput, Timeout, ErrorTree<CInput>> {
 pub fn literal(i: CInput) -> IResult<CInput, Lit, ErrorTree<CInput>> {
     alt((
         atomic_literal,
-        map(loc(tuple_literal), |(l, o)| Lit::Tuple(l, o)),
-        map(loc(cons_literal), |(l, o)| Lit::Cons(l, o)),
+        map(tuple_literal, Lit::Tuple),
+        map(cons_literal, Lit::Cons),
     ))(i)
 }
 
@@ -296,14 +296,12 @@ pub fn literal(i: CInput) -> IResult<CInput, Lit, ErrorTree<CInput>> {
 // Note: Do not Rc as Lit is used in Vec
 pub fn atomic_literal(i: CInput) -> IResult<CInput, Lit, ErrorTree<CInput>> {
     alt((
-        map(loc(char_char), |(l, o)| Lit::Char(l, o)),
-        map(loc(float), |(l, o)| Lit::Float(l, o)),
-        map(loc(integer), |(l, o)| Lit::Int(l, o)),
-        map(loc(atom), |(l, o)| Lit::Atom(l, o)),
-        map(loc(string), |(l, o)| Lit::String(l, o)),
-        map(loc(pair(wsa(tag("[")), wsa(tag("]")))), |(l, _)| {
-            Lit::Nil(l)
-        }),
+        map(char_char, Lit::Char),
+        map(float, Lit::Float),
+        map(integer, Lit::Int),
+        map(atom, Lit::Atom),
+        map(string, Lit::String),
+        value(Lit::Nil, pair(wsa(tag("[")), wsa(tag("]")))),
     ))(i)
 }
 
@@ -325,34 +323,35 @@ fn tuple_literal(i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<CInput>> {
 // Fold does NOT work. What to iterate over?
 // BUT idea of accumulator is good, add it to tail function!
 fn cons_literal(i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<CInput>> {
-    let mut acc: Vec<Lit> = Vec::new();
-    let (i, head) = preceded(wsa(tag("[")), literal)(i)?;
-    acc.push(head);
-    let (i, res) = tail_literal(acc, i)?;
-    Ok((i, res))
+    map(
+        preceded(wsa(tag("[")), pair(literal, tail_literal)),
+        |(head, tail)| {
+            let mut acc = vec![head];
+            acc.extend(tail);
+            acc
+        },
+    )(i)
 }
 
-fn tail_literal(mut acc: Vec<Lit>, i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<CInput>> {
-    if let Ok((i, _)) = wsa(tag("]"))(i) {
-        return Ok((i, acc));
-    };
-
-    if let Ok((i, next)) = delimited(wsa(tag("|")), literal, wsa(tag("]")))(i) {
-        match next {
-            // TODO: Loc thrown away here. Bad or acceptable?
-            Lit::Cons(_, next) => acc.extend(next),
-            _ => acc.push(next),
-        }
-        return Ok((i, acc));
-    };
-
-    match preceded(wsa(tag(",")), literal)(i) {
-        Ok((i, next)) => {
-            acc.push(next);
-            tail_literal(acc, i)
-        }
-        Err(_) => fail(i), // TODO: More informative err msg
-    }
+fn tail_literal(i: CInput) -> IResult<CInput, Vec<Lit>, ErrorTree<CInput>> {
+    alt((
+        value(vec![], wsa(tag("]"))),
+        map(delimited(wsa(tag("|")), literal, wsa(tag("]"))), |next| {
+            match next {
+                // TODO: Loc thrown away here. Bad or acceptable?
+                Lit::Cons(next) => next,
+                _ => vec![next],
+            }
+        }),
+        map(
+            preceded(wsa(tag(",")), pair(literal, tail_literal)),
+            |(head, tail)| {
+                let mut acc = vec![head];
+                acc.extend(tail);
+                acc
+            },
+        ),
+    ))(i)
 }
 
 // WSA OK

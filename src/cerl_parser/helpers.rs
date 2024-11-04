@@ -12,7 +12,7 @@ use nom::{
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
 use super::{
-    ast::{Anno, CLoc, Loc},
+    ast::{Anno, CLoc},
     cinput::CInput,
     constants::constant,
 };
@@ -152,10 +152,9 @@ where
     F: Parser<CInput<'a>, O, ErrorTree<CInput<'a>>>,
 {
     move |i: CInput| {
-        let start = Loc { pos: i.input.len() };
+        let start = i.get_loc();
         inner.parse(i).map(|(i, o)| {
-            let end = Loc { pos: i.input.len() };
-
+            let end = i.get_loc();
             let cloc = CLoc {
                 comment: None,
                 start,

@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use std::str::{CharIndices, Chars, FromStr};
 
 use std::ops::{Range, RangeFrom, RangeFull, RangeTo};
@@ -8,25 +9,56 @@ use nom::{
     InputLength, InputTake, InputTakeAtPosition, Needed, Offset, ParseTo, Slice,
 };
 
+use super::ast::Loc;
+
+// TODO: Is there a way to get rid of the unsafe blocks ?
+
 // https://github.com/rust-bakery/nom/blob/main/doc/custom_input_types.md
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CInput<'a> {
-    pub line_offsets: Vec<usize>,
+    full_length: usize,
+    line_offsets: Rc<Vec<usize>>,
     pub input: &'a str,
 }
 
 impl<'a> CInput<'a> {
     pub fn new(input: &'a str) -> Self {
-        let mut line_offsets = vec![0];
+        let mut line_offsets: Vec<usize> = vec![0];
         for (i, c) in input.chars().enumerate() {
             if c == '\n' {
                 line_offsets.push(i + 1);
             }
         }
         CInput {
-            line_offsets,
+            full_length: input.len(),
+            line_offsets: line_offsets.into(),
             input,
         }
+    }
+
+    pub fn get_loc(&self) -> Loc {
+        // Best approach is mixed approach with a note that if performance is bad a fully in-memory
+        // lookup table might be better. Or something else entirely.
+        //
+        // 1) take current line number
+        // 2) take input length
+        // 3) Check wheter we need to update line number (compare vector and line number values)
+        // 4) Compute column
+        // 5) Output Location
+        // Issue with this approach: It requires the whole struct to be mutable..
+        // Alternative idea: Save total length to be able to compute har far in we are always
+        // and then use the binary search for lookup, change new to store offsets from start
+        // instead
+        // Mix between in-memory and recomputation
+        // I could also store a Loc for every offset, but that seems like a bit too much.
+        //
+        let offset = self.full_length - self.input.len();
+        let line = match self.line_offsets.binary_search(&offset) {
+            Ok(line) => line + 1,
+            Err(line) => line,
+        };
+        let column = offset - self.line_offsets[line - 1] + 1;
+        Loc { line, column }
     }
 }
 
@@ -129,8 +161,9 @@ impl<'a> InputTake for CInput<'a> {
     #[inline]
     fn take(&self, count: usize) -> Self {
         CInput {
+            full_length: self.full_length,
             input: &self.input[..count],
-            line_offsets: self.line_offsets,
+            line_offsets: self.line_offsets.clone(),
         }
     }
 
@@ -140,12 +173,14 @@ impl<'a> InputTake for CInput<'a> {
         let (prefix, suffix) = self.input.split_at(count);
         (
             CInput {
+                full_length: self.full_length,
                 input: suffix,
-                line_offsets: self.line_offsets,
+                line_offsets: self.line_offsets.clone(),
             },
             CInput {
+                full_length: self.full_length,
                 input: prefix,
-                line_offsets: self.line_offsets,
+                line_offsets: self.line_offsets.clone(),
             },
         )
     }
@@ -163,12 +198,14 @@ impl<'a> InputTakeAtPosition for CInput<'a> {
             Some(i) => unsafe {
                 Ok((
                     CInput {
+                        full_length: self.full_length,
                         input: self.input.get_unchecked(i..),
-                        line_offsets: self.line_offsets,
+                        line_offsets: self.line_offsets.clone(),
                     },
                     CInput {
+                        full_length: self.full_length,
                         input: self.input.get_unchecked(..i),
-                        line_offsets: self.line_offsets,
+                        line_offsets: self.line_offsets.clone(),
                     },
                 ))
             },
@@ -185,17 +222,19 @@ impl<'a> InputTakeAtPosition for CInput<'a> {
         P: Fn(Self::Item) -> bool,
     {
         match self.input.find(predicate) {
-            Some(0) => Err(Err::Error(E::from_error_kind(*self, e))),
+            Some(0) => Err(Err::Error(E::from_error_kind(self.clone(), e))),
             // find() returns a byte index that is already in the slice at a char boundary
             Some(i) => unsafe {
                 Ok((
                     CInput {
+                        full_length: self.full_length,
                         input: self.input.get_unchecked(i..),
-                        line_offsets: self.line_offsets,
+                        line_offsets: self.line_offsets.clone(),
                     },
                     CInput {
+                        full_length: self.full_length,
                         input: self.input.get_unchecked(..i),
-                        line_offsets: self.line_offsets,
+                        line_offsets: self.line_offsets.clone(),
                     },
                 ))
             },
@@ -215,12 +254,14 @@ impl<'a> InputTakeAtPosition for CInput<'a> {
             Some(i) => unsafe {
                 Ok((
                     CInput {
+                        full_length: self.full_length,
                         input: self.input.get_unchecked(i..),
-                        line_offsets: self.line_offsets,
+                        line_offsets: self.line_offsets.clone(),
                     },
                     CInput {
+                        full_length: self.full_length,
                         input: self.input.get_unchecked(..i),
-                        line_offsets: self.line_offsets,
+                        line_offsets: self.line_offsets.clone(),
                     },
                 ))
             },
@@ -228,12 +269,14 @@ impl<'a> InputTakeAtPosition for CInput<'a> {
             None => unsafe {
                 Ok((
                     CInput {
+                        full_length: self.full_length,
                         input: self.input.get_unchecked(self.input.len()..),
-                        line_offsets: self.line_offsets,
+                        line_offsets: self.line_offsets.clone(),
                     },
                     CInput {
+                        full_length: self.full_length,
                         input: self.input.get_unchecked(..self.input.len()),
-                        line_offsets: self.line_offsets,
+                        line_offsets: self.line_offsets.clone(),
                     },
                 ))
             },
@@ -249,34 +292,38 @@ impl<'a> InputTakeAtPosition for CInput<'a> {
         P: Fn(Self::Item) -> bool,
     {
         match self.input.find(predicate) {
-            Some(0) => Err(Err::Error(E::from_error_kind(*self, e))),
+            Some(0) => Err(Err::Error(E::from_error_kind(self.clone(), e))),
             // find() returns a byte index that is already in the slice at a char boundary
             Some(i) => unsafe {
                 Ok((
                     CInput {
+                        full_length: self.full_length,
                         input: self.input.get_unchecked(i..),
-                        line_offsets: self.line_offsets,
+                        line_offsets: self.line_offsets.clone(),
                     },
                     CInput {
+                        full_length: self.full_length,
                         input: self.input.get_unchecked(..i),
-                        line_offsets: self.line_offsets,
+                        line_offsets: self.line_offsets.clone(),
                     },
                 ))
             },
             None => {
                 if self.input.is_empty() {
-                    Err(Err::Error(E::from_error_kind(*self, e)))
+                    Err(Err::Error(E::from_error_kind(self.clone(), e)))
                 } else {
                     // the end of slice is a char boundary
                     unsafe {
                         Ok((
                             CInput {
+                                full_length: self.full_length,
                                 input: self.input.get_unchecked(self.input.len()..),
-                                line_offsets: self.line_offsets,
+                                line_offsets: self.line_offsets.clone(),
                             },
                             CInput {
+                                full_length: self.full_length,
                                 input: self.input.get_unchecked(..self.input.len()),
-                                line_offsets: self.line_offsets,
+                                line_offsets: self.line_offsets.clone(),
                             },
                         ))
                     }
@@ -307,8 +354,10 @@ macro_rules! impl_slice_for_cinput {
         impl<'a> Slice<$range_type> for CInput<'a> {
             fn slice(&self, range: $range_type) -> Self {
                 let new_input = &self.input[range];
-                let new_line_offsets = self.line_offsets.clone(); // Adjust as needed
+                let new_line_offsets = self.line_offsets.clone();
+                let new_full_length = self.full_length;
                 CInput {
+                    full_length: new_full_length,
                     line_offsets: new_line_offsets,
                     input: new_input,
                 }
