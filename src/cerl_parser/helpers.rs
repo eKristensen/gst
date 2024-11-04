@@ -165,3 +165,9 @@ where
         })
     }
 }
+
+#[cfg(test)]
+// cinput_to_str for tests to compare remaining output.
+pub fn cts<T>((i, t): (CInput, T)) -> (&str, T) {
+    (i.input, t)
+}

@@ -18,12 +18,10 @@ use super::{
 
 // Top/parser start location
 // WSA OK
-pub fn run_parser(i: &str) -> IResult<CInput, AnnoModule, ErrorTree<CInput>> {
+pub fn run_parser(i: CInput) -> IResult<CInput, AnnoModule, ErrorTree<CInput>> {
     // We need to remove whitespace if any before we can start the parser
-    let i = CInput::new(i);
-    let (i, _) = wsc(i)?;
     // Start the parser with the top-level compoment: optionally annotated module:
-    anno_module_definition(i)
+    preceded(wsc, anno_module_definition)(i)
 }
 
 // WSA OK

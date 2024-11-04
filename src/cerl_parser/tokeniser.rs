@@ -322,6 +322,7 @@ pub fn var(i: CInput) -> IResult<CInput, Rc<Var>, ErrorTree<CInput>> {
 #[cfg(test)]
 mod tests {
     use crate::cerl_parser::ast::{CLoc, Loc};
+    use crate::cerl_parser::helpers::cts;
     use crate::cerl_parser::{ast::Lit, expressions::literal};
 
     use super::*;
@@ -339,34 +340,30 @@ mod tests {
     #[test]
     fn test_integer_literals() {
         // Tests based on Core Erlang 1.03 specification Appendix A
-        assert_eq!(integer::<()>(CInput::new("8")), Ok((CInput::new(""), 8)));
-        assert_eq!(integer::<()>(CInput::new("+17")), Ok((CInput::new(""), 17)));
+        assert_eq!(cts(integer::<()>(CInput::new("8")).unwrap()), ("", 8));
+        assert_eq!(cts(integer::<()>(CInput::new("+17")).unwrap()), ("", 17));
         assert_eq!(
-            integer::<()>(CInput::new("299792458")),
-            Ok((CInput::new(""), 299792458))
+            cts(integer::<()>(CInput::new("299792458")).unwrap()),
+            ("", 299792458)
         );
         assert_eq!(
-            integer::<()>(CInput::new("-4711")),
-            Ok((CInput::new(""), -4711))
+            cts(integer::<()>(CInput::new("-4711")).unwrap()),
+            ("", -4711)
         );
 
-        // TODO Move "lit" tests to lex.rs ?
         // TODO: Somehow make "::<()>" optional instead of having to type it...
+        assert_eq!(cts(literal(CInput::new("8")).unwrap()), ("", Lit::Int(8)));
         assert_eq!(
-            literal(CInput::new("8")).unwrap(),
-            (CInput::new(""), Lit::Int(8))
+            cts(literal(CInput::new("+17")).unwrap()),
+            ("", Lit::Int(17))
         );
         assert_eq!(
-            literal(CInput::new("+17")).unwrap(),
-            (CInput::new(""), Lit::Int(17))
+            cts(literal(CInput::new("299792458")).unwrap()),
+            ("", Lit::Int(299792458))
         );
         assert_eq!(
-            literal(CInput::new("299792458")).unwrap(),
-            (CInput::new(""), Lit::Int(299792458))
-        );
-        assert_eq!(
-            literal(CInput::new("-4711")).unwrap(),
-            (CInput::new(""), Lit::Int(-4711))
+            cts(literal(CInput::new("-4711")).unwrap()),
+            ("", Lit::Int(-4711))
         );
 
         // TODO: Negative / Expect Error test
@@ -377,14 +374,14 @@ mod tests {
     fn test_floating_point_numbers() {
         // Tests based on Core Erlang 1.03 specification Appendix A
         assert_eq!(
-            float(CInput::new("0.0")).unwrap(),
+            cts(float(CInput::new("0.0")).unwrap()),
             (
-                CInput::new(""),
+                "",
                 Float {
                     loc: CLoc {
                         comment: None,
-                        start: Loc { line: 0, column: 0 },
-                        end: Loc { line: 0, column: 0 },
+                        start: Loc { line: 1, column: 1 },
+                        end: Loc { line: 1, column: 3 },
                     },
                     base: 0,
                     decimal: 0,
@@ -394,14 +391,14 @@ mod tests {
             )
         );
         assert_eq!(
-            float(CInput::new("2.7182818")).unwrap(),
+            cts(float(CInput::new("2.7182818")).unwrap()),
             (
-                CInput::new(""),
+                "",
                 Float {
                     loc: CLoc {
                         comment: None,
-                        start: Loc { line: 0, column: 0 },
-                        end: Loc { line: 0, column: 0 },
+                        start: Loc { line: 1, column: 1 },
+                        end: Loc { line: 1, column: 9 },
                     },
                     base: 2,
                     decimal: 7182818,
@@ -411,14 +408,14 @@ mod tests {
             )
         );
         assert_eq!(
-            float(CInput::new("-3.14")).unwrap(),
+            cts(float(CInput::new("-3.14")).unwrap()),
             (
-                CInput::new(""),
+                "",
                 Float {
                     loc: CLoc {
                         comment: None,
-                        start: Loc { line: 0, column: 0 },
-                        end: Loc { line: 0, column: 0 },
+                        start: Loc { line: 1, column: 1 },
+                        end: Loc { line: 1, column: 5 },
                     },
                     base: -3,
                     decimal: 14,
@@ -428,14 +425,14 @@ mod tests {
             )
         );
         assert_eq!(
-            float(CInput::new("+1.2E-6")).unwrap(),
+            cts(float(CInput::new("+1.2E-6")).unwrap()),
             (
-                CInput::new(""),
+                "",
                 Float {
                     loc: CLoc {
                         comment: None,
-                        start: Loc { line: 0, column: 0 },
-                        end: Loc { line: 0, column: 0 },
+                        start: Loc { line: 1, column: 1 },
+                        end: Loc { line: 1, column: 7 },
                     },
                     base: 1,
                     decimal: 2,
@@ -445,14 +442,14 @@ mod tests {
             )
         );
         assert_eq!(
-            float(CInput::new("-1.23e12")).unwrap(),
+            cts(float(CInput::new("-1.23e12")).unwrap()),
             (
-                CInput::new(""),
+                "",
                 Float {
                     loc: CLoc {
                         comment: None,
-                        start: Loc { line: 0, column: 0 },
-                        end: Loc { line: 0, column: 0 },
+                        start: Loc { line: 1, column: 1 },
+                        end: Loc { line: 1, column: 8 },
                     },
                     base: -1,
                     decimal: 23,
@@ -462,14 +459,14 @@ mod tests {
             )
         );
         assert_eq!(
-            float(CInput::new("1.0e+9")).unwrap(),
+            cts(float(CInput::new("1.0e+9")).unwrap()),
             (
-                CInput::new(""),
+                "",
                 Float {
                     loc: CLoc {
                         comment: None,
-                        start: Loc { line: 0, column: 0 },
-                        end: Loc { line: 0, column: 0 },
+                        start: Loc { line: 1, column: 1 },
+                        end: Loc { line: 1, column: 5 },
                     },
                     base: 1,
                     decimal: 0,
@@ -479,17 +476,16 @@ mod tests {
             )
         );
 
-        // TODO Move "lit" tests to lex.rs ?
         assert_eq!(
-            literal(CInput::new("0.0")).unwrap(),
+            cts(literal(CInput::new("0.0")).unwrap()),
             (
-                CInput::new(""),
+                "",
                 Lit::Float(
                     Float {
                         loc: CLoc {
                             comment: None,
-                            start: Loc { line: 0, column: 0 },
-                            end: Loc { line: 0, column: 0 },
+                            start: Loc { line: 1, column: 1 },
+                            end: Loc { line: 1, column: 3 },
                         },
                         base: 0,
                         decimal: 0,
@@ -500,15 +496,15 @@ mod tests {
             )
         );
         assert_eq!(
-            literal(CInput::new("2.7182818")).unwrap(),
+            cts(literal(CInput::new("2.7182818")).unwrap()),
             (
-                CInput::new(""),
+                "",
                 Lit::Float(
                     Float {
                         loc: CLoc {
                             comment: None,
-                            start: Loc { line: 0, column: 0 },
-                            end: Loc { line: 0, column: 0 },
+                            start: Loc { line: 1, column: 1 },
+                            end: Loc { line: 1, column: 8 },
                         },
                         base: 2,
                         decimal: 7182818,
@@ -519,15 +515,15 @@ mod tests {
             )
         );
         assert_eq!(
-            literal(CInput::new("-3.14")).unwrap(),
+            cts(literal(CInput::new("-3.14")).unwrap()),
             (
-                CInput::new(""),
+                "",
                 Lit::Float(
                     Float {
                         loc: CLoc {
                             comment: None,
-                            start: Loc { line: 0, column: 0 },
-                            end: Loc { line: 0, column: 0 },
+                            start: Loc { line: 1, column: 1 },
+                            end: Loc { line: 1, column: 5 },
                         },
                         base: -3,
                         decimal: 14,
@@ -538,15 +534,15 @@ mod tests {
             )
         );
         assert_eq!(
-            literal(CInput::new("+1.2E-6")).unwrap(),
+            cts(literal(CInput::new("+1.2E-6")).unwrap()),
             (
-                CInput::new(""),
+                "",
                 Lit::Float(
                     Float {
                         loc: CLoc {
                             comment: None,
-                            start: Loc { line: 0, column: 0 },
-                            end: Loc { line: 0, column: 0 },
+                            start: Loc { line: 1, column: 1 },
+                            end: Loc { line: 1, column: 7 },
                         },
                         base: 1,
                         decimal: 2,
@@ -557,15 +553,15 @@ mod tests {
             )
         );
         assert_eq!(
-            literal(CInput::new("-1.23e12")).unwrap(),
+            cts(literal(CInput::new("-1.23e12")).unwrap()),
             (
-                CInput::new(""),
+                "",
                 Lit::Float(
                     Float {
                         loc: CLoc {
                             comment: None,
-                            start: Loc { line: 0, column: 0 },
-                            end: Loc { line: 0, column: 0 },
+                            start: Loc { line: 1, column: 1 },
+                            end: Loc { line: 1, column: 8 },
                         },
                         base: -1,
                         decimal: 23,
@@ -576,15 +572,15 @@ mod tests {
             )
         );
         assert_eq!(
-            literal(CInput::new("1.0e+9")).unwrap(),
+            cts(literal(CInput::new("1.0e+9")).unwrap()),
             (
-                CInput::new(""),
+                "",
                 Lit::Float(
                     Float {
                         loc: CLoc {
                             comment: None,
-                            start: Loc { line: 0, column: 0 },
-                            end: Loc { line: 0, column: 0 },
+                            start: Loc { line: 1, column: 1 },
+                            end: Loc { line: 1, column: 6 },
                         },
                         base: 1,
                         decimal: 0,
@@ -602,149 +598,116 @@ mod tests {
     fn test_atom() {
         // Tests based on Core Erlang 1.03 specification Appendix A
         assert_eq!(
-            atom(CInput::new("'foo'")).unwrap(),
-            (CInput::new(""), Atom("foo".to_owned()).into())
+            cts(atom(CInput::new("'foo'")).unwrap()),
+            ("", Atom("foo".to_owned()).into())
         );
         assert_eq!(
-            atom(CInput::new("'Bar'")).unwrap(),
-            (CInput::new(""), Atom("Bar".to_owned()).into())
+            cts(atom(CInput::new("'Bar'")).unwrap()),
+            ("", Atom("Bar".to_owned()).into())
         );
         assert_eq!(
-            atom(CInput::new("'foo bar'")).unwrap(),
-            (CInput::new(""), Atom("foo bar".to_owned()).into())
+            cts(atom(CInput::new("'foo bar'")).unwrap()),
+            ("", Atom("foo bar".to_owned()).into())
         );
         assert_eq!(
-            atom(CInput::new("''")).unwrap(),
-            (CInput::new(""), Atom("".to_owned()).into())
+            cts(atom(CInput::new("''")).unwrap()),
+            ("", Atom("".to_owned()).into())
         );
 
         // TODO: Is the test correct with \\ == \ in the string?
+        assert_eq!(cts(octal(CInput::new("012")).unwrap()), ("", 10 as char));
         assert_eq!(
-            octal(CInput::new("012")).unwrap(),
-            (CInput::new(""), 10 as char)
-        );
-        assert_eq!(
-            atom(CInput::new("'\\010'")).unwrap(),
-            (CInput::new(""), Atom("\u{8}".to_owned()).into())
+            cts(atom(CInput::new("'\\010'")).unwrap()),
+            ("", Atom("\u{8}".to_owned()).into())
         );
 
         assert_eq!(
-            atom(CInput::new("'_hello_world'")).unwrap(),
-            (CInput::new(""), Atom("_hello_world".to_owned()).into())
+            cts(atom(CInput::new("'_hello_world'")).unwrap()),
+            ("", Atom("_hello_world".to_owned()).into())
         );
         assert_eq!(
-            atom(CInput::new("'=:='")).unwrap(),
-            (CInput::new(""), Atom("=:=".to_owned()).into())
+            cts(atom(CInput::new("'=:='")).unwrap()),
+            ("", Atom("=:=".to_owned()).into())
         );
 
         // TODO Move "lit" tests to lex.rs ?
         assert_eq!(
-            literal(CInput::new("'foo'")).unwrap(),
-            (CInput::new(""), Lit::Atom(Atom("foo".to_owned()).into()))
+            cts(literal(CInput::new("'foo'")).unwrap()),
+            ("", Lit::Atom(Atom("foo".to_owned()).into()))
         );
         assert_eq!(
-            literal(CInput::new("'Bar'")).unwrap(),
-            (CInput::new(""), Lit::Atom(Atom("Bar".to_owned()).into()))
+            cts(literal(CInput::new("'Bar'")).unwrap()),
+            ("", Lit::Atom(Atom("Bar".to_owned()).into()))
         );
         assert_eq!(
-            literal(CInput::new("'foo bar'")).unwrap(),
-            (
-                CInput::new(""),
-                Lit::Atom(Atom("foo bar".to_owned()).into())
-            )
+            cts(literal(CInput::new("'foo bar'")).unwrap()),
+            ("", Lit::Atom(Atom("foo bar".to_owned()).into()))
         );
         assert_eq!(
-            literal(CInput::new("''")).unwrap(),
-            (CInput::new(""), Lit::Atom(Atom("".to_owned()).into()))
+            cts(literal(CInput::new("''")).unwrap()),
+            ("", Lit::Atom(Atom("".to_owned()).into()))
         );
         assert_eq!(
-            literal(CInput::new("'%#\\010@\\n!'")).unwrap(),
-            (
-                CInput::new(""),
-                Lit::Atom(Atom("%#\u{8}@\n!".to_owned()).into())
-            )
+            cts(literal(CInput::new("'%#\\010@\\n!'")).unwrap()),
+            ("", Lit::Atom(Atom("%#\u{8}@\n!".to_owned()).into()))
         );
         assert_eq!(
-            literal(CInput::new("'_hello_world'")).unwrap(),
-            (
-                CInput::new(""),
-                Lit::Atom(Atom("_hello_world".to_owned()).into())
-            )
+            cts(literal(CInput::new("'_hello_world'")).unwrap()),
+            ("", Lit::Atom(Atom("_hello_world".to_owned()).into()))
         );
         assert_eq!(
-            literal(CInput::new("'=:='")).unwrap(),
-            (CInput::new(""), Lit::Atom(Atom("=:=".to_owned()).into()))
+            cts(literal(CInput::new("'=:='")).unwrap()),
+            ("", Lit::Atom(Atom("=:=".to_owned()).into()))
         );
     }
 
     #[test]
     fn test_char_literal() {
         // Tests based on Core Erlang 1.03 specification Appendix A
+        assert_eq!(cts(char_char(CInput::new("$A")).unwrap()), ("", 'A'));
+        assert_eq!(cts(char_char(CInput::new("$$")).unwrap()), ("", '$'));
+        assert_eq!(cts(char_char(CInput::new("$\\n")).unwrap()), ("", '\n'));
+        assert_eq!(cts(char_char(CInput::new("$\\s")).unwrap()), ("", ' '));
+        assert_eq!(cts(char_char(CInput::new("$\\\\")).unwrap()), ("", '\\'));
+        assert_eq!(cts(char_char(CInput::new("$\\12")).unwrap()), ("", '\u{A}'));
+        assert_eq!(cts(char_char(CInput::new("$\\101")).unwrap()), ("", 'A'));
         assert_eq!(
-            char_char(CInput::new("$A")).unwrap(),
-            (CInput::new(""), 'A')
-        );
-        assert_eq!(
-            char_char(CInput::new("$$")).unwrap(),
-            (CInput::new(""), '$')
-        );
-        assert_eq!(
-            char_char(CInput::new("$\\n")).unwrap(),
-            (CInput::new(""), '\n')
-        );
-        assert_eq!(
-            char_char(CInput::new("$\\s")).unwrap(),
-            (CInput::new(""), ' ')
-        );
-        assert_eq!(
-            char_char(CInput::new("$\\\\")).unwrap(),
-            (CInput::new(""), '\\')
-        );
-        assert_eq!(
-            char_char(CInput::new("$\\12")).unwrap(),
-            (CInput::new(""), '\u{A}')
-        );
-        assert_eq!(
-            char_char(CInput::new("$\\101")).unwrap(),
-            (CInput::new(""), 'A')
-        );
-        assert_eq!(
-            char_char(CInput::new("$\\^A")).unwrap(),
-            (CInput::new(""), '\u{0001}')
+            cts(char_char(CInput::new("$\\^A")).unwrap()),
+            ("", '\u{0001}')
         );
 
         // TODO Move "lit" tests to lex.rs ?
         assert_eq!(
-            literal(CInput::new("$A")).unwrap(),
-            (CInput::new(""), Lit::Char('A'))
+            cts(literal(CInput::new("$A")).unwrap()),
+            ("", Lit::Char('A'))
         );
         assert_eq!(
-            literal(CInput::new("$$")).unwrap(),
-            (CInput::new(""), Lit::Char('$'))
+            cts(literal(CInput::new("$$")).unwrap()),
+            ("", Lit::Char('$'))
         );
         assert_eq!(
-            literal(CInput::new("$\\n")).unwrap(),
-            (CInput::new(""), Lit::Char('\n'))
+            cts(literal(CInput::new("$\\n")).unwrap()),
+            ("", Lit::Char('\n'))
         );
         assert_eq!(
-            literal(CInput::new("$\\s")).unwrap(),
-            (CInput::new(""), Lit::Char(' '))
+            cts(literal(CInput::new("$\\s")).unwrap()),
+            ("", Lit::Char(' '))
         );
         assert_eq!(
-            literal(CInput::new("$\\\\")).unwrap(),
-            (CInput::new(""), Lit::Char('\\'))
+            cts(literal(CInput::new("$\\\\")).unwrap()),
+            ("", Lit::Char('\\'))
         );
         assert_eq!(
-            literal(CInput::new("$\\12")).unwrap(),
-            (CInput::new(""), Lit::Char('\u{A}'))
+            cts(literal(CInput::new("$\\12")).unwrap()),
+            ("", Lit::Char('\u{A}'))
         );
         assert_eq!(
-            literal(CInput::new("$\\101")).unwrap(),
-            (CInput::new(""), Lit::Char('A'))
+            cts(literal(CInput::new("$\\101")).unwrap()),
+            ("", Lit::Char('A'))
         );
         assert_eq!(
-            literal(CInput::new("$\\^A")).unwrap(),
-            (CInput::new(""), Lit::Char('\u{0001}'))
+            cts(literal(CInput::new("$\\^A")).unwrap()),
+            ("", Lit::Char('\u{0001}'))
         );
 
         // TODO: Negative / Expect Error test
@@ -754,40 +717,37 @@ mod tests {
     fn test_strings() {
         // Tests based on Core Erlang 1.03 specification Appendix A
         assert_eq!(
-            string(CInput::new("\"Hello, World!\"")).unwrap(),
-            (CInput::new(""), "Hello, World!".to_owned())
+            cts(string(CInput::new("\"Hello, World!\"")).unwrap()),
+            ("", "Hello, World!".to_owned())
         );
         assert_eq!(
-            string(CInput::new("\"Two\\nlines\"")).unwrap(),
-            (CInput::new(""), "Two\nlines".to_owned())
+            cts(string(CInput::new("\"Two\\nlines\"")).unwrap()),
+            ("", "Two\nlines".to_owned())
         );
         assert_eq!(
-            string(CInput::new("\"\"")).unwrap(),
-            (CInput::new(""), "".to_owned())
+            cts(string(CInput::new("\"\"")).unwrap()),
+            ("", "".to_owned())
         );
         assert_eq!(
-            string(CInput::new("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\"")).unwrap(),
-            (CInput::new(""), "Ring\u{7}My\u{7}Bell\u{7}!".to_owned())
+            cts(string(CInput::new("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\"")).unwrap()),
+            ("", "Ring\u{7}My\u{7}Bell\u{7}!".to_owned())
         );
 
         assert_eq!(
-            literal(CInput::new("\"Hello, World!\"")).unwrap(),
-            (CInput::new(""), Lit::String("Hello, World!".to_owned()))
+            cts(literal(CInput::new("\"Hello, World!\"")).unwrap()),
+            ("", Lit::String("Hello, World!".to_owned()))
         );
         assert_eq!(
-            literal(CInput::new("\"Two\\nlines\"")).unwrap(),
-            (CInput::new(""), Lit::String("Two\nlines".to_owned()))
+            cts(literal(CInput::new("\"Two\\nlines\"")).unwrap()),
+            ("", Lit::String("Two\nlines".to_owned()))
         );
         assert_eq!(
-            literal(CInput::new("\"\"")).unwrap(),
-            (CInput::new(""), Lit::String("".to_owned()))
+            cts(literal(CInput::new("\"\"")).unwrap()),
+            ("", Lit::String("".to_owned()))
         );
         assert_eq!(
-            literal(CInput::new("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\"")).unwrap(),
-            (
-                CInput::new(""),
-                Lit::String("Ring\u{7}My\u{7}Bell\u{7}!".to_owned())
-            )
+            cts(literal(CInput::new("\"Ring\\^G\" \"My\\7\" \"Bell\\007!\"")).unwrap()),
+            ("", Lit::String("Ring\u{7}My\u{7}Bell\u{7}!".to_owned()))
         );
 
         // TODO: Negative / Expect Error test
@@ -797,28 +757,28 @@ mod tests {
     fn test_variables() {
         // Tests based on Core Erlang 1.03 specification Appendix A
         assert_eq!(
-            var(CInput::new("X")).unwrap(),
-            (CInput::new(""), Var("X".to_owned()).into())
+            cts(var(CInput::new("X")).unwrap()),
+            ("", Var("X".to_owned()).into())
         );
         assert_eq!(
-            var(CInput::new("Bar")).unwrap(),
-            (CInput::new(""), Var("Bar".to_owned()).into())
+            cts(var(CInput::new("Bar")).unwrap()),
+            ("", Var("Bar".to_owned()).into())
         );
         assert_eq!(
-            var(CInput::new("Value_2")).unwrap(),
-            (CInput::new(""), Var("Value_2".to_owned()).into())
+            cts(var(CInput::new("Value_2")).unwrap()),
+            ("", Var("Value_2".to_owned()).into())
         );
         assert_eq!(
-            var(CInput::new("One2Three")).unwrap(),
-            (CInput::new(""), Var("One2Three".to_owned()).into())
+            cts(var(CInput::new("One2Three")).unwrap()),
+            ("", Var("One2Three".to_owned()).into())
         );
         assert_eq!(
-            var(CInput::new("Stay@home")).unwrap(),
-            (CInput::new(""), Var("Stay@home".to_owned()).into())
+            cts(var(CInput::new("Stay@home")).unwrap()),
+            ("", Var("Stay@home".to_owned()).into())
         );
         assert_eq!(
-            var(CInput::new("_hello_world")).unwrap(),
-            (CInput::new(""), Var("_hello_world".to_owned()).into())
+            cts(var(CInput::new("_hello_world")).unwrap()),
+            ("", Var("_hello_world".to_owned()).into())
         );
 
         // Lowercase var must give error
@@ -826,8 +786,8 @@ mod tests {
 
         // Core erlang accepts "_" as a var despite spec version 1.03 explicitly says this is invalid
         assert_eq!(
-            var(CInput::new("_")).unwrap(),
-            (CInput::new(""), Var("_".to_owned()).into())
+            cts(var(CInput::new("_")).unwrap()),
+            ("", Var("_".to_owned()).into())
         );
 
         // TODO: Negative / Expect Error test
@@ -836,11 +796,8 @@ mod tests {
     #[test]
     fn test_lit_atom_in_list() {
         assert_eq!(
-            literal(CInput::new("'new', 'neg')")).unwrap(),
-            (
-                CInput::new(", 'neg')"),
-                Lit::Atom(Atom("new".to_owned()).into())
-            )
+            cts(literal(CInput::new("'new', 'neg')")).unwrap()),
+            (", 'neg')", Lit::Atom(Atom("new".to_owned()).into()))
         );
     }
 }

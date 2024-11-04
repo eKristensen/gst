@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::str::{CharIndices, Chars, FromStr};
 
@@ -19,6 +20,12 @@ pub struct CInput<'a> {
     full_length: usize,
     line_offsets: Rc<Vec<usize>>,
     pub input: &'a str,
+}
+
+impl<'a> Display for CInput<'a> {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.input)
+    }
 }
 
 impl<'a> CInput<'a> {

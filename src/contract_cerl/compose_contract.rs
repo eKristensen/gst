@@ -189,14 +189,17 @@ fn compose_function_with_contract(
                     vec![(single_clause_std_args, cexpr)]
                 }
                 Some(anno) => {
+                    let [(_, anno)] = anno.as_slice() else {
+                        todo!()
+                    };
                     // Top level clause is a function if the annotation contains the function name:
-                    if vec![Const(Lit::Tuple(vec![
+                    if Const(Lit::Tuple(vec![
                         Lit::Atom(Atom("function".to_string()).into()),
                         Lit::Tuple(vec![
                             Lit::Atom(fname.name.clone()),
                             Lit::Int(fname.arity.try_into().unwrap()),
                         ]),
-                    ]))] == *anno
+                    ])) == *anno
                     {
                         let mut clauses_res: Vec<(Vec<CPat>, CExpr)> = Vec::new();
 
@@ -355,9 +358,9 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
             let base_expr = expr_to_cexpr(&e1.inner)?.into();
             let mut contract_clauses: Vec<CClause> = Vec::new();
             for clause in e2 {
-                match *clause.anno {
+                match clause.anno.borrow() {
                     Anno(Some(clause_anno)) => {
-                        match *clause_anno {
+                        match clause_anno.as_slice() {
                             [(_, Const(Lit::Atom(clause_anno)))]
                                 if clause_anno.0 == "compiler_generated" =>
                             {
@@ -383,7 +386,7 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
 
             match (*fun_call.inner).borrow() {
                 Expr::AtomLit(_, fun_call) => {
-                    let Lit::Atom(_loc, fun_call) = fun_call.borrow() else {
+                    let Lit::Atom(fun_call) = fun_call.borrow() else {
                         return Err("Unsupported call name type.".to_string());
                     };
                     match fun_module {
@@ -394,8 +397,7 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                             else {
                                 return Err("Unsupported module name type".to_string());
                             };
-                            let Lit::Atom(_loc, module_name_call) = module_name_call.borrow()
-                            else {
+                            let Lit::Atom(module_name_call) = module_name_call.borrow() else {
                                 return Err("Unsupported module name type".to_string());
                             };
                             Ok(CExpr::Call(

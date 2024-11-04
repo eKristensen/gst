@@ -8,6 +8,7 @@ use crate::{
     cerl_parser::{
         self,
         ast::{AnnoLit, FunName, Lit},
+        cinput::CInput,
     },
     contract_cerl::types::SessionTypesList,
 };
@@ -29,6 +30,7 @@ pub fn mspec_extractor(ast: &cerl_parser::ast::Module) -> Result<Option<SessionT
 
             // TODO: Too much clone? Is it Rc clone or deep clone?
             let AnnoLit {
+                loc: _,
                 anno: _,
                 inner: val_const,
             } = (*attribute.value).clone();
@@ -39,8 +41,8 @@ pub fn mspec_extractor(ast: &cerl_parser::ast::Module) -> Result<Option<SessionT
             let st_string = decimal_string_decode(&val_const)?;
 
             // Convert encoded string to string. Move out to common part.
-            match st_inner(st_string.as_str()) {
-                Ok(("", mspec)) => {
+            match st_inner(CInput::new(st_string.as_str())) {
+                Ok((residual, mspec)) if residual.input.is_empty() => {
                     wellformed(true, false, &mspec)?;
                     return Ok(Some(mspec));
                 }
@@ -105,16 +107,17 @@ fn add_session_spec(spec: &Lit) -> Result<(FunName, SessionSpecs), String> {
     let st_string = decimal_string_decode(val_const)?;
 
     // Parse session type spec string
-    let session_type_parsed: (FunName, SessionSpecs) = match st_parse(&st_string).finish() {
-        Ok((residual_input, res)) if residual_input.is_empty() => res,
-        Ok((residual_iniput, _)) => {
-            return Err(format!(
-                "Could not parse session type. Extra unknown input not allowed: {:?}",
-                residual_iniput
-            ))
-        }
-        Err(e) => return Err(format!("Nom could not parse session type\n\n{}", e)),
-    };
+    let session_type_parsed: (FunName, SessionSpecs) =
+        match st_parse(CInput::new(&st_string)).finish() {
+            Ok((residual_input, res)) if residual_input.input.is_empty() => res,
+            Ok((residual_iniput, _)) => {
+                return Err(format!(
+                    "Could not parse session type. Extra unknown input not allowed: {:?}",
+                    residual_iniput
+                ))
+            }
+            Err(e) => return Err(format!("Nom could not parse session type\n\n{}", e)),
+        };
     Ok(session_type_parsed)
 }
 

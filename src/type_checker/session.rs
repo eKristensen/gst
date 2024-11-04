@@ -187,7 +187,7 @@ pub fn e_case_offer(
         let [CPat::Lit(label)] = clause.pats.as_slice() else {
             return Err("label must be an atom #1".to_string());
         };
-        let Lit::Atom(_loc, label) = (**label).clone() else {
+        let Lit::Atom(label) = (**label).clone() else {
             return Err("label must be an atom #2".to_string());
         };
 

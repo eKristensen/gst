@@ -458,20 +458,20 @@ mod tests {
     #[test]
     fn flatten_cons() {
         assert_eq!(
-            literal(CInput::new("[1,2]")).unwrap(),
-            literal(CInput::new("[1|[2]]")).unwrap()
+            literal(CInput::new("[1,2]")).unwrap().1,
+            literal(CInput::new("[1|[2]]")).unwrap().1
         );
         assert_eq!(
-            literal(CInput::new("[1,2,3]")).unwrap(),
-            literal(CInput::new("[1|[2|[3]]]")).unwrap()
+            literal(CInput::new("[1,2,3]")).unwrap().1,
+            literal(CInput::new("[1|[2|[3]]]")).unwrap().1
         );
         assert_eq!(
-            literal(CInput::new("[1,2,3]")).unwrap(),
-            literal(CInput::new("[1,2|[3]]")).unwrap()
+            literal(CInput::new("[1,2,3]")).unwrap().1,
+            literal(CInput::new("[1,2|[3]]")).unwrap().1
         );
         assert_eq!(
-            literal(CInput::new("[1,2,3]")).unwrap(),
-            literal(CInput::new("[1|[2,3]]")).unwrap()
+            literal(CInput::new("[1,2,3]")).unwrap().1,
+            literal(CInput::new("[1|[2,3]]")).unwrap().1
         );
     }
     // Test case where the issue was the args list. Wrapping for completeness

@@ -10,11 +10,11 @@ use nom::{
 };
 use nom_supreme::{error::ErrorTree, tag::complete::tag};
 
+use crate::{cerl_parser::tokeniser::var, st_parser::ast::SessionSpecElm::ConsumeSpec};
 use crate::{
-    cerl_parser::ast::FunName,
+    cerl_parser::{ast::FunName, cinput::CInput},
     contract_cerl::types::{BaseType, Label, SessionType, SessionTypesList},
 };
-use crate::{cerl_parser::tokeniser::var, st_parser::ast::SessionSpecElm::ConsumeSpec};
 use crate::{
     cerl_parser::{helpers::wsa, tokeniser::atom},
     st_parser::ast::SessionSpecElm::BasePlaceholder,
@@ -23,11 +23,14 @@ use crate::{contract_cerl::types::ChoiceType, st_parser::ast::SessionSpecElm::Ne
 
 use super::ast::{SessionSpec, SessionSpecElm, SessionSpecs};
 
+// TODO: Reuse of functions requires use of CInput which gives location info which might not be
+// needed. Would a reuse wrapper make sense or maybe just keep it as is? Which is better?
+
 // TODO: Reuse of functions from cerl parser allows for comments and maybe annotations inside the ST which is odd
 // Better to not reuse or rewrite so the core can be reused rather than the whole code.
 // Doing for now to get a working prototype
 // WSA OK
-pub fn st_parse(i: &str) -> IResult<&str, (FunName, SessionSpecs), ErrorTree<&str>> {
+pub fn st_parse(i: CInput) -> IResult<CInput, (FunName, SessionSpecs), ErrorTree<CInput>> {
     map(
         pair(
             atom,
@@ -48,7 +51,7 @@ pub fn st_parse(i: &str) -> IResult<&str, (FunName, SessionSpecs), ErrorTree<&st
 }
 
 // WSA OK
-fn clause(i: &str) -> IResult<&str, SessionSpec, ErrorTree<&str>> {
+fn clause(i: CInput) -> IResult<CInput, SessionSpec, ErrorTree<CInput>> {
     map(
         delimited(
             wsa(tag("(")),
@@ -67,7 +70,7 @@ fn clause(i: &str) -> IResult<&str, SessionSpec, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn new_spec(i: &str) -> IResult<&str, SessionSpecElm, ErrorTree<&str>> {
+fn new_spec(i: CInput) -> IResult<CInput, SessionSpecElm, ErrorTree<CInput>> {
     map(
         preceded(
             tag("new"),
@@ -78,7 +81,7 @@ fn new_spec(i: &str) -> IResult<&str, SessionSpecElm, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn consume_spec(i: &str) -> IResult<&str, SessionSpecElm, ErrorTree<&str>> {
+fn consume_spec(i: CInput) -> IResult<CInput, SessionSpecElm, ErrorTree<CInput>> {
     map(
         preceded(
             tag("consume"),
@@ -89,7 +92,7 @@ fn consume_spec(i: &str) -> IResult<&str, SessionSpecElm, ErrorTree<&str>> {
 }
 
 // WSA OK
-pub fn st_inner(i: &str) -> IResult<&str, SessionTypesList, ErrorTree<&str>> {
+pub fn st_inner(i: CInput) -> IResult<CInput, SessionTypesList, ErrorTree<CInput>> {
     map(
         separated_list0(
             wsa(tag(".")),
@@ -111,7 +114,7 @@ pub fn st_inner(i: &str) -> IResult<&str, SessionTypesList, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn base_type(i: &str) -> IResult<&str, BaseType, ErrorTree<&str>> {
+fn base_type(i: CInput) -> IResult<CInput, BaseType, ErrorTree<CInput>> {
     alt((
         map(atom, BaseType::Atom),
         value(BaseType::Pid, wsa(tag("pid"))),
@@ -126,7 +129,7 @@ fn base_type(i: &str) -> IResult<&str, BaseType, ErrorTree<&str>> {
 
 // WSA OK
 // TODO: ElixirST has ? or ! on labels. Needed or not?
-fn st_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
+fn st_choice(i: CInput) -> IResult<CInput, SessionType, ErrorTree<CInput>> {
     // TODO: Currently just like st_offer_choice make avoid duplicate code
     map(
         pair(
@@ -156,7 +159,7 @@ fn st_choice(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
 }
 
 // WSA OK
-fn inner_choice(i: &str) -> IResult<&str, (Label, SessionTypesList), ErrorTree<&str>> {
+fn inner_choice(i: CInput) -> IResult<CInput, (Label, SessionTypesList), ErrorTree<CInput>> {
     map(
         tuple((wsa(alpha1), wsa(tag(":")), st_inner)),
         |(o1, _, o2)| (Label(o1.to_string()), o2),
@@ -164,7 +167,7 @@ fn inner_choice(i: &str) -> IResult<&str, (Label, SessionTypesList), ErrorTree<&
 }
 
 // WSA OK
-fn mspec_state(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
+fn mspec_state(i: CInput) -> IResult<CInput, SessionType, ErrorTree<CInput>> {
     map(
         delimited(wsa(tag("<")), atom, wsa(tag(">"))),
         SessionType::State,
@@ -173,7 +176,7 @@ fn mspec_state(i: &str) -> IResult<&str, SessionType, ErrorTree<&str>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::cerl_parser::ast::Atom;
+    use crate::cerl_parser::{ast::Atom, helpers::cts};
 
     use super::*;
 
@@ -182,7 +185,7 @@ mod tests {
     #[test]
     fn simple_constructor_00() {
         assert_eq!(
-            st_parse("'test'(_,new(!integer))").unwrap(),
+            cts(st_parse(CInput::new("'test'(_,new(!integer))")).unwrap()),
             (
                 "",
                 (
@@ -202,7 +205,7 @@ mod tests {
     #[test]
     fn simple_constructor_01() {
         assert_eq!(
-            st_parse("'test'(_,new( !integer. ?float. end  ))").unwrap(),
+            cts(st_parse(CInput::new("'test'(_,new( !integer. ?float. end  ))")).unwrap()),
             (
                 "",
                 (
@@ -226,7 +229,7 @@ mod tests {
     #[test]
     fn simple_constructor_02() {
         assert_eq!(
-            st_parse("'test'(_,new(!integer. ?float. end)) ").unwrap(),
+            cts(st_parse(CInput::new("'test'(_,new(!integer. ?float. end)) ")).unwrap()),
             (
                 "",
                 (
@@ -250,7 +253,7 @@ mod tests {
     #[test]
     fn simple_constructor_03() {
         assert_eq!(
-            st_parse("'test'(_,new(!integer. ?float. end)) ").unwrap(),
+            cts(st_parse(CInput::new("'test'(_,new(!integer. ?float. end)) ")).unwrap()),
             (
                 "",
                 (
@@ -274,7 +277,7 @@ mod tests {
     #[test]
     fn simple_consume_00() {
         assert_eq!(
-            st_parse("'test'(_,consume(!integer ))").unwrap(),
+            cts(st_parse(CInput::new("'test'(_,consume(!integer ))")).unwrap()),
             (
                 "",
                 (
@@ -296,7 +299,7 @@ mod tests {
     #[test]
     fn simple_consume_01() {
         assert_eq!(
-            st_parse("'test'(_,consume(!integer. ?float))").unwrap(),
+            cts(st_parse(CInput::new("'test'(_,consume(!integer. ?float))")).unwrap()),
             (
                 "",
                 (
@@ -319,7 +322,7 @@ mod tests {
     #[test]
     fn simple_consume_02() {
         assert_eq!(
-            st_parse("'test'(_,consume(!integer. ?float))").unwrap(),
+            cts(st_parse(CInput::new("'test'(_,consume(!integer. ?float))")).unwrap()),
             (
                 "",
                 (
@@ -342,7 +345,7 @@ mod tests {
     #[test]
     fn simple_consume_03() {
         assert_eq!(
-            st_parse("'test'(_,consume(!integer. ?float))").unwrap(),
+            cts(st_parse(CInput::new("'test'(_,consume(!integer. ?float))")).unwrap()),
             (
                 "",
                 (
@@ -365,7 +368,7 @@ mod tests {
     #[test]
     fn offer_choice_00() {
         assert_eq!(
-            st_choice("&{test:!integer}").unwrap(),
+            cts(st_choice(CInput::new("&{test:!integer}")).unwrap()),
             (
                 "",
                 SessionType::Choice(
@@ -382,7 +385,7 @@ mod tests {
     #[test]
     fn offer_choice_01() {
         assert_eq!(
-            st_parse("'test'(new( &{test:!integer}))").unwrap(),
+            cts(st_parse(CInput::new("'test'(new( &{test:!integer}))")).unwrap()),
             (
                 "",
                 (
@@ -407,7 +410,10 @@ mod tests {
     #[test]
     fn offer_choice_02() {
         assert_eq!(
-            st_parse("'test'(new( &{test:!integer. !integer . ?float. end}))").unwrap(),
+            cts(st_parse(CInput::new(
+                "'test'(new( &{test:!integer. !integer . ?float. end}))"
+            ))
+            .unwrap()),
             (
                 "",
                 (
@@ -437,7 +443,10 @@ mod tests {
     #[test]
     fn offer_choice_03() {
         assert_eq!(
-            st_parse("'test'(new( &{test:!integer. !integer. ?float. end, alt: end}))").unwrap(),
+            cts(st_parse(CInput::new(
+                "'test'(new( &{test:!integer. !integer. ?float. end, alt: end}))"
+            ))
+            .unwrap()),
             (
                 "",
                 (
@@ -473,7 +482,7 @@ mod tests {
     #[test]
     fn make_choice_00() {
         assert_eq!(
-            st_choice("+{test: !integer}").unwrap(),
+            cts(st_choice(CInput::new("+{test: !integer}")).unwrap()),
             (
                 "",
                 SessionType::Choice(
@@ -490,7 +499,7 @@ mod tests {
     #[test]
     fn make_choice_01() {
         assert_eq!(
-            st_parse("'test'( new( +{ test: !integer }  ) )   ").unwrap(),
+            cts(st_parse(CInput::new("'test'( new( +{ test: !integer }  ) )   ")).unwrap()),
             (
                 "",
                 (

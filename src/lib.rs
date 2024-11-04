@@ -43,12 +43,12 @@ struct ParseErrors {
     related: Vec<ParseError>,
 }
 
-fn cerl_final(input: &str) -> Result<AnnoModule, ErrorTree<CInput>> {
+fn cerl_final(input: CInput) -> Result<AnnoModule, ErrorTree<CInput>> {
     final_parser(run_parser)(input)
 }
 
 pub fn parse(filename: &str, src: &str) -> Result<OptWarnings<CModule>> {
-    let module = cerl_final(src);
+    let module = cerl_final(CInput::new(src));
     match module {
         Err(err) => {
             // https://docs.rs/nom-supreme/latest/nom_supreme/error/enum.GenericErrorTree.html
