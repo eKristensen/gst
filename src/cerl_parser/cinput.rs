@@ -44,6 +44,20 @@ impl<'a> CInput<'a> {
     }
 
     pub fn get_loc(&self) -> Loc {
+        let offset = self.full_length - self.input.len();
+        self.get_loc_at_location(offset)
+    }
+
+    pub fn minus_one_loc(&self) -> Loc {
+        let offset = self.full_length - self.input.len() - 1;
+        if offset < 1 {
+            self.get_loc()
+        } else {
+            self.get_loc_at_location(offset)
+        }
+    }
+
+    fn get_loc_at_location(&self, offset: usize) -> Loc {
         // Best approach is mixed approach with a note that if performance is bad a fully in-memory
         // lookup table might be better. Or something else entirely.
         //
@@ -59,7 +73,6 @@ impl<'a> CInput<'a> {
         // Mix between in-memory and recomputation
         // I could also store a Loc for every offset, but that seems like a bit too much.
         //
-        let offset = self.full_length - self.input.len();
         let line = match self.line_offsets.binary_search(&offset) {
             Ok(line) => line + 1,
             Err(line) => line,

@@ -466,7 +466,7 @@ mod tests {
                     loc: CLoc {
                         comment: None,
                         start: Loc { line: 1, column: 1 },
-                        end: Loc { line: 1, column: 5 },
+                        end: Loc { line: 1, column: 6 },
                     },
                     base: 1,
                     decimal: 0,
@@ -504,7 +504,7 @@ mod tests {
                         loc: CLoc {
                             comment: None,
                             start: Loc { line: 1, column: 1 },
-                            end: Loc { line: 1, column: 8 },
+                            end: Loc { line: 1, column: 9 },
                         },
                         base: 2,
                         decimal: 7182818,

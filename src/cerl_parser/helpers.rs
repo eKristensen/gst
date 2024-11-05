@@ -154,7 +154,7 @@ where
     move |i: CInput| {
         let start = i.get_loc();
         inner.parse(i).map(|(i, o)| {
-            let end = i.get_loc();
+            let end = i.minus_one_loc();
             let cloc = CLoc {
                 comment: None,
                 start,
