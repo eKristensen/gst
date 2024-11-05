@@ -20,8 +20,8 @@ use super::{
 
 pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, String> {
     match e {
-        CExpr::Var(v) => e_base(envs, v),
-        CExpr::Lit(l) => match (**l).clone() {
+        CExpr::Var(_, v) => e_base(envs, v),
+        CExpr::Lit(_, l) => match (**l).clone() {
             // TODO: Deduplicate. Avoid repeating cpat_to_ctype function here
             Lit::Atom(atom_val) => match atom_val.0.as_str() {
                 "true" => Ok(CType::Base(BaseType::Boolean)),
@@ -30,22 +30,22 @@ pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, S
             },
             l => Ok(e_lit(&l)),
         },
-        CExpr::Cons(cons) => match expr_base_type_list(module, envs, cons) {
+        CExpr::Cons(_, cons) => match expr_base_type_list(module, envs, cons) {
             Ok(res) => Ok(CType::Base(BaseType::Cons(res))),
             Err(err_val) => Err(format!("expr cons failed because {}", err_val)),
         },
-        CExpr::Tuple(tuple) => match expr_base_type_list(module, envs, tuple) {
+        CExpr::Tuple(_, tuple) => match expr_base_type_list(module, envs, tuple) {
             Ok(res) => Ok(CType::Base(BaseType::Tuple(res))),
             Err(err_val) => Err(format!("expr tuple failed because {}", err_val)),
         },
-        CExpr::Let(v, e1, e2) => e_let(module, envs, v, e1, e2),
-        CExpr::Case(base_expr, clauses) => e_case(module, envs, base_expr, clauses),
-        CExpr::PrimOp(_, _) => todo!("PrimOp not supported yet."),
-        CExpr::Apply(call_name, args) => e_apply(module, envs, call_name, args),
-        CExpr::Call(call_module, call_name, args) => {
+        CExpr::Let(_, v, e1, e2) => e_let(module, envs, v, e1, e2),
+        CExpr::Case(_, base_expr, clauses) => e_case(module, envs, base_expr, clauses),
+        CExpr::PrimOp(_, _, _) => todo!("PrimOp not supported yet."),
+        CExpr::Apply(_, call_name, args) => e_apply(module, envs, call_name, args),
+        CExpr::Call(_, call_module, call_name, args) => {
             e_call(module, envs, call_module, call_name, args)
         }
-        CExpr::Do(e1, e2) => e_do(module, envs, e1, e2),
+        CExpr::Do(_, e1, e2) => e_do(module, envs, e1, e2),
     }
 }
 
@@ -254,7 +254,7 @@ fn e_case(
             // element
             // TODO: I feel like I should have the var name already somewhere
             match base_expr {
-                CExpr::Var(v) => {
+                CExpr::Var(_, v) => {
                     envs.0
                         .insert(v.clone(), TypeEnv::Delta(SessionTypesList(vec![])));
                 }
@@ -338,7 +338,7 @@ fn pattern_matching(
         acceptable = true;
     }
     if acceptable {
-        if let CPat::Var(v) = v {
+        if let CPat::Var(_, v) = v {
             envs.0.insert(v.clone(), ctype_to_typeenv(&e_ctype));
         };
         return Ok(());
@@ -362,7 +362,7 @@ fn ctype_to_typeenv(t: &CType) -> TypeEnv {
 
 fn cpat_to_ctype(envs: &TypeEnvs, p: &CPat) -> CType {
     match p {
-        CPat::Lit(lit) => match (**lit).clone() {
+        CPat::Lit(_, lit) => match (**lit).clone() {
             Lit::Atom(atom_val) => match atom_val.0.as_str() {
                 "true" => CType::Base(BaseType::Boolean),
                 "false" => CType::Base(BaseType::Boolean),
@@ -370,7 +370,7 @@ fn cpat_to_ctype(envs: &TypeEnvs, p: &CPat) -> CType {
             },
             l => e_lit(&l),
         },
-        CPat::Var(v) => {
+        CPat::Var(_, v) => {
             match envs.0.get(v) {
                 Some(v) => match v {
                     TypeEnv::Gamma(v) => CType::New(v.clone()),
@@ -381,9 +381,9 @@ fn cpat_to_ctype(envs: &TypeEnvs, p: &CPat) -> CType {
             }
         }
         CPat::Any => CType::Base(BaseType::Any),
-        CPat::Cons(_c) => todo!(),
-        CPat::Tuple(_t) => todo!(),
-        CPat::Alias(_, _) => todo!(),
+        CPat::Cons(_, _c) => todo!(),
+        CPat::Tuple(_, _t) => todo!(),
+        CPat::Alias(_, _, _) => todo!(),
     }
 }
 
