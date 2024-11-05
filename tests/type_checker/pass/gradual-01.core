@@ -1,0 +1,55 @@
+module 'gradual-01' ['foo'/2,
+		     'module_info'/0,
+		     'module_info'/1]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[116|[101|[115|[116|[115|[47|[116|[121|[112|[101|[95|[99|[104|[101|[99|[107|[101|[114|[47|[112|[97|[115|[115|[47|[103|[114|[97|[100|[117|[97|[108|[45|[48|[49|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],1}],
+		%% Line 7
+		'type' =
+		    %% Line 7
+		    [{'new',{'type',{7,16},'tuple',[]},[]}],
+		%% Line 8
+		'type' =
+		    %% Line 8
+		    [{'consume',{'type',{8,20},'tuple',[]},[]}],
+		%% Line 10
+		'session' =
+		    %% Line 10
+		    [39|[102|[111|[111|[39|[40|[110|[101|[119|[40|[33|[105|[110|[116|[101|[103|[101|[114|[46|[32|[63|[105|[110|[116|[101|[103|[101|[114|[46|[32|[101|[110|[100|[41|[44|[95|[41]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],
+		%% Line 12
+		'spec' =
+		    %% Line 12
+		    [{{'foo',2},[{'type',{12,10},'fun',[{'type',{12,10},'product',[{'user_type',{12,11},'new',[]}|[{'type',{12,18},'any',[]}]]}|[{'type',{12,28},'integer',[]}]]}]}]]
+'foo'/2 =
+    %% Line 13
+    ( fun (_0,_1) ->
+	  let <SessionID> =
+	      call %% Line 14
+		   'gen_server_plus':%% Line 14
+				     'new'
+		  (_0)
+	  in  let <Res> =
+		  call %% Line 15
+		       'gen_server_plus':%% Line 15
+					 'call'
+		      (_0, %% Line 15
+			   SessionID, _1)
+	      in  do  %% Line 16
+		      call 'gen_server_plus':'close'
+			  (_0, SessionID)
+		      %% Line 17
+		      Res
+      -| [{'function',{'foo',2}}] )
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('gradual-01')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('gradual-01', ( _0
+			       -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end

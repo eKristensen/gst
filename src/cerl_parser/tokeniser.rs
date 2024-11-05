@@ -382,7 +382,8 @@ mod tests {
                         comment: None,
                         start: Loc { line: 1, column: 1 },
                         end: Loc { line: 1, column: 3 },
-                    },
+                    }
+                    .into(),
                     base: 0,
                     decimal: 0,
                     exponent: 1
@@ -399,7 +400,8 @@ mod tests {
                         comment: None,
                         start: Loc { line: 1, column: 1 },
                         end: Loc { line: 1, column: 9 },
-                    },
+                    }
+                    .into(),
                     base: 2,
                     decimal: 7182818,
                     exponent: 1
@@ -416,7 +418,8 @@ mod tests {
                         comment: None,
                         start: Loc { line: 1, column: 1 },
                         end: Loc { line: 1, column: 5 },
-                    },
+                    }
+                    .into(),
                     base: -3,
                     decimal: 14,
                     exponent: 1
@@ -433,7 +436,8 @@ mod tests {
                         comment: None,
                         start: Loc { line: 1, column: 1 },
                         end: Loc { line: 1, column: 7 },
-                    },
+                    }
+                    .into(),
                     base: 1,
                     decimal: 2,
                     exponent: -6
@@ -450,7 +454,8 @@ mod tests {
                         comment: None,
                         start: Loc { line: 1, column: 1 },
                         end: Loc { line: 1, column: 8 },
-                    },
+                    }
+                    .into(),
                     base: -1,
                     decimal: 23,
                     exponent: 12
@@ -467,7 +472,8 @@ mod tests {
                         comment: None,
                         start: Loc { line: 1, column: 1 },
                         end: Loc { line: 1, column: 6 },
-                    },
+                    }
+                    .into(),
                     base: 1,
                     decimal: 0,
                     exponent: 9
@@ -486,7 +492,8 @@ mod tests {
                             comment: None,
                             start: Loc { line: 1, column: 1 },
                             end: Loc { line: 1, column: 3 },
-                        },
+                        }
+                        .into(),
                         base: 0,
                         decimal: 0,
                         exponent: 1
@@ -505,7 +512,8 @@ mod tests {
                             comment: None,
                             start: Loc { line: 1, column: 1 },
                             end: Loc { line: 1, column: 9 },
-                        },
+                        }
+                        .into(),
                         base: 2,
                         decimal: 7182818,
                         exponent: 1
@@ -524,7 +532,8 @@ mod tests {
                             comment: None,
                             start: Loc { line: 1, column: 1 },
                             end: Loc { line: 1, column: 5 },
-                        },
+                        }
+                        .into(),
                         base: -3,
                         decimal: 14,
                         exponent: 1
@@ -543,7 +552,8 @@ mod tests {
                             comment: None,
                             start: Loc { line: 1, column: 1 },
                             end: Loc { line: 1, column: 7 },
-                        },
+                        }
+                        .into(),
                         base: 1,
                         decimal: 2,
                         exponent: -6
@@ -562,7 +572,8 @@ mod tests {
                             comment: None,
                             start: Loc { line: 1, column: 1 },
                             end: Loc { line: 1, column: 8 },
-                        },
+                        }
+                        .into(),
                         base: -1,
                         decimal: 23,
                         exponent: 12
@@ -581,7 +592,8 @@ mod tests {
                             comment: None,
                             start: Loc { line: 1, column: 1 },
                             end: Loc { line: 1, column: 6 },
-                        },
+                        }
+                        .into(),
                         base: 1,
                         decimal: 0,
                         exponent: 9

@@ -147,7 +147,7 @@ where
 // General helper for adding basic location information to parsed statements.
 pub fn loc<'a, O, F>(
     mut inner: F,
-) -> impl FnMut(CInput<'a>) -> IResult<CInput<'a>, (CLoc, O), ErrorTree<CInput<'a>>>
+) -> impl FnMut(CInput<'a>) -> IResult<CInput<'a>, (Rc<CLoc>, O), ErrorTree<CInput<'a>>>
 where
     F: Parser<CInput<'a>, O, ErrorTree<CInput<'a>>>,
 {
@@ -161,7 +161,7 @@ where
                 end,
             };
 
-            (i, (cloc, o))
+            (i, (cloc.into(), o))
         })
     }
 }

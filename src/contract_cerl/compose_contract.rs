@@ -179,7 +179,7 @@ fn compose_function_with_contract(
         .vars
         .clone()
         .into_iter()
-        .map(|v| CPat::Var(Rc::new((*v.name).clone())))
+        .map(|v| CPat::Var((v.loc).clone(), Rc::new((*v.name).clone())))
         .collect();
     let clauses = match &fun_expr.body.inner.borrow() {
         Expr::Case(_location, _top_cases_var, top_cases_clauses) => {
@@ -260,15 +260,15 @@ fn clause_pats_to_fun_header_args(arg_pat: &Vec<AnnoPat>) -> Result<Vec<CPat>, S
 
 fn clause_pats_to_fun_header_arg(arg_pat: &Pat) -> Result<CPat, String> {
     match arg_pat {
-        Pat::Var(_, v) => Ok(CPat::Var(v.name.clone())),
-        Pat::Lit(_, l) => Ok(CPat::Lit(l.clone())),
-        Pat::Tuple(_, t) => {
+        Pat::Var(loc, v) => Ok(CPat::Var(loc.clone(), v.name.clone())),
+        Pat::Lit(loc, l) => Ok(CPat::Lit(loc.clone(), l.clone())),
+        Pat::Tuple(loc, t) => {
             let mut tuple_content: Vec<CPat> = Vec::new();
             for elm in t {
                 let res = clause_pats_to_fun_header_arg(&elm.inner)?;
                 tuple_content.push(res);
             }
-            Ok(CPat::Tuple(tuple_content))
+            Ok(CPat::Tuple(loc.clone(), tuple_content))
         }
         x => Err(format!(
             "when case is top-level function every arg must be a var. Found {}",
@@ -294,31 +294,37 @@ fn clause_to_cclause(clause: &Clause) -> Result<CClause, String> {
 
 fn pat_to_cpat(pat: &Pat) -> CPat {
     match pat {
-        Pat::Var(_, v) => CPat::Var(v.name.clone()),
-        Pat::Lit(_, l) => CPat::Lit(l.clone()),
-        Pat::Cons(_, pat_cons) => {
-            CPat::Cons(pat_cons.iter().map(|p| pat_to_cpat(&p.inner)).collect())
-        }
-        Pat::Tuple(_, pat_tuple) => {
-            CPat::Tuple(pat_tuple.iter().map(|p| pat_to_cpat(&p.inner)).collect())
-        }
-        Pat::Alias(_, var, pat) => CPat::Alias(var.name.clone(), pat_to_cpat(&pat.inner).into()),
+        Pat::Var(loc, v) => CPat::Var(loc.clone(), v.name.clone()),
+        Pat::Lit(loc, l) => CPat::Lit(loc.clone(), l.clone()),
+        Pat::Cons(loc, pat_cons) => CPat::Cons(
+            loc.clone(),
+            pat_cons.iter().map(|p| pat_to_cpat(&p.inner)).collect(),
+        ),
+        Pat::Tuple(loc, pat_tuple) => CPat::Tuple(
+            loc.clone(),
+            pat_tuple.iter().map(|p| pat_to_cpat(&p.inner)).collect(),
+        ),
+        Pat::Alias(loc, var, pat) => CPat::Alias(
+            loc.clone(),
+            var.name.clone(),
+            pat_to_cpat(&pat.inner).into(),
+        ),
     }
 }
 
 fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
     match expr {
-        Expr::Var(_, v) => Ok(CExpr::Var(v.clone())),
-        Expr::AtomLit(_, l) => Ok(CExpr::Lit(l.clone())),
-        Expr::Cons(_, exprs) => {
+        Expr::Var(loc, v) => Ok(CExpr::Var(loc.clone(), v.clone())),
+        Expr::AtomLit(loc, l) => Ok(CExpr::Lit(loc.clone(), l.clone())),
+        Expr::Cons(loc, exprs) => {
             let mut tuple: Vec<CExpr> = Vec::new();
             for expr in exprs {
                 let cexpr = expr_to_cexpr(&expr.inner)?;
                 tuple.push(cexpr)
             }
-            Ok(CExpr::Cons(tuple))
+            Ok(CExpr::Cons(loc.clone(), tuple))
         }
-        Expr::Exprs(_, exprs) => {
+        Expr::Exprs(loc, exprs) => {
             // Convert to direct value if exprs is only one long
             if exprs.len() == 1 {
                 let [exprs] = exprs.as_slice() else {
@@ -331,30 +337,35 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                     let cexpr = expr_to_cexpr(&expr.inner)?;
                     tuple.push(cexpr)
                 }
-                Ok(CExpr::Tuple(tuple))
+                Ok(CExpr::Tuple(loc.clone(), tuple))
             }
         }
-        Expr::Tuple(_, exprs) => {
+        Expr::Tuple(loc, exprs) => {
             let mut tuple: Vec<CExpr> = Vec::new();
             for expr in exprs {
                 let cexpr = expr_to_cexpr(&expr.inner)?;
                 tuple.push(cexpr)
             }
-            Ok(CExpr::Tuple(tuple))
+            Ok(CExpr::Tuple(loc.clone(), tuple))
         }
-        Expr::Let(_, v, e1, e2) => {
+        Expr::Let(loc, v, e1, e2) => {
             let v = match v.as_slice() {
-                [v] => Rc::new(CPat::Var(v.name.clone())),
+                [v] => Rc::new(CPat::Var(v.loc.clone(), v.name.clone())),
+                // TODO: The Location for the CPat::Tuple below is wrong, the Loc for the whole Let
+                // is reused. Change if needed, requires to save one more location in the parser.
                 _ => Rc::new(CPat::Tuple(
-                    v.iter().map(|v| CPat::Var(v.name.clone())).collect(),
+                    loc.clone(),
+                    v.iter()
+                        .map(|v| CPat::Var(v.loc.clone(), v.name.clone()))
+                        .collect(),
                 )),
             };
             let e1 = expr_to_cexpr(&e1.inner)?.into();
             let e2 = expr_to_cexpr(&e2.inner)?.into();
 
-            Ok(CExpr::Let(v.clone(), e1, e2))
+            Ok(CExpr::Let(loc.clone(), v.clone(), e1, e2))
         }
-        Expr::Case(_, e1, e2) => {
+        Expr::Case(loc, e1, e2) => {
             let base_expr = expr_to_cexpr(&e1.inner)?.into();
             let mut contract_clauses: Vec<CClause> = Vec::new();
             for clause in e2 {
@@ -375,9 +386,9 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                 let res = clause_to_cclause(&clause.inner)?;
                 contract_clauses.push(res);
             }
-            Ok(CExpr::Case(base_expr, contract_clauses))
+            Ok(CExpr::Case(loc.clone(), base_expr, contract_clauses))
         }
-        Expr::Call(_, fun_module, fun_call, args) => {
+        Expr::Call(loc, fun_module, fun_call, args) => {
             let mut args_cexpr: Vec<CExpr> = Vec::new();
             for arg in args {
                 let cexpr = expr_to_cexpr(&arg.inner)?;
@@ -390,7 +401,9 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                         return Err("Unsupported call name type.".to_string());
                     };
                     match fun_module {
-                        CallModule::PrimOp => Ok(CExpr::PrimOp(fun_call.clone(), args_cexpr)),
+                        CallModule::PrimOp => {
+                            Ok(CExpr::PrimOp(loc.clone(), fun_call.clone(), args_cexpr))
+                        }
                         CallModule::Call(module_name_call) => {
                             let Expr::AtomLit(_loc, module_name_call) =
                                 module_name_call.inner.borrow()
@@ -401,6 +414,7 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                                 return Err("Unsupported module name type".to_string());
                             };
                             Ok(CExpr::Call(
+                                loc.clone(),
                                 module_name_call.clone(),
                                 fun_call.clone(),
                                 args_cexpr,
@@ -413,15 +427,15 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                     if *fun_module != CallModule::Apply {
                         return Err("Unsupported call type.".to_string());
                     }
-                    Ok(CExpr::Apply(fname.clone(), args_cexpr))
+                    Ok(CExpr::Apply(loc.clone(), fname.clone(), args_cexpr))
                 }
                 _ => Err("Unsupported call name type.".to_string()),
             }
         }
-        Expr::Do(_, e1, e2) => {
+        Expr::Do(loc, e1, e2) => {
             let e1 = expr_to_cexpr(&e1.inner)?.into();
             let e2 = expr_to_cexpr(&e2.inner)?.into();
-            Ok(CExpr::Do(e1, e2))
+            Ok(CExpr::Do(loc.clone(), e1, e2))
         }
         _ => Err("Expression not supported in Contract Core Erlang yet.".to_string()),
     }

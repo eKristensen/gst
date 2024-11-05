@@ -19,7 +19,7 @@
 
 use std::{collections::HashMap, rc::Rc};
 
-use crate::cerl_parser::ast::{Atom, FunName, Lit, Var};
+use crate::cerl_parser::ast::{Atom, CLoc, FunName, Lit, Var};
 
 use super::types::{BaseType, SessionTypesList};
 
@@ -46,16 +46,16 @@ pub struct CFunClause {
 #[derive(Debug, Clone)]
 //  Simplified expression for function body
 pub enum CExpr {
-    Var(Rc<Var>),                        // E_base
-    Lit(Rc<Lit>),                        // E_base
-    Cons(Vec<CExpr>),                    // E_base
-    Tuple(Vec<CExpr>),                   // E_base
-    Let(Rc<CPat>, Rc<CExpr>, Rc<CExpr>), // E_let*
-    Case(Rc<CExpr>, Vec<CClause>),       // E_case
-    PrimOp(Rc<Atom>, Vec<CExpr>),
-    Apply(Rc<FunName>, Vec<CExpr>),
-    Call(Rc<Atom>, Rc<Atom>, Vec<CExpr>), // E_{new,send, select, app}
-    Do(Rc<CExpr>, Rc<CExpr>),
+    Var(Rc<CLoc>, Rc<Var>),                        // E_base
+    Lit(Rc<CLoc>, Rc<Lit>),                        // E_base
+    Cons(Rc<CLoc>, Vec<CExpr>),                    // E_base
+    Tuple(Rc<CLoc>, Vec<CExpr>),                   // E_base
+    Let(Rc<CLoc>, Rc<CPat>, Rc<CExpr>, Rc<CExpr>), // E_let*
+    Case(Rc<CLoc>, Rc<CExpr>, Vec<CClause>),       // E_case
+    PrimOp(Rc<CLoc>, Rc<Atom>, Vec<CExpr>),
+    Apply(Rc<CLoc>, Rc<FunName>, Vec<CExpr>),
+    Call(Rc<CLoc>, Rc<Atom>, Rc<Atom>, Vec<CExpr>), // E_{new,send, select, app}
+    Do(Rc<CLoc>, Rc<CExpr>, Rc<CExpr>),
 }
 
 #[derive(Debug, Clone)]
@@ -68,11 +68,11 @@ pub struct CClause {
 #[derive(Debug, Clone)]
 pub enum CPat {
     Any, // Emulate _ when variable is not needed, e.g. for do e1 e2
-    Var(Rc<Var>),
-    Lit(Rc<Lit>),
-    Cons(Vec<CPat>),
-    Tuple(Vec<CPat>),
-    Alias(Rc<Var>, Rc<CPat>),
+    Var(Rc<CLoc>, Rc<Var>),
+    Lit(Rc<CLoc>, Rc<Lit>),
+    Cons(Rc<CLoc>, Vec<CPat>),
+    Tuple(Rc<CLoc>, Vec<CPat>),
+    Alias(Rc<CLoc>, Rc<Var>, Rc<CPat>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

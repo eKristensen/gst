@@ -24,11 +24,11 @@ pub struct CLoc {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Anno(pub Option<Vec<(CLoc, Const)>>);
+pub struct Anno(pub Option<Vec<(Rc<CLoc>, Const)>>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoAtom {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub anno: Rc<Anno>,
     pub name: Rc<Atom>,
 }
@@ -38,7 +38,7 @@ pub struct Atom(pub String);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoVar {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub anno: Rc<Anno>,
     pub name: Rc<Var>,
 }
@@ -48,14 +48,14 @@ pub struct Var(pub String);
 
 #[derive(Debug, Clone)]
 pub struct AnnoModule {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub anno: Rc<Anno>,
     pub inner: Module,
 }
 
 #[derive(Debug, Clone)]
 pub struct Module {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub name: Rc<Atom>,
     pub exports: Vec<AnnoFunName>,
     pub attributes: Vec<Attribute>,
@@ -64,7 +64,7 @@ pub struct Module {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Attribute {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub name: Rc<AnnoAtom>,
     pub value: Rc<AnnoLit>,
 }
@@ -78,7 +78,7 @@ pub enum CallModule {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoFunName {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub anno: Rc<Anno>,
     pub inner: Rc<FunName>,
 }
@@ -91,28 +91,28 @@ pub struct FunName {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoFun {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub anno: Rc<Anno>,
     pub fun: Rc<Fun>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Fun {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub vars: Vec<AnnoVar>,
     pub body: Rc<AnnoExpr>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct FunDef {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub name: Rc<AnnoFunName>,
     pub body: Rc<AnnoFun>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct Float {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     // Note: Why not store as float? Because floats do not implement Hash in Rust.
     //       Furthermore, this format is non-destructive - It represents exactly
     //       what the source code does.
@@ -123,7 +123,7 @@ pub struct Float {
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct AnnoLit {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub anno: Rc<Anno>,
     pub inner: Rc<Lit>,
 }
@@ -151,14 +151,14 @@ pub enum MapPairType {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoMapPair {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub anno: Rc<Anno>,
     pub inner: MapPair,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MapPair {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub op: MapPairType,
     pub key: AnnoExpr,
     pub value: AnnoExpr,
@@ -166,50 +166,50 @@ pub struct MapPair {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoExpr {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub anno: Rc<Anno>,
     pub inner: Rc<Expr>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Expr {
-    Exprs(CLoc, Vec<AnnoExpr>), // When expressions are in a "< e >" brackets
-    Var(CLoc, Rc<Var>),
-    Fname(CLoc, Rc<FunName>),
-    AtomLit(CLoc, Rc<Lit>),
-    FunLit(CLoc, Rc<FunLit>),
-    Fun(CLoc, Rc<Fun>),
-    Cons(CLoc, Vec<AnnoExpr>),
-    Tuple(CLoc, Vec<AnnoExpr>),
-    Let(CLoc, Vec<AnnoVar>, Rc<AnnoExpr>, Rc<AnnoExpr>), // Note: Let vars
-    Case(CLoc, Rc<AnnoExpr>, Vec<AnnoClause>),
-    LetRec(CLoc, Vec<FunDef>, Rc<AnnoExpr>),
-    Call(CLoc, CallModule, Rc<AnnoExpr>, Vec<AnnoExpr>), // Merge call, apply and primop to avoid duplication
-    Receive(CLoc, Rc<Receive>),
-    Try(CLoc, Rc<Try>),
-    Do(CLoc, Rc<AnnoExpr>, Rc<AnnoExpr>), // Sequence
-    Catch(CLoc, Rc<AnnoExpr>),
-    Map(CLoc, MapExpr), // TODO: More transparent way to allow "update" from map or variable that contains a map
-                        // Ready for extensions: Binary, Segments
+    Exprs(Rc<CLoc>, Vec<AnnoExpr>), // When expressions are in a "< e >" brackets
+    Var(Rc<CLoc>, Rc<Var>),
+    Fname(Rc<CLoc>, Rc<FunName>),
+    AtomLit(Rc<CLoc>, Rc<Lit>),
+    FunLit(Rc<CLoc>, Rc<FunLit>),
+    Fun(Rc<CLoc>, Rc<Fun>),
+    Cons(Rc<CLoc>, Vec<AnnoExpr>),
+    Tuple(Rc<CLoc>, Vec<AnnoExpr>),
+    Let(Rc<CLoc>, Vec<AnnoVar>, Rc<AnnoExpr>, Rc<AnnoExpr>), // Note: Let vars
+    Case(Rc<CLoc>, Rc<AnnoExpr>, Vec<AnnoClause>),
+    LetRec(Rc<CLoc>, Vec<FunDef>, Rc<AnnoExpr>),
+    Call(Rc<CLoc>, CallModule, Rc<AnnoExpr>, Vec<AnnoExpr>), // Merge call, apply and primop to avoid duplication
+    Receive(Rc<CLoc>, Rc<Receive>),
+    Try(Rc<CLoc>, Rc<Try>),
+    Do(Rc<CLoc>, Rc<AnnoExpr>, Rc<AnnoExpr>), // Sequence
+    Catch(Rc<CLoc>, Rc<AnnoExpr>),
+    Map(Rc<CLoc>, MapExpr), // TODO: More transparent way to allow "update" from map or variable that contains a map
+                            // Ready for extensions: Binary, Segments
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum MapExpr {
-    OnlyPairs(CLoc, Vec<AnnoMapPair>),
-    MapVar(CLoc, Vec<AnnoMapPair>, Rc<AnnoVar>),
-    AnnoMap(CLoc, Vec<AnnoMapPair>, Rc<AnnoMap>),
+    OnlyPairs(Rc<CLoc>, Vec<AnnoMapPair>),
+    MapVar(Rc<CLoc>, Vec<AnnoMapPair>, Rc<AnnoVar>),
+    AnnoMap(Rc<CLoc>, Vec<AnnoMapPair>, Rc<AnnoMap>),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnoMap {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub anno: Rc<Anno>,
     pub inner: MapExpr,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Try {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub arg: AnnoExpr,
     pub vars: Vec<AnnoVar>,
     pub body: AnnoExpr,
@@ -219,35 +219,35 @@ pub struct Try {
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Receive {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub clauses: Vec<AnnoClause>,
     pub timeout: Timeout,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Timeout {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub guard: AnnoExpr,
     pub action: AnnoExpr,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct FunLit {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub module: Rc<Atom>,
     pub fname: Rc<FunName>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct AnnoClause {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub anno: Rc<Anno>,
     pub inner: Rc<Clause>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct Clause {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub pats: Vec<AnnoPat>,
     pub when: Rc<AnnoExpr>,
     pub res: Rc<AnnoExpr>,
@@ -255,18 +255,18 @@ pub struct Clause {
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub struct AnnoPat {
-    pub loc: CLoc,
+    pub loc: Rc<CLoc>,
     pub anno: Rc<Anno>,
     pub inner: Rc<Pat>,
 }
 
 #[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub enum Pat {
-    Var(CLoc, Rc<AnnoVar>),
-    Lit(CLoc, Rc<Lit>),
-    Cons(CLoc, Vec<AnnoPat>),
-    Tuple(CLoc, Vec<AnnoPat>),
-    Alias(CLoc, Rc<AnnoVar>, Rc<AnnoPat>),
+    Var(Rc<CLoc>, Rc<AnnoVar>),
+    Lit(Rc<CLoc>, Rc<Lit>),
+    Cons(Rc<CLoc>, Vec<AnnoPat>),
+    Tuple(Rc<CLoc>, Vec<AnnoPat>),
+    Alias(Rc<CLoc>, Rc<AnnoVar>, Rc<AnnoPat>),
     // Ready for extension: Maps, Segments, Binary
 }
 
