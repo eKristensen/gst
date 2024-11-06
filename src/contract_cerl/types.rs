@@ -21,7 +21,8 @@ pub enum BaseType {
     Tuple(Vec<BaseType>),
     Char,
     String,
-    Any,  // Aka "term"
+    Any,     // Aka "term"
+    Dynamic, // The gradual type to be used when casting
     List, // TODO: Differentiate between list types and include maybe improper and improper lists.
     Map,  // TODO: Differentiate between different kinds of maps.
 }

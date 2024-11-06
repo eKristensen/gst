@@ -164,7 +164,7 @@ fn e_app_contract(
                     st_consume(source_session.0.as_slice(), to_consume.0.as_slice())?;
 
                 // update env, IMPORTANT!
-                let CExpr::Var(session_id_var) = input_elm else {
+                let CExpr::Var(_loc, session_id_var) = input_elm else {
                     return Err("Session identifier must be direct arg.".to_string());
                 };
 

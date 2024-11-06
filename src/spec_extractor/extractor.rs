@@ -196,6 +196,7 @@ fn get_absform_type(spec: &Lit) -> Result<BaseSpecElm, String> {
                 ("type", "string") => Ok(BaseSpecElm::Base(BaseType::String)),
                 ("type", "tuple") => Ok(BaseSpecElm::Base(BaseType::Tuple(vec![]))),
                 ("type", "any") => Ok(BaseSpecElm::Base(BaseType::Any)),
+                ("type", "dynamic") => Ok(BaseSpecElm::Base(BaseType::Dynamic)),
                 e => Err(format!("Could not match any type #1. Found {:?}", e)),
             }
         }

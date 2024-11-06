@@ -20,7 +20,7 @@ module 'gradual-01' ['foo'/2,
 		%% Line 12
 		'spec' =
 		    %% Line 12
-		    [{{'foo',2},[{'type',{12,10},'fun',[{'type',{12,10},'product',[{'user_type',{12,11},'new',[]}|[{'type',{12,18},'any',[]}]]}|[{'type',{12,28},'integer',[]}]]}]}]]
+		    [{{'foo',2},[{'type',{12,10},'fun',[{'type',{12,10},'product',[{'user_type',{12,11},'new',[]}|[{'type',{12,18},'dynamic',[]}]]}|[{'type',{12,32},'integer',[]}]]}]}]]
 'foo'/2 =
     %% Line 13
     ( fun (_0,_1) ->

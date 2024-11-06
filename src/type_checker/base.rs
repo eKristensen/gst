@@ -392,7 +392,7 @@ mod tests {
 
     use std::collections::HashMap;
 
-    use crate::cerl_parser::ast::Atom;
+    use crate::cerl_parser::ast::{Atom, CLoc, Loc};
 
     use super::*;
 
@@ -407,40 +407,144 @@ mod tests {
         };
         let mut envs = TypeEnvs(HashMap::new());
         let e1 = CExpr::Let(
-            CPat::Var(Var("X".to_owned()).into()).into(),
+            CLoc {
+                comment: None,
+                start: Loc { line: 0, column: 0 },
+                end: Loc { line: 0, column: 0 },
+            }
+            .into(),
+            CPat::Var(
+                CLoc {
+                    comment: None,
+                    start: Loc { line: 0, column: 0 },
+                    end: Loc { line: 0, column: 0 },
+                }
+                .into(),
+                Var("X".to_owned()).into(),
+            )
+            .into(),
             CExpr::Call(
+                CLoc {
+                    comment: None,
+                    start: Loc { line: 0, column: 0 },
+                    end: Loc { line: 0, column: 0 },
+                }
+                .into(),
                 Atom("erlang".to_owned()).into(),
                 Atom("+".to_owned()).into(),
                 vec![
-                    CExpr::Lit(Lit::Int(1).into()),
-                    CExpr::Lit(Lit::Int(2).into()),
+                    CExpr::Lit(
+                        CLoc {
+                            comment: None,
+                            start: Loc { line: 0, column: 0 },
+                            end: Loc { line: 0, column: 0 },
+                        }
+                        .into(),
+                        Lit::Int(1).into(),
+                    ),
+                    CExpr::Lit(
+                        CLoc {
+                            comment: None,
+                            start: Loc { line: 0, column: 0 },
+                            end: Loc { line: 0, column: 0 },
+                        }
+                        .into(),
+                        Lit::Int(2).into(),
+                    ),
                 ],
             )
             .into(),
             CExpr::Let(
-                CPat::Var(Var("Y".to_owned()).into()).into(),
+                CLoc {
+                    comment: None,
+                    start: Loc { line: 0, column: 0 },
+                    end: Loc { line: 0, column: 0 },
+                }
+                .into(),
+                CPat::Var(
+                    CLoc {
+                        comment: None,
+                        start: Loc { line: 0, column: 0 },
+                        end: Loc { line: 0, column: 0 },
+                    }
+                    .into(),
+                    Var("Y".to_owned()).into(),
+                )
+                .into(),
                 CExpr::Call(
+                    CLoc {
+                        comment: None,
+                        start: Loc { line: 0, column: 0 },
+                        end: Loc { line: 0, column: 0 },
+                    }
+                    .into(),
                     Atom("erlang".to_owned()).into(),
                     Atom("+".to_owned()).into(),
                     vec![
-                        CExpr::Var(Var("X".to_owned()).into()),
-                        CExpr::Lit(Lit::Int(3).into()),
+                        CExpr::Var(
+                            CLoc {
+                                comment: None,
+                                start: Loc { line: 0, column: 0 },
+                                end: Loc { line: 0, column: 0 },
+                            }
+                            .into(),
+                            Var("X".to_owned()).into(),
+                        ),
+                        CExpr::Lit(
+                            CLoc {
+                                comment: None,
+                                start: Loc { line: 0, column: 0 },
+                                end: Loc { line: 0, column: 0 },
+                            }
+                            .into(),
+                            Lit::Int(3).into(),
+                        ),
                     ],
                 )
                 .into(),
                 CExpr::Call(
+                    CLoc {
+                        comment: None,
+                        start: Loc { line: 0, column: 0 },
+                        end: Loc { line: 0, column: 0 },
+                    }
+                    .into(),
                     Atom("erlang".to_owned()).into(),
                     Atom("+".to_owned()).into(),
                     vec![
-                        CExpr::Var(Var("X".to_owned()).into()),
-                        CExpr::Var(Var("Y".to_owned()).into()),
+                        CExpr::Var(
+                            CLoc {
+                                comment: None,
+                                start: Loc { line: 0, column: 0 },
+                                end: Loc { line: 0, column: 0 },
+                            }
+                            .into(),
+                            Var("X".to_owned()).into(),
+                        ),
+                        CExpr::Var(
+                            CLoc {
+                                comment: None,
+                                start: Loc { line: 0, column: 0 },
+                                end: Loc { line: 0, column: 0 },
+                            }
+                            .into(),
+                            Var("Y".to_owned()).into(),
+                        ),
                     ],
                 )
                 .into(),
             )
             .into(),
         );
-        let e2 = CExpr::Var(Var("Y".to_owned()).into());
+        let e2 = CExpr::Var(
+            CLoc {
+                comment: None,
+                start: Loc { line: 0, column: 0 },
+                end: Loc { line: 0, column: 0 },
+            }
+            .into(),
+            Var("Y".to_owned()).into(),
+        );
         assert!(e_do(&module, &mut envs, &e1, &e2).is_err())
     }
 }

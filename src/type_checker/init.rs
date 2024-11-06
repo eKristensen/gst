@@ -26,8 +26,8 @@ pub fn init_env(
         // TODO: Not binding to top-level binder might be a problem... But not so far. Bind to top
         // level as a fallback.
         let var = match var {
-            CPat::Var(var) => var,
-            CPat::Tuple(t) => {
+            CPat::Var(_, var) => var,
+            CPat::Tuple(_, t) => {
                 // Try to bind sub elements
                 // Interesting case:
                 // sub bind: [Lit(Atom(Atom("add_1"))), Var(Var("V1"))] Base(Tuple([Atom(Atom("add_1")), Integer]))
@@ -68,7 +68,7 @@ fn pat_init_envs(envs: &mut TypeEnvs, right: &[CPat], left: &CType) {
     };
     for (elm_left, elm_right) in right.iter().zip(left.iter()) {
         match (elm_left, elm_right) {
-            (CPat::Var(var), elm_right) => {
+            (CPat::Var(_, var), elm_right) => {
                 let insert_res = envs
                     .0
                     .insert(var.clone(), Sigma(elm_right.clone()))

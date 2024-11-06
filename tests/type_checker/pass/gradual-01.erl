@@ -9,7 +9,7 @@
 
 -session("'foo'(new(!integer. ?integer. end),_)").
 
--spec foo(new(), any()) -> integer().
+-spec foo(new(), dynamic()) -> integer().
 foo(ServerPid, Value) ->
   SessionID = gen_server_plus:new(ServerPid),
   Res = gen_server_plus:call(ServerPid, SessionID, Value),

@@ -54,7 +54,7 @@ pub fn gsp_sync_send(
     };
 
     // Get current session
-    let CExpr::Var(session_var) = session_id else {
+    let CExpr::Var(_loc, session_var) = session_id else {
         return Err(
             "e_call gsp_sync_send Session variable name must be used, not expression".to_string(),
         );
@@ -107,10 +107,16 @@ pub fn gsp_sync_send(
                 None => Err("Trying to make choice not offered by session".to_string()),
             }
         }
-        _ => Err(format!(
-            "Cannot perform next step {:?} in session with this state: {:?}",
-            sending_val, session_type
-        )),
+        _ => {
+            if sending_val == BaseType::Dynamic {
+                todo!("Here i am {:?}", (*sending_expr))
+            } else {
+                Err(format!(
+                    "Cannot perform next step {:?} in session with this state: {:?}",
+                    sending_val, session_type
+                ))
+            }
+        }
     }
 
     // ----------------------------------------------------------------------------------------
@@ -134,7 +140,7 @@ pub fn gsp_close(
     session_id: &CExpr,
 ) -> Result<CType, String> {
     // Get current session
-    let CExpr::Var(session_var) = session_id else {
+    let CExpr::Var(_loc, session_var) = session_id else {
         return Err(
             "e_call gsp_close Session variable name must be used, not expression".to_string(),
         );
@@ -184,7 +190,7 @@ pub fn e_case_offer(
         let mut clause_envs = TypeEnvs(envs.0.clone());
 
         // Get the label for current patten
-        let [CPat::Lit(label)] = clause.pats.as_slice() else {
+        let [CPat::Lit(_loc, label)] = clause.pats.as_slice() else {
             return Err("label must be an atom #1".to_string());
         };
         let Lit::Atom(label) = (**label).clone() else {
