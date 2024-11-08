@@ -1,7 +1,7 @@
 use std::env;
 use std::process::Command;
 
-use gst::{parse, type_check};
+use gst::{cast_insertion, parse, sanity_check_final_parser, type_check};
 
 use std::ffi::OsStr;
 use std::path::Path;
@@ -51,7 +51,7 @@ fn main() -> Result<()> {
 
     match std::fs::read_to_string(filename) {
         Ok(src) => {
-            let contract = parse(filename, &src)?;
+            let (core_ast, contract) = parse(filename, &src)?;
             if !contract.warnings.is_empty() {
                 println!("\nCore Erlang Contract created with the following warnings:");
                 for elm in contract.warnings {
@@ -67,6 +67,35 @@ fn main() -> Result<()> {
             } else {
                 println!("\nThere were no warnings from the type checker.")
             }
+
+            // TODO: Move away from main, cast insertion should not happen in main.rs ! But for now
+            // just to test it is here
+            if !type_check_res.cast_env.0.is_empty() {
+                println!(
+                    "There is something to change. Sample output now: {}",
+                    core_ast
+                );
+                // 1) Sanity check parse again and check AST the same ?
+                let sanity_check_new_src = format!("{}", core_ast.clone());
+                match sanity_check_final_parser(&sanity_check_new_src) {
+                    Ok(core_ast_control) => {
+                        if core_ast == core_ast_control {
+                            println!("All good");
+                        } else {
+                            // TODO: How to compare AST without location difference false positive?
+                            // println!("Oh no, not the same {:?} {:?}", core_ast, core_ast_control);
+                            println!("Cannot confirm equality of AST.")
+                        }
+                    }
+                    err => todo!("Err: {:?}\nDEBUG:\n{:?}", err, core_ast),
+                };
+
+                // 2) Try to do the cast insertion now ?
+                println!("{:?}", type_check_res.cast_env);
+                let res = cast_insertion(&type_check_res.cast_env, &core_ast);
+                println!("RES: {}", res);
+            }
+
             if type_check_res.res {
                 println!("\nResult: PASS\n");
             } else {

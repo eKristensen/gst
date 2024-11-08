@@ -8,7 +8,12 @@ use crate::{
     },
 };
 
-use super::{base::expr, env::TypeEnvs, init::init_env, session::finished};
+use super::{
+    base::expr,
+    env::{CastEnv, TypeEnvs},
+    init::init_env,
+    session::finished,
+};
 
 #[derive(Debug, Eq, PartialEq)]
 struct MSpecEnv(HashMap<MSpec, bool>);
@@ -28,12 +33,16 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
     if module.functions.is_empty() {
         return OptWarnings {
             res: false,
+            cast_env: CastEnv(HashMap::new()),
             warnings: vec![format!("Nothing to analyze, not acceptable")],
         };
     }
     let mut warnings: Vec<String> = Vec::new();
     // Overall acceptance. Assume all is OK until proven otherwise
     let mut overall_acceptance = true;
+
+    // Net cast env
+    let mut cast_env = CastEnv(HashMap::new());
 
     // TODO: Consistency sanity check: If mspec also expect behavior('gen_server_plus')
     // If mspec is defined check module mspec first
@@ -157,7 +166,7 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
 
             // Type check body, updates envs in place
             // module is sent along to give access to function signatures
-            let return_type = expr(&module, &mut envs, &clause.body);
+            let return_type = expr(&module, &mut envs, &mut cast_env, &clause.body);
             if return_type.is_err() {
                 warnings.push(format!(
                     "Type checking failed for {} due to {}",
@@ -191,8 +200,10 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
             // If something went wrong set overall_acceptance to false
         }
     }
+
     OptWarnings {
         res: overall_acceptance,
+        cast_env,
         warnings,
     }
 }

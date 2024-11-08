@@ -17,6 +17,7 @@ use crate::{
         ast::{SessionSpec, SessionSpecDef, SessionSpecElm},
         spec_extractor::{mspec_extractor, session_spec_extractor},
     },
+    type_checker::env::CastEnv,
 };
 
 use super::{
@@ -76,6 +77,7 @@ fn make_contract(
             functions,
             fallback_args,
         },
+        cast_env: CastEnv(HashMap::new()),
         warnings,
     }
 }

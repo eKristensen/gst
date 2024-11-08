@@ -19,7 +19,10 @@
 
 use std::{collections::HashMap, rc::Rc};
 
-use crate::cerl_parser::ast::{Atom, CLoc, FunName, Lit, Var};
+use crate::{
+    cerl_parser::ast::{Atom, CLoc, FunName, Lit, Var},
+    type_checker::env::CastEnv,
+};
 
 use super::types::{BaseType, SessionTypesList};
 
@@ -85,5 +88,6 @@ pub enum CType {
 #[derive(Debug)]
 pub struct OptWarnings<T> {
     pub res: T,
+    pub cast_env: CastEnv,
     pub warnings: Vec<String>,
 }

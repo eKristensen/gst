@@ -13,12 +13,17 @@ use crate::{
 };
 
 use super::{
-    env::{TypeEnv, TypeEnvs},
+    env::{CastEnv, TypeEnv, TypeEnvs},
     fun::e_app,
     session::{e_case_offer, must_st_consume_expr},
 };
 
-pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, String> {
+pub fn expr(
+    module: &CModule,
+    envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
+    e: &CExpr,
+) -> Result<CType, String> {
     match e {
         CExpr::Var(_, v) => e_base(envs, v),
         CExpr::Lit(_, l) => match (**l).clone() {
@@ -30,34 +35,35 @@ pub fn expr(module: &CModule, envs: &mut TypeEnvs, e: &CExpr) -> Result<CType, S
             },
             l => Ok(e_lit(&l)),
         },
-        CExpr::Cons(_, cons) => match expr_base_type_list(module, envs, cons) {
+        CExpr::Cons(_, cons) => match expr_base_type_list(module, envs, cast_env, cons) {
             Ok(res) => Ok(CType::Base(BaseType::Cons(res))),
             Err(err_val) => Err(format!("expr cons failed because {}", err_val)),
         },
-        CExpr::Tuple(_, tuple) => match expr_base_type_list(module, envs, tuple) {
+        CExpr::Tuple(_, tuple) => match expr_base_type_list(module, envs, cast_env, tuple) {
             Ok(res) => Ok(CType::Base(BaseType::Tuple(res))),
             Err(err_val) => Err(format!("expr tuple failed because {}", err_val)),
         },
-        CExpr::Let(_, v, e1, e2) => e_let(module, envs, v, e1, e2),
-        CExpr::Case(_, base_expr, clauses) => e_case(module, envs, base_expr, clauses),
+        CExpr::Let(_, v, e1, e2) => e_let(module, envs, cast_env, v, e1, e2),
+        CExpr::Case(_, base_expr, clauses) => e_case(module, envs, cast_env, base_expr, clauses),
         CExpr::PrimOp(_, _, _) => todo!("PrimOp not supported yet."),
-        CExpr::Apply(_, call_name, args) => e_apply(module, envs, call_name, args),
+        CExpr::Apply(_, call_name, args) => e_apply(module, envs, cast_env, call_name, args),
         CExpr::Call(_, call_module, call_name, args) => {
-            e_call(module, envs, call_module, call_name, args)
+            e_call(module, envs, cast_env, call_module, call_name, args)
         }
-        CExpr::Do(_, e1, e2) => e_do(module, envs, e1, e2),
+        CExpr::Do(_, e1, e2) => e_do(module, envs, cast_env, e1, e2),
     }
 }
 
 fn expr_base_type_list(
     module: &CModule,
     envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
     e: &Vec<CExpr>,
 ) -> Result<Vec<BaseType>, String> {
     let mut res: Vec<BaseType> = Vec::new();
     for elm in e {
         // Try to evaluate in isolated environment
-        match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, elm) {
+        match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, elm) {
             Ok(ok_val) => {
                 let CType::Base(ok_val) = ok_val else {
                     return Err("Only base types supported in cons or tuple".to_string());
@@ -78,6 +84,7 @@ fn expr_base_type_list(
 fn e_apply(
     module: &CModule,
     envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
     call_name: &Rc<FunName>,
     args: &Vec<CExpr>,
 ) -> Result<CType, String> {
@@ -86,13 +93,14 @@ fn e_apply(
     };
 
     // Type as if it was a call to the same module avoid duplication of type checker code
-    e_call(module, envs, &module.name, &call_name.name, args)
+    e_call(module, envs, cast_env, &module.name, &call_name.name, args)
 }
 
 // TODO: e-call function is too big, split into smaller parts.
 fn e_call(
     module: &CModule,
     envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
     call_module: &Rc<Atom>,
     call_name: &Rc<Atom>,
     args: &Vec<CExpr>,
@@ -120,18 +128,22 @@ fn e_call(
         args.as_slice(),
         known_call,
     ) {
-        ("gen_server_plus", "new", [server_pid], None) => gsp_new(module, envs, server_pid),
+        ("gen_server_plus", "new", [server_pid], None) => {
+            gsp_new(module, envs, cast_env, server_pid)
+        }
         ("gen_server_plus", "new", _, _) => Err("Invalid gs+:new call".to_string()),
         ("gen_server_plus", "call", [_, session_id, sending_expr], None) => {
             println!("TODO: First and second argument are not checked right now. Should they?");
-            gsp_sync_send(module, envs, session_id, sending_expr)
+            gsp_sync_send(module, envs, cast_env, session_id, sending_expr)
         }
         ("gen_server_plus", "close", [_, session_id], None) => {
             println!("TODO: First argument is not checked right now. Should it?");
-            gsp_close(module, envs, session_id)
+            gsp_close(module, envs, cast_env, session_id)
         }
-        (call_module, call_name, args, None) => bif_fun(module, envs, call_module, call_name, args),
-        (_, _, args, Some(fun_clauses)) => e_app(module, envs, args, fun_clauses),
+        (call_module, call_name, args, None) => {
+            bif_fun(module, envs, cast_env, call_module, call_name, args)
+        }
+        (_, _, args, Some(fun_clauses)) => e_app(module, envs, cast_env, args, fun_clauses),
     }
 }
 
@@ -165,11 +177,17 @@ fn e_lit_aux(l: &Lit) -> BaseType {
     }
 }
 
-fn e_do(module: &CModule, envs: &mut TypeEnvs, e1: &CExpr, e2: &CExpr) -> Result<CType, String> {
+fn e_do(
+    module: &CModule,
+    envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
+    e1: &CExpr,
+    e2: &CExpr,
+) -> Result<CType, String> {
     // TODO: e_do is the only reason we have cPat::Any
     // _ is not properly supported in cerl, and I assume a CType of Base::Any It should work fine
     // right?
-    e_let(module, envs, &CPat::Any, e1, e2)
+    e_let(module, envs, cast_env, &CPat::Any, e1, e2)
 }
 
 // TODO: Reuse this function for : E_case, E_app ("call-by-value")
@@ -179,13 +197,14 @@ fn e_do(module: &CModule, envs: &mut TypeEnvs, e1: &CExpr, e2: &CExpr) -> Result
 fn e_let(
     module: &CModule,
     envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
     v: &CPat,
     e1: &CExpr,
     e2: &CExpr,
 ) -> Result<CType, String> {
     // Clone env to compare consume later. Keep using original ref otherwise changes within are going to be lost
     //let envs_copy_baseline = TypeEnvs(envs.0.clone());
-    let pat_ok = pattern_matching(module, envs, v, e1);
+    let pat_ok = pattern_matching(module, envs, cast_env, v, e1);
     if let Err(err_val) = pat_ok {
         return Err(format!("e_let failed #1 because {}", err_val));
     }
@@ -199,7 +218,7 @@ fn e_let(
     // OR NOT? It makes sense that V1 is not defined before the let expr for V1...
     // NO! It is in E1 that V1 is not defined, not the continuation !
 
-    match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, e2) {
+    match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, e2) {
         Ok(ok_val) => Ok(ok_val),
         Err(err_val) => Err(format!("e_let failed #2 because {}", err_val)),
     }
@@ -216,6 +235,7 @@ fn e_let(
 fn e_case(
     module: &CModule,
     envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
     base_expr: &CExpr,
     clauses: &Vec<CClause>,
 ) -> Result<CType, String> {
@@ -230,7 +250,8 @@ fn e_case(
     // Base expr type check
     // TODO: A bit manual env clone, maybe fix?
     let mut case_base_expr_envs = TypeEnvs(envs.0.clone());
-    let base_res = must_st_consume_expr(module, envs, &mut case_base_expr_envs, base_expr);
+    let base_res =
+        must_st_consume_expr(module, envs, &mut case_base_expr_envs, cast_env, base_expr);
     let Ok(base_res) = base_res else {
         return Err(format!(
             "E_case failed in base case because {}",
@@ -247,7 +268,7 @@ fn e_case(
         // - Can we select something here? No, again it would just be a basic let in again
         // - Can we offer something here? Yes, that is the whole point.
         if let SessionType::Choice(ChoiceType::Make, offers) = st.0.first().unwrap() {
-            let case_res = e_case_offer(module, envs, offers, clauses)?;
+            let case_res = e_case_offer(module, envs, cast_env, offers, clauses)?;
             // TODO: Write down typing system "assumption"
             // When we are here in the code, it means at least one offer has matched
             // Therefore we should update the session for the var and remove consume, pop the first
@@ -264,7 +285,7 @@ fn e_case(
         }
     } // send/receive or anything else
       // If not, then treat as normal
-    e_case_branching(module, envs, base_expr, clauses) // Base and new are "normal".
+    e_case_branching(module, envs, cast_env, base_expr, clauses) // Base and new are "normal".
 
     // Remember common return type for each clause, this common type is the return value.
 }
@@ -273,6 +294,7 @@ fn e_case(
 fn e_case_branching(
     module: &CModule,
     envs: &TypeEnvs,
+    cast_env: &mut CastEnv,
     base_expr: &CExpr,
     clauses: &Vec<CClause>,
 ) -> Result<CType, String> {
@@ -295,6 +317,7 @@ fn e_case_branching(
         let clause_res = e_let(
             module,
             &mut clause_envs,
+            cast_env,
             clause.pats.first().unwrap(),
             base_expr,
             &clause.res,
@@ -323,11 +346,12 @@ fn e_case_branching(
 fn pattern_matching(
     module: &CModule,
     envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
     v: &CPat,
     e: &CExpr,
 ) -> Result<(), String> {
     // Compare by abstraction, type
-    let e_ctype = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, e)?;
+    let e_ctype = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, e)?;
     let v_ctype = cpat_to_ctype(envs, v);
     let mut acceptable = false;
     if e_ctype == v_ctype {
@@ -545,6 +569,6 @@ mod tests {
             .into(),
             Var("Y".to_owned()).into(),
         );
-        assert!(e_do(&module, &mut envs, &e1, &e2).is_err())
+        assert!(e_do(&module, &mut envs, &mut CastEnv(HashMap::new()), &e1, &e2).is_err())
     }
 }

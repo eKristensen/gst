@@ -12,15 +12,22 @@ use crate::{
     type_checker::base::expr,
 };
 
-use super::env::{TypeEnv, TypeEnvs};
+use super::env::{CastEnv, TypeEnv, TypeEnvs};
 
 // Gen Server Plus Establish New Session
-pub fn gsp_new(module: &CModule, envs: &mut TypeEnvs, server_pid: &CExpr) -> Result<CType, String> {
+pub fn gsp_new(
+    module: &CModule,
+    envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
+    server_pid: &CExpr,
+) -> Result<CType, String> {
     // TODO Call by value isolation!!!!! Important!!!
-    let CType::New(session_type) = (match expr(module, &mut TypeEnvs(envs.0.clone()), server_pid) {
-        Ok(ok_val) => ok_val,
-        Err(err_val) => return Err(format!("E_call gsp_new failed due to {}", err_val)),
-    }) else {
+    let CType::New(session_type) =
+        (match expr(module, &mut TypeEnvs(envs.0.clone()), cast_env, server_pid) {
+            Ok(ok_val) => ok_val,
+            Err(err_val) => return Err(format!("E_call gsp_new failed due to {}", err_val)),
+        })
+    else {
         return Err("Must construct new session here".to_string());
     };
 
@@ -42,11 +49,16 @@ pub fn gsp_new(module: &CModule, envs: &mut TypeEnvs, server_pid: &CExpr) -> Res
 pub fn gsp_sync_send(
     module: &CModule,
     envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
     session_id: &CExpr,
     sending_expr: &CExpr,
 ) -> Result<CType, String> {
-    let CType::Base(sending_val) = (match expr(module, &mut TypeEnvs(envs.0.clone()), sending_expr)
-    {
+    let CType::Base(sending_val) = (match expr(
+        module,
+        &mut TypeEnvs(envs.0.clone()),
+        cast_env,
+        sending_expr,
+    ) {
         Ok(ok_val) => ok_val,
         Err(err_val) => return Err(format!("e_call gsp_sync_send failed because {}", err_val)),
     }) else {
@@ -60,7 +72,7 @@ pub fn gsp_sync_send(
         );
     };
     let CType::Consume(session_type) =
-        (match expr(module, &mut TypeEnvs(envs.0.clone()), session_id) {
+        (match expr(module, &mut TypeEnvs(envs.0.clone()), cast_env, session_id) {
             Ok(ok_val) => ok_val,
             Err(err_val) => {
                 return Err(format!(
@@ -137,6 +149,7 @@ pub fn gsp_sync_send(
 pub fn gsp_close(
     module: &CModule,
     envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
     session_id: &CExpr,
 ) -> Result<CType, String> {
     // Get current session
@@ -146,7 +159,7 @@ pub fn gsp_close(
         );
     };
     let CType::Consume(session_type) =
-        (match expr(module, &mut TypeEnvs(envs.0.clone()), session_id) {
+        (match expr(module, &mut TypeEnvs(envs.0.clone()), cast_env, session_id) {
             Ok(ok_val) => ok_val,
             Err(err_val) => return Err(format!("e_call gsp_close failed because of {}", err_val)),
         })
@@ -174,6 +187,7 @@ pub fn gsp_close(
 pub fn e_case_offer(
     module: &CModule,
     envs: &TypeEnvs,
+    cast_env: &mut CastEnv,
     offers: &BTreeMap<Label, SessionTypesList>,
     clauses: &Vec<CClause>,
 ) -> Result<CType, String> {
@@ -208,8 +222,13 @@ pub fn e_case_offer(
         // think so?
 
         // TODO: Potential optimization: Before vars are computed for each clause, where they could be computed outside loop.
-        let clause_res =
-            must_st_consume_expr(module, &case_start_envs, &mut clause_envs, &clause.res);
+        let clause_res = must_st_consume_expr(
+            module,
+            &case_start_envs,
+            &mut clause_envs,
+            cast_env,
+            &clause.res,
+        );
         if clause_res.is_err() {
             return Err(format!(
                 "Case clause failed because {}",
@@ -277,10 +296,11 @@ pub fn must_st_consume_expr(
     module: &CModule,
     before_envs: &TypeEnvs,
     current_envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
     e: &CExpr,
 ) -> Result<CType, String> {
     // Check e2 in double mark
-    match expr(module, current_envs, e) {
+    match expr(module, current_envs, cast_env, e) {
         Ok(return_type) => {
             // Check finished for all new sessions, diff between environments
             let diff_ok = diff_consumed(before_envs, current_envs);

@@ -46,14 +46,14 @@ pub struct AnnoVar {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct Var(pub String);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct AnnoModule {
     pub loc: Rc<CLoc>,
     pub anno: Rc<Anno>,
     pub inner: Module,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Module {
     pub loc: Rc<CLoc>,
     pub name: Rc<Atom>,
@@ -62,7 +62,7 @@ pub struct Module {
     pub defs: Vec<FunDef>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Attribute {
     pub loc: Rc<CLoc>,
     pub name: Rc<AnnoAtom>,
@@ -286,7 +286,7 @@ fn anno_fmt(f: &mut Formatter, anno: &Anno, inner: &impl Display) -> Result {
     match &anno {
         Anno(Some(anno)) => {
             let anno = anno.iter().map(|anno| anno.1.clone()).collect::<Vec<_>>();
-            write!(f, "( '{}' -| {} )", inner, ConstList(&anno))
+            write!(f, "( {} -| {} )", inner, ConstList(&anno))
         }
         _ => inner.fmt(f),
     }
@@ -472,7 +472,7 @@ impl Display for Module {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(
             f,
-            "module {} {} attributes {} {} end",
+            "module {} {} attributes [ {} ] {} end",
             self.name,
             ExportList(&self.exports),
             AttributeList(&self.attributes),

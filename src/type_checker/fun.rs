@@ -1,16 +1,17 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, rc::Rc};
 
 use crate::{
-    cerl_parser::ast::Atom,
+    cerl_parser::ast::{Atom, CLoc},
     contract_cerl::{
         ast::{CExpr, CFunClause, CModule, CType},
         types::{BaseType, ChoiceType, SessionType, SessionTypesList},
     },
-    type_checker::env::TypeEnv,
+    type_checker::{casting::add_gradual_cast, env::TypeEnv},
 };
 
 use super::{
-    env::TypeEnvs,
+    casting::get_cexpr_loc,
+    env::{CastEnv, TypeEnvs},
     session::{must_st_consume_expr, unfold},
 };
 
@@ -18,6 +19,7 @@ use super::{
 pub fn bif_fun(
     module: &CModule,
     envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
     fun_mod: &str,
     fun_name: &str,
     args: &[CExpr],
@@ -30,7 +32,8 @@ pub fn bif_fun(
                 return Err("Wrong or unknown use of erlang:-".to_string());
             }
             let val_in = args.first().unwrap();
-            let type_in = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, val_in)?;
+            let type_in =
+                must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, val_in)?;
             if CType::Base(BaseType::Integer) == type_in {
                 Ok(CType::Base(BaseType::Integer))
             } else {
@@ -44,8 +47,10 @@ pub fn bif_fun(
             let [val_1, val_2] = args else {
                 return Err("Expected two args for erlang:+".to_string());
             };
-            let type_1_in = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, val_1)?;
-            let type_2_in = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, val_2)?;
+            let type_1_in =
+                must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, val_1)?;
+            let type_2_in =
+                must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, val_2)?;
             if CType::Base(BaseType::Integer) == type_1_in && type_1_in == type_2_in {
                 Ok(CType::Base(BaseType::Integer))
             } else {
@@ -64,15 +69,16 @@ pub fn bif_fun(
 pub fn e_app(
     module: &CModule,
     envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
     args: &[CExpr],
     fun_clauses: &Vec<CFunClause>,
 ) -> Result<CType, String> {
     // 2) Use contract to check argument types, including session type evaluation
     // 2a) Get types of arguments
-    let mut input_types: Vec<CType> = Vec::new();
+    let mut input_types: Vec<(Rc<CLoc>, CType)> = Vec::new();
     for elm in args {
-        match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, elm) {
-            Ok(ok_val) => input_types.push(ok_val),
+        match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, elm) {
+            Ok(ok_val) => input_types.push((get_cexpr_loc(elm), ok_val)),
             Err(err_val) => {
                 return Err(format!(
                     "Type checking argument in call failed because {}",
@@ -93,7 +99,7 @@ pub fn e_app(
         }
 
         // 2c) Apply clause contract, basically apply session consume
-        if let Err(err_val) = e_app_contract(module, envs, &clause.spec, args) {
+        if let Err(err_val) = e_app_contract(module, envs, cast_env, &clause.spec, args) {
             return Err(format!(
                 "Could not apply function contract because {}",
                 err_val
@@ -104,26 +110,64 @@ pub fn e_app(
         return Ok(CType::Base(clause.return_type.clone()));
     }
 
+    // Attempt Gradual casting: If the input type is a gradual type, then we assume there is just one clause
+    // to match and that this clause is the one where we need to perform the gradual casting
+    // TODO: Write this assumption somewhere relevant, maybe in paper or documentation?
+    if fun_clauses.len() == 1 && fun_clauses.first().unwrap().spec.len() == input_types.len() {
+        let clause = fun_clauses.first().unwrap();
+
+        let mut acceptable_cast = true;
+
+        for elm in clause.spec.iter().zip(input_types.iter()) {
+            match elm {
+                (CType::Base(out), (cloc, CType::Base(BaseType::Dynamic))) => {
+                    println!("INFO: Requested cast to be inserted.");
+                    add_gradual_cast(
+                        cast_env,
+                        cloc,
+                        &CType::Base(BaseType::Dynamic),
+                        &CType::Base(out.clone()),
+                    )?;
+                }
+                (CType::Base(t1), (_, CType::Base(t2))) => {
+                    if *t1 != *t2 {
+                        acceptable_cast = false;
+                        break;
+                    }
+                }
+                (CType::New(_), (_, CType::New(_))) => continue, // Do not check session type content now. Later!
+                (CType::Consume(_), (_, CType::Consume(_))) => continue, // Do not check session type content now. Later!
+                _ => {
+                    acceptable_cast = false;
+                    break;
+                } // mismatch not ok.
+            }
+        }
+        if acceptable_cast {
+            return Ok(CType::Base(clause.return_type.clone()));
+        }
+    }
+
     // No typeable function clause found
     Err("Found no function clause with matching type.".to_string())
 }
 
 // Check the input types are compatible with the contract.
 // Do not check session type content.
-fn fun_app_clause_match(type1: &[CType], type2: &[CType]) -> bool {
+fn fun_app_clause_match(type1: &[CType], type2: &[(Rc<CLoc>, CType)]) -> bool {
     if type1.len() != type2.len() {
         return false;
     }
     for elm in type1.iter().zip(type2.iter()) {
         match elm {
-            (CType::Base(t1), CType::Base(t2)) => {
+            (CType::Base(t1), (_, CType::Base(t2))) => {
                 if *t1 != *t2 {
                     return false;
                 }
             }
-            (CType::New(_), CType::New(_)) => continue, // Do not check session type content now. Later!
-            (CType::Consume(_), CType::Consume(_)) => continue, // Do not check session type content now. Later!
-            _ => return false,                                  // mismatch not ok.
+            (CType::New(_), (_, CType::New(_))) => continue, // Do not check session type content now. Later!
+            (CType::Consume(_), (_, CType::Consume(_))) => continue, // Do not check session type content now. Later!
+            _ => return false,                                       // mismatch not ok.
         }
     }
     true
@@ -133,15 +177,21 @@ fn fun_app_clause_match(type1: &[CType], type2: &[CType]) -> bool {
 fn e_app_contract(
     module: &CModule,
     envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
     contract: &[CType],
     inputs: &[CExpr],
 ) -> Result<(), String> {
     for (contract_elm, input_elm) in contract.iter().zip(inputs.iter()) {
-        let ctype_input_elm =
-            match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, input_elm) {
-                Ok(ok_val) => ok_val,
-                Err(err_val) => return Err(format!("Err finding argument type: {}", err_val)),
-            };
+        let ctype_input_elm = match must_st_consume_expr(
+            module,
+            &TypeEnvs(envs.0.clone()),
+            envs,
+            cast_env,
+            input_elm,
+        ) {
+            Ok(ok_val) => ok_val,
+            Err(err_val) => return Err(format!("Err finding argument type: {}", err_val)),
+        };
 
         match (contract_elm, ctype_input_elm) {
             (CType::Base(t1), CType::Base(t2)) => {

@@ -15,6 +15,7 @@ use nom_supreme::error::GenericErrorTree;
 use nom_supreme::final_parser::{Location, RecreateContext};
 use nom_supreme::{error::ErrorTree, final_parser::final_parser};
 use thiserror::Error;
+use type_checker::env::CastEnv;
 
 #[derive(Error, Debug, Diagnostic)]
 #[error("oops!")]
@@ -43,11 +44,17 @@ struct ParseErrors {
     related: Vec<ParseError>,
 }
 
+// TODO: This function should not be public
+pub fn sanity_check_final_parser(src: &str) -> Result<AnnoModule, ErrorTree<CInput>> {
+    cerl_final(CInput::new(src))
+}
+
 fn cerl_final(input: CInput) -> Result<AnnoModule, ErrorTree<CInput>> {
     final_parser(run_parser)(input)
 }
 
-pub fn parse(filename: &str, src: &str) -> Result<OptWarnings<CModule>> {
+// TODO: More neat way to also preserve "pure" AST for .core files
+pub fn parse(filename: &str, src: &str) -> Result<(AnnoModule, OptWarnings<CModule>)> {
     let module = cerl_final(CInput::new(src));
     match module {
         Err(err) => {
@@ -97,12 +104,17 @@ pub fn parse(filename: &str, src: &str) -> Result<OptWarnings<CModule>> {
                 }
             }
         }
-        Ok(module) => Ok(compose_contract(module).unwrap()),
+        // TODO: Avoid clone here?
+        Ok(module) => Ok((module.clone(), compose_contract(module).unwrap())),
     }
 }
 
 pub fn type_check(m: CModule) -> OptWarnings<bool> {
     crate::type_checker::module::module(m)
+}
+
+pub fn cast_insertion(cast_env: &CastEnv, e: &AnnoModule) -> AnnoModule {
+    type_checker::casting::cast_insertion(cast_env, e)
 }
 
 // pub fn analyze(m: Module) -> bool {

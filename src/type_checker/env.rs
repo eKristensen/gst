@@ -3,7 +3,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    cerl_parser::ast::Var,
+    cerl_parser::ast::{CLoc, Var},
     contract_cerl::types::{BaseType, SessionTypesList},
 };
 
@@ -19,3 +19,13 @@ pub enum TypeEnv {
 #[derive(Debug)]
 // "Runtime" environment for type checker.
 pub struct TypeEnvs(pub HashMap<Rc<Var>, TypeEnv>);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+// Supported gradual casts
+pub enum Cast {
+    DynToInt,
+}
+
+#[derive(Debug)]
+// Save gradual type casts
+pub struct CastEnv(pub HashMap<Rc<CLoc>, Cast>);
