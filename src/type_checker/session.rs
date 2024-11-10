@@ -9,7 +9,7 @@ use crate::{
         ast::{CClause, CExpr, CModule, CPat, CType},
         types::{BaseType, ChoiceType, Label, SessionType, SessionTypesList},
     },
-    type_checker::base::expr,
+    type_checker::{base::expr, casting::add_gradual_cast, casting::get_cexpr_loc},
 };
 
 use super::env::{CastEnv, TypeEnv, TypeEnvs};
@@ -92,8 +92,17 @@ pub fn gsp_sync_send(
         // Session must have at least one element otherwise it is not possible to continue:
         [] => Err("e_call gsp_sync_send Cannot send on empty/consumed session".to_string()),
         [SessionType::Send(to_send_val), SessionType::Receive(received), tail @ ..]
-            if sending_val == *to_send_val =>
+            if sending_val == *to_send_val || sending_val == BaseType::Dynamic =>
         {
+            if sending_val == BaseType::Dynamic {
+                println!("INFO: Requested cast to be inserted.");
+                add_gradual_cast(
+                    cast_env,
+                    &get_cexpr_loc(sending_expr),
+                    &CType::Base(BaseType::Dynamic),
+                    &CType::Base(to_send_val.clone()),
+                )?;
+            }
             envs.0.insert(
                 session_var.clone(),
                 TypeEnv::Delta(SessionTypesList(tail.to_vec())),
@@ -119,16 +128,10 @@ pub fn gsp_sync_send(
                 None => Err("Trying to make choice not offered by session".to_string()),
             }
         }
-        _ => {
-            if sending_val == BaseType::Dynamic {
-                todo!("Here i am {:?}", (*sending_expr))
-            } else {
-                Err(format!(
-                    "Cannot perform next step {:?} in session with this state: {:?}",
-                    sending_val, session_type
-                ))
-            }
-        }
+        _ => Err(format!(
+            "Cannot perform next step {:?} in session with this state: {:?}",
+            sending_val, session_type
+        )),
     }
 
     // ----------------------------------------------------------------------------------------

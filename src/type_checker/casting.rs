@@ -102,6 +102,12 @@ fn cast_insertion_expr(cast_env: &CastEnv, e: &Expr) -> Expr {
                 .map(|arg| cast_insertion_anno_expr(cast_env, arg))
                 .collect(),
         ),
+        Expr::Let(loc, v, e1, e2) => Expr::Let(
+            loc.clone(),
+            v.clone(), // TODO: We do not check for var to insert cast here
+            cast_insertion_anno_expr(cast_env, e1).into(),
+            cast_insertion_anno_expr(cast_env, e2).into(),
+        ),
         // Otherwise just clone it and keep it unchanged.
         e => e.clone(),
     }
