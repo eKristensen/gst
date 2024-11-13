@@ -51,6 +51,8 @@ pub fn expr(
             e_call(module, envs, cast_env, call_module, call_name, args)
         }
         CExpr::Do(_, e1, e2) => e_do(module, envs, cast_env, e1, e2),
+        CExpr::Fun(_, args, body) => e_fun(module, envs, cast_env, args, body),
+        CExpr::ApplyFun(_, _, _) => todo!(),
     }
 }
 
@@ -175,6 +177,30 @@ fn e_lit_aux(l: &Lit) -> BaseType {
         Lit::String(_) => BaseType::String,
         Lit::Nil => BaseType::Cons(vec![]),
     }
+}
+
+fn e_fun(
+    module: &CModule,
+    envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
+    args: &Vec<Var>,
+    body: &CExpr,
+) -> Result<CType, String> {
+    // Can I somehow reuse all the function typing I've done so far?
+    // The general idea is the same, or almost the same. We have some vars that give the input types. With these types check the body, and see what the return type is by type checking the body
+    // Answer: Irrelevant as the fun check is prep + expr check on body, i.e. there is nothing to copy.
+    // 1) Ensure all vars has a type otherwise assume dynamic
+    // NOTE: Env isolation is required. We enter an isolated scobe that we need to typecheck.
+    for arg in args {
+        if !envs.0.contains_key(arg) {
+            todo!("Do this stuff. Assume dynamic type then? {:?}", arg)
+        } else {
+            todo!("Did not expect any bound variables here");
+        }
+    }
+    // 2) Typecheck body
+    // 3) Return CType is the last expr - No, the CType is the input to output function type.
+    expr(module, envs, cast_env, body)
 }
 
 fn e_do(

@@ -1,17 +1,18 @@
 -module('flexiserver').
+-behavior(gen_server_plus).
 
 % By Emil Kristensen, ITU 2024
 % elp:ignore W0013 (misspelled_attribute)
 -mspec("&{
-        neg: <'fserve'>. ?integer. !integer. end,
-        add: <'fserve'>. ?integer. !'received'. <'fserve'>. ?integer. !integer. end
+        neg: ?integer. !integer. end,
+        add: ?integer. !'received'. ?integer. !integer. end
        }").
-% TODO: Maybe usi
 
 -type new() :: {}.
 -type consume() :: {}.
 
 -session("'start_link'()").
+-session("'handle_plus_call'(_,_,_,_,_);(_,_,_,_,_);(_,_,_,_,_);(_,_,_,_,_)").
 -session("'handle_plus_cast'(_,_,_)").
 
 
@@ -38,10 +39,11 @@ handle_plus_call(add, _From, start, {}, GlobalState) ->
 
 %% fserve / "serveOp"
 handle_plus_call(Value, _From, fserve, {Arity,Op}, GlobalState) ->
-    if Arity == 0 ->
-        {reply, Op, session_end, {}, GlobalState};
+    UpdatedOp = apply(Op, [Value]),
+    if Arity == 1 ->
+        {reply, UpdatedOp, session_end, {}, GlobalState};
     true ->
-        {reply, received, fserve, {Arity-1, apply(Op, Value)}, GlobalState}
+        {reply, received, fserve, {Arity-1, UpdatedOp}, GlobalState}
     end;
 
 % Catch all

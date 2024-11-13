@@ -400,7 +400,7 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
             match (*fun_call.inner).borrow() {
                 Expr::AtomLit(_, fun_call) => {
                     let Lit::Atom(fun_call) = fun_call.borrow() else {
-                        return Err("Unsupported call name type.".to_string());
+                        return Err(format!("Unsupported call name type #1: {}.", fun_call));
                     };
                     match fun_module {
                         CallModule::PrimOp => {
@@ -427,11 +427,18 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
                 }
                 Expr::Fname(_, fname) => {
                     if *fun_module != CallModule::Apply {
-                        return Err("Unsupported call type.".to_string());
+                        return Err(format!("Unsupported call type #2: {}.", fname));
                     }
                     Ok(CExpr::Apply(loc.clone(), fname.clone(), args_cexpr))
                 }
-                _ => Err("Unsupported call name type.".to_string()),
+                Expr::Var(_, var) => {
+                    if *fun_module == CallModule::Apply {
+                        Ok(CExpr::ApplyFun(loc.clone(), var.clone(), args_cexpr))
+                    } else {
+                        Err(format!("Unsupported use of anonymous function"))
+                    }
+                }
+                e => Err(format!("Unsupported call name type #3: {:?}.", e)),
             }
         }
         Expr::Do(loc, e1, e2) => {
@@ -439,6 +446,19 @@ fn expr_to_cexpr(expr: &Expr) -> Result<CExpr, String> {
             let e2 = expr_to_cexpr(&e2.inner)?.into();
             Ok(CExpr::Do(loc.clone(), e1, e2))
         }
-        _ => Err("Expression not supported in Contract Core Erlang yet.".to_string()),
+        Expr::Fun(loc, fun) => {
+            // Decompose function
+            let body = expr_to_cexpr(&(*fun.body).inner)?.into();
+            // TODO: Deep copy of data here. Might not be needed annovar name deep clone.
+            Ok(CExpr::Fun(
+                loc.clone(),
+                fun.vars
+                    .iter()
+                    .map(|anno_var| (*anno_var.name).clone())
+                    .collect(),
+                body,
+            ))
+        }
+        e => Err(format!("{} not supported in Contract Core Erlang yet.", e)),
     }
 }

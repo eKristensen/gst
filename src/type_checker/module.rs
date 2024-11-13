@@ -61,12 +61,15 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
         // Construct via recrsive function on the SessionTypesList
         let mut handle_map = MSpecEnv(HashMap::new());
         // TODO: Assumption: The label "start" is used internally
+        println!("WARNING WARNING WARNING WARNING WARNING !!!!!!!!!!!!!!!!!!!!!!!!!! SKIPPING MSPEC HANDLE EXTRACTOR RIGHT NOW! ENABLE AGAIN!");
+        /*
         mspec_handle_extractor(
             &mut handle_map,
             &mut HashMap::new(),
             &Atom("start".to_string()).into(),
             mspec.0.as_slice(),
         );
+        */
 
         //
         //

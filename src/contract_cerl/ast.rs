@@ -59,6 +59,8 @@ pub enum CExpr {
     Apply(Rc<CLoc>, Rc<FunName>, Vec<CExpr>),
     Call(Rc<CLoc>, Rc<Atom>, Rc<Atom>, Vec<CExpr>), // E_{new,send, select, app}
     Do(Rc<CLoc>, Rc<CExpr>, Rc<CExpr>),
+    ApplyFun(Rc<CLoc>, Rc<Var>, Vec<CExpr>), // For applying (calling) anonymous functions
+    Fun(Rc<CLoc>, Vec<Var>, Rc<CExpr>),      // E_fun: anonymous function definition
 }
 
 #[derive(Debug, Clone)]

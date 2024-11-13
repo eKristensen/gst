@@ -292,5 +292,7 @@ pub fn get_cexpr_loc(e: &CExpr) -> Rc<CLoc> {
         CExpr::Apply(loc, _, _) => loc.clone(),
         CExpr::Call(loc, _, _, _) => loc.clone(),
         CExpr::Do(loc, _, _) => loc.clone(),
+        CExpr::Fun(loc, _, _) => loc.clone(),
+        CExpr::ApplyFun(loc, _, _) => loc.clone(),
     }
 }

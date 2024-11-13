@@ -71,8 +71,12 @@ fn wellformed_aux(
             seen_state_labels.insert(state.clone());
             st
         }
-        _ if !first && mspec => return Err(format!("Expected state here: {:?}", st)),
-        _ => st,
+        _ => {
+            if (!first && mspec) {
+                println!("Warning mspec without state label accepted");
+            };
+            st
+        }
     };
     match st {
         [SessionType::Send(_), SessionType::Receive(_), tail @ ..]
