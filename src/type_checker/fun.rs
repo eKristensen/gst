@@ -20,12 +20,16 @@ pub fn bif_fun(
     module: &CModule,
     envs: &mut TypeEnvs,
     cast_env: &mut CastEnv,
+    loc: &Rc<CLoc>,
     fun_mod: &str,
     fun_name: &str,
     args: &[CExpr],
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     match (fun_mod, fun_name) {
-        ("io", "format") => Ok(CType::Base(BaseType::Atom(Atom("ok".to_string()).into()))),
+        ("io", "format") => Ok((
+            loc.clone(),
+            CType::Base(BaseType::Atom(Atom("ok".to_string()).into())),
+        )),
         ("erlang", "-") => {
             // TODO: Add support for other types and binary. Only unary minus supported now
             if args.len() != 1 {
@@ -34,16 +38,16 @@ pub fn bif_fun(
             let val_in = args.first().unwrap();
             let type_in =
                 must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, val_in)?;
-            if CType::Base(BaseType::Integer) == type_in {
-                Ok(CType::Base(BaseType::Integer))
-            } else if CType::Base(BaseType::Dynamic) == type_in {
+            if CType::Base(BaseType::Integer) == type_in.1 {
+                Ok((loc.clone(), CType::Base(BaseType::Integer)))
+            } else if CType::Base(BaseType::Dynamic) == type_in.1 {
                 add_gradual_cast(
                     cast_env,
                     &get_cexpr_loc(val_in),
                     &CType::Base(BaseType::Dynamic),
                     &CType::Base(BaseType::Integer),
                 )?;
-                Ok(CType::Base(BaseType::Integer))
+                Ok((loc.clone(), CType::Base(BaseType::Integer)))
             } else {
                 Err("Expected integer for erlang:- function.".to_string())
             }
@@ -59,15 +63,15 @@ pub fn bif_fun(
                 must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, val_1)?;
             let type_2_in =
                 must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, val_2)?;
-            if CType::Base(BaseType::Integer) == type_1_in && type_1_in == type_2_in {
-                Ok(CType::Base(BaseType::Integer))
+            if CType::Base(BaseType::Integer) == type_1_in.1 && type_1_in.1 == type_2_in.1 {
+                Ok((loc.clone(), CType::Base(BaseType::Integer)))
             } else {
                 Err("Expected integer for erlang:+ function.".to_string())
             }
         }
         ("gen_server_plus", "start_link") => {
             println!("Text-only warning: TODO: Proper return type when custom types are supported for gen_server_plus:start_link.");
-            Ok(CType::Base(BaseType::Any))
+            Ok((loc.clone(), CType::Base(BaseType::Any)))
         }
         _ => Err("Unknown bif or not bif".to_string()),
     }
@@ -78,15 +82,16 @@ pub fn e_app(
     module: &CModule,
     envs: &mut TypeEnvs,
     cast_env: &mut CastEnv,
+    loc: &Rc<CLoc>,
     args: &[CExpr],
     fun_clauses: &Vec<CFunClause>,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     // 2) Use contract to check argument types, including session type evaluation
     // 2a) Get types of arguments
     let mut input_types: Vec<(Rc<CLoc>, CType)> = Vec::new();
     for elm in args {
         match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, elm) {
-            Ok(ok_val) => input_types.push((get_cexpr_loc(elm), ok_val)),
+            Ok((_loc, ok_val)) => input_types.push((get_cexpr_loc(elm), ok_val)),
             Err(err_val) => {
                 return Err(format!(
                     "Type checking argument in call failed because {}",
@@ -115,7 +120,7 @@ pub fn e_app(
         }
 
         // 3) Return type is given by function contract
-        return Ok(CType::Base(clause.return_type.clone()));
+        return Ok((loc.clone(), CType::Base(clause.return_type.clone())));
     }
 
     // Attempt Gradual casting: If the input type is a gradual type, then we assume there is just one clause
@@ -152,7 +157,7 @@ pub fn e_app(
             }
         }
         if acceptable_cast {
-            return Ok(CType::Base(clause.return_type.clone()));
+            return Ok((loc.clone(), CType::Base(clause.return_type.clone())));
         }
     }
 
@@ -190,7 +195,7 @@ fn e_app_contract(
     inputs: &[CExpr],
 ) -> Result<(), String> {
     for (contract_elm, input_elm) in contract.iter().zip(inputs.iter()) {
-        let ctype_input_elm = match must_st_consume_expr(
+        let (_loc, ctype_input_elm) = match must_st_consume_expr(
             module,
             &TypeEnvs(envs.0.clone()),
             envs,

@@ -1,4 +1,4 @@
-use std::{borrow::BorrowMut, rc::Rc};
+use std::rc::Rc;
 
 use crate::{
     cerl_parser::ast::{
@@ -12,6 +12,22 @@ use crate::{
 };
 
 use super::env::{Cast, CastEnv};
+
+// TODO: With multiple casts, how to ensure there are no conflicts in the code injection?
+
+pub fn get_cexpr_from_loc(e: &Rc<CExpr>, loc: &Rc<CLoc>) -> Result<Rc<CExpr>, String> {}
+
+pub fn try_add_gradual_cast(
+    cast_env: &mut CastEnv,
+    input: &Rc<CExpr>,
+    output: &CType,
+) -> Result<(), String> {
+    // Concept is to try to match a tuple or cons and do partial casting of struct, or on the whole
+    // struct. If this fails add an error.
+    // What is needed: Location for partial elements here. So "input expr" (because ctype has no
+    // location info), and the target type. +
+    // cast_env to add cast info
+}
 
 pub fn add_gradual_cast(
     cast_env: &mut CastEnv,

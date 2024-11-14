@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::{
-    cerl_parser::ast::{Atom, FunName, Lit, Var},
+    cerl_parser::ast::{Atom, CLoc, FunName, Lit, Var},
     contract_cerl::{
         ast::{CClause, CExpr, CModule, CPat, CType},
         types::{BaseType, ChoiceType, SessionType, SessionTypesList},
@@ -23,37 +23,39 @@ pub fn expr(
     envs: &mut TypeEnvs,
     cast_env: &mut CastEnv,
     e: &CExpr,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     match e {
-        CExpr::Var(_, v) => e_base(envs, v),
-        CExpr::Lit(_, l) => match (**l).clone() {
+        CExpr::Var(loc, v) => e_base(envs, loc, v),
+        CExpr::Lit(loc, l) => match (**l).clone() {
             // TODO: Deduplicate. Avoid repeating cpat_to_ctype function here
             Lit::Atom(atom_val) => match atom_val.0.as_str() {
-                "true" => Ok(CType::Base(BaseType::Boolean)),
-                "false" => Ok(CType::Base(BaseType::Boolean)),
-                _ => Ok(CType::Base(BaseType::Atom(atom_val.clone()))),
+                "true" => Ok((loc.clone(), CType::Base(BaseType::Boolean))),
+                "false" => Ok((loc.clone(), CType::Base(BaseType::Boolean))),
+                _ => Ok((loc.clone(), CType::Base(BaseType::Atom(atom_val.clone())))),
             },
-            l => Ok(e_lit(&l)),
+            l => Ok((loc.clone(), e_lit(&l))),
         },
-        CExpr::Cons(_, cons) => match expr_base_type_list(module, envs, cast_env, cons) {
-            Ok(res) => Ok(CType::Base(BaseType::Cons(res))),
+        CExpr::Cons(loc, cons) => match expr_base_type_list(module, envs, cast_env, cons) {
+            Ok(res) => Ok((loc.clone(), CType::Base(BaseType::Cons(res)))),
             Err(err_val) => Err(format!("expr cons failed because {}", err_val)),
         },
-        CExpr::Tuple(_, tuple) => match expr_base_type_list(module, envs, cast_env, tuple) {
-            Ok(res) => Ok(CType::Base(BaseType::Tuple(res))),
+        CExpr::Tuple(loc, tuple) => match expr_base_type_list(module, envs, cast_env, tuple) {
+            Ok(res) => Ok((loc.clone(), CType::Base(BaseType::Tuple(res)))),
             Err(err_val) => Err(format!("expr tuple failed because {}", err_val)),
         },
-        CExpr::Let(_, v, e1, e2) => e_let(module, envs, cast_env, v, e1, e2),
-        CExpr::Case(_, base_expr, clauses) => e_case(module, envs, cast_env, base_expr, clauses),
-        CExpr::PrimOp(_, _, _) => todo!("PrimOp not supported yet."),
-        CExpr::Apply(_, call_name, args) => e_apply(module, envs, cast_env, call_name, args),
-        CExpr::Call(_, call_module, call_name, args) => {
-            e_call(module, envs, cast_env, call_module, call_name, args)
+        CExpr::Let(_loc, v, e1, e2) => e_let(module, envs, cast_env, v, e1, e2),
+        CExpr::Case(loc, base_expr, clauses) => {
+            e_case(module, envs, cast_env, loc, base_expr, clauses)
         }
-        CExpr::Do(_, e1, e2) => e_do(module, envs, cast_env, e1, e2),
-        CExpr::Fun(_, args, body) => e_fun(module, envs, cast_env, args, body),
-        CExpr::ApplyFun(_, fun_name_var, args) => {
-            e_app_fun(module, envs, cast_env, fun_name_var, args)
+        CExpr::PrimOp(_, _, _) => todo!("PrimOp not supported yet."),
+        CExpr::Apply(loc, call_name, args) => e_apply(module, envs, cast_env, loc, call_name, args),
+        CExpr::Call(loc, call_module, call_name, args) => {
+            e_call(module, envs, cast_env, loc, call_module, call_name, args)
+        }
+        CExpr::Do(_loc, e1, e2) => e_do(module, envs, cast_env, e1, e2),
+        CExpr::Fun(loc, args, body) => e_fun(module, envs, cast_env, loc, args, body),
+        CExpr::ApplyFun(loc, fun_name_var, args) => {
+            e_app_fun(module, envs, cast_env, loc, fun_name_var, args)
         }
     }
 }
@@ -68,7 +70,7 @@ fn expr_base_type_list(
     for elm in e {
         // Try to evaluate in isolated environment
         match must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, elm) {
-            Ok(ok_val) => {
+            Ok((_, ok_val)) => {
                 let CType::Base(ok_val) = ok_val else {
                     return Err("Only base types supported in cons or tuple".to_string());
                 };
@@ -89,15 +91,24 @@ fn e_apply(
     module: &CModule,
     envs: &mut TypeEnvs,
     cast_env: &mut CastEnv,
+    loc: &Rc<CLoc>,
     call_name: &Rc<FunName>,
     args: &Vec<CExpr>,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     if call_name.arity != args.len() {
         return Err("Inconsistent Apply".to_string());
     };
 
     // Type as if it was a call to the same module avoid duplication of type checker code
-    e_call(module, envs, cast_env, &module.name, &call_name.name, args)
+    e_call(
+        module,
+        envs,
+        cast_env,
+        loc,
+        &module.name,
+        &call_name.name,
+        args,
+    )
 }
 
 // TODO: e-call function is too big, split into smaller parts.
@@ -105,10 +116,11 @@ fn e_call(
     module: &CModule,
     envs: &mut TypeEnvs,
     cast_env: &mut CastEnv,
+    loc: &Rc<CLoc>,
     call_module: &Rc<Atom>,
     call_name: &Rc<Atom>,
     args: &Vec<CExpr>,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     // Call can be both a send operation and a "normal" call.
     // We need to check and perform the right kind of type check
     // 1) A GS+ call
@@ -133,34 +145,34 @@ fn e_call(
         known_call,
     ) {
         ("gen_server_plus", "new", [server_pid], None) => {
-            gsp_new(module, envs, cast_env, server_pid)
+            gsp_new(module, envs, cast_env, loc, server_pid)
         }
         ("gen_server_plus", "new", _, _) => Err("Invalid gs+:new call".to_string()),
         ("gen_server_plus", "call", [_, session_id, sending_expr], None) => {
             println!("TODO: First and second argument are not checked right now. Should they?");
-            gsp_sync_send(module, envs, cast_env, session_id, sending_expr)
+            gsp_sync_send(module, envs, cast_env, loc, session_id, sending_expr)
         }
         ("gen_server_plus", "close", [_, session_id], None) => {
             println!("TODO: First argument is not checked right now. Should it?");
-            gsp_close(module, envs, cast_env, session_id)
+            gsp_close(module, envs, cast_env, loc, session_id)
         }
         (call_module, call_name, args, None) => {
-            bif_fun(module, envs, cast_env, call_module, call_name, args)
+            bif_fun(module, envs, cast_env, loc, call_module, call_name, args)
         }
-        (_, _, args, Some(fun_clauses)) => e_app(module, envs, cast_env, args, fun_clauses),
+        (_, _, args, Some(fun_clauses)) => e_app(module, envs, cast_env, loc, args, fun_clauses),
     }
 }
 
-fn e_base(envs: &TypeEnvs, v: &Var) -> Result<CType, String> {
+fn e_base(envs: &TypeEnvs, loc: &Rc<CLoc>, v: &Var) -> Result<(Rc<CLoc>, CType), String> {
     let res = envs.0.get(v);
     if res.is_none() {
         return Err(format!("used var that was not defined {}", v));
     }
     match res.unwrap() {
         // TODO: How to allow both base value checked properly, and not to "return" a base type?
-        TypeEnv::Gamma(n) => Ok(CType::New(n.clone())),
-        TypeEnv::Delta(c) => Ok(CType::Consume(c.clone())),
-        TypeEnv::Sigma(res) => Ok(CType::Base(res.clone())),
+        TypeEnv::Gamma(n) => Ok((loc.clone(), CType::New(n.clone()))),
+        TypeEnv::Delta(c) => Ok((loc.clone(), CType::Consume(c.clone()))),
+        TypeEnv::Sigma(res) => Ok((loc.clone(), CType::Base(res.clone()))),
     }
 }
 
@@ -185,9 +197,10 @@ fn e_fun(
     module: &CModule,
     envs: &mut TypeEnvs,
     cast_env: &mut CastEnv,
+    loc: &Rc<CLoc>,
     args: &Vec<Var>,
     body: &CExpr,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     // Can I somehow reuse all the function typing I've done so far?
     // The general idea is the same, or almost the same. We have some vars that give the input types. With these types check the body, and see what the return type is by type checking the body
     // Answer: Irrelevant as the fun check is prep + expr check on body, i.e. there is nothing to copy.
@@ -210,10 +223,10 @@ fn e_fun(
     // 2) Typecheck body
     // 3) Return CType is the last expr - No, the CType is the input to output function type.
     match must_st_consume_expr(module, &before_envs, &mut current_envs, cast_env, body) {
-        Ok(CType::Base(ok_val)) => Ok(CType::Base(BaseType::Fun(
-            Some(fun_ctype_in),
-            Some(ok_val.into()),
-        ))),
+        Ok((_, CType::Base(ok_val))) => Ok((
+            loc.clone(),
+            CType::Base(BaseType::Fun(Some(fun_ctype_in), Some(ok_val.into()))),
+        )),
         Ok(_) => Err(format!(
             "Current it is assumed that anonymous functions can only output base types."
         )),
@@ -225,9 +238,10 @@ fn e_app_fun(
     module: &CModule,
     envs: &mut TypeEnvs,
     cast_env: &mut CastEnv,
+    loc: &Rc<CLoc>,
     fun_name_var: &Rc<Var>,
     args: &Vec<CExpr>,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     // Check contract: Check args CType
     match envs.0.get(fun_name_var) {
         Some(fun_ctype) => {
@@ -256,7 +270,7 @@ fn e_do(
     cast_env: &mut CastEnv,
     e1: &CExpr,
     e2: &CExpr,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     // TODO: e_do is the only reason we have cPat::Any
     // _ is not properly supported in cerl, and I assume a CType of Base::Any It should work fine
     // right?
@@ -274,7 +288,7 @@ fn e_let(
     v: &CPat,
     e1: &CExpr,
     e2: &CExpr,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     // Clone env to compare consume later. Keep using original ref otherwise changes within are going to be lost
     //let envs_copy_baseline = TypeEnvs(envs.0.clone());
     let pat_ok = pattern_matching(module, envs, cast_env, v, e1);
@@ -309,9 +323,10 @@ fn e_case(
     module: &CModule,
     envs: &mut TypeEnvs,
     cast_env: &mut CastEnv,
+    loc: &Rc<CLoc>,
     base_expr: &CExpr,
     clauses: &Vec<CClause>,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     if clauses.is_empty() {
         // TODO: Actually remember. I decided that no clauses == Do
         //       Tbh this seemed like a simplification, but properly isn't, include Do in Contract Core Erlang?
@@ -325,7 +340,7 @@ fn e_case(
     let mut case_base_expr_envs = TypeEnvs(envs.0.clone());
     let base_res =
         must_st_consume_expr(module, envs, &mut case_base_expr_envs, cast_env, base_expr);
-    let Ok(base_res) = base_res else {
+    let Ok((_, base_res)) = base_res else {
         return Err(format!(
             "E_case failed in base case because {}",
             base_res.err().unwrap()
@@ -341,7 +356,7 @@ fn e_case(
         // - Can we select something here? No, again it would just be a basic let in again
         // - Can we offer something here? Yes, that is the whole point.
         if let SessionType::Choice(ChoiceType::Make, offers) = st.0.first().unwrap() {
-            let case_res = e_case_offer(module, envs, cast_env, offers, clauses)?;
+            let case_res = e_case_offer(module, envs, cast_env, loc, offers, clauses)?;
             // TODO: Write down typing system "assumption"
             // When we are here in the code, it means at least one offer has matched
             // Therefore we should update the session for the var and remove consume, pop the first
@@ -358,7 +373,7 @@ fn e_case(
         }
     } // send/receive or anything else
       // If not, then treat as normal
-    e_case_branching(module, envs, cast_env, base_expr, clauses) // Base and new are "normal".
+    e_case_branching(module, envs, cast_env, loc, base_expr, clauses) // Base and new are "normal".
 
     // Remember common return type for each clause, this common type is the return value.
 }
@@ -368,9 +383,10 @@ fn e_case_branching(
     module: &CModule,
     envs: &TypeEnvs,
     cast_env: &mut CastEnv,
+    loc: &Rc<CLoc>,
     base_expr: &CExpr,
     clauses: &Vec<CClause>,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     // Normal Case
     // It does not matter what base_expr for the case is, the only thing that matters is what type
     // it does return, i.e. the CType. We use that for each clause to check.
@@ -387,22 +403,17 @@ fn e_case_branching(
         if clause.pats.len() != 1 {
             return Err(("e_case_branching: Expected top Pat to be one long.").to_string());
         }
-        let clause_res = e_let(
+        let clause_res = match e_let(
             module,
             &mut clause_envs,
             cast_env,
             clause.pats.first().unwrap(),
             base_expr,
             &clause.res,
-        );
-        if clause_res.is_err() {
-            return Err(format!(
-                "Case clause failed because {}",
-                clause_res.err().unwrap()
-            ));
-        }
-
-        common_return_type.push(clause_res.clone().unwrap());
+        ) {
+            Ok(clause_res) => common_return_type.push(clause_res.1.clone()),
+            Err(err_val) => return Err(format!("Case clause failed because {}", err_val)),
+        };
     }
 
     // Check return-type is the same.
@@ -411,7 +422,7 @@ fn e_case_branching(
         .iter()
         .all(|item| *item == *common_return_type_base);
 
-    Ok(common_return_type_base.clone())
+    Ok((loc.clone(), common_return_type_base.clone()))
 }
 
 // Aka: unification
@@ -424,7 +435,7 @@ fn pattern_matching(
     e: &CExpr,
 ) -> Result<(), String> {
     // Compare by abstraction, type
-    let e_ctype = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, e)?;
+    let (_, e_ctype) = must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, e)?;
     let v_ctype = cpat_to_ctype(envs, v);
     let mut acceptable = false;
     if e_ctype == v_ctype {

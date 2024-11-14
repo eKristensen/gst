@@ -3,13 +3,14 @@ use std::{collections::HashMap, rc::Rc};
 use crate::{
     cerl_parser::ast::{Atom, FunName, Var},
     contract_cerl::{
-        ast::{CModule, CType, OptWarnings},
+        ast::{CExpr, CModule, CType, OptWarnings},
         types::{BaseType, ChoiceType, SessionType},
     },
 };
 
 use super::{
     base::expr,
+    casting::add_gradual_cast,
     env::{CastEnv, TypeEnvs},
     init::init_env,
     session::finished,
@@ -183,13 +184,38 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
             // Check return-type somehow?
             // TODO: Possible performance optimization:
             // Instead of clone, unpack return_type and compare directly
-            let clause_actual_return_type = return_type.unwrap();
+            let (return_expr_loc, clause_actual_return_type) = return_type.unwrap();
             if clause_actual_return_type != CType::Base(clause.return_type.clone()) {
-                warnings.push(format!(
-                    "Wrong return type for function {}. Expected {:?} but found {:?}",
-                    fun_name, clause.return_type, clause_actual_return_type
-                ));
-                overall_acceptance = false;
+                if BaseType::Integer == clause.return_type
+                    && clause_actual_return_type == CType::Base(BaseType::Dynamic)
+                {
+                    match add_gradual_cast(
+                        &mut cast_env,
+                        &return_expr_loc,
+                        &CType::Base(BaseType::Dynamic),
+                        &CType::Base(BaseType::Integer),
+                    ) {
+                        Ok(_) => (),
+                        Err(err_val) => panic!("Cannot add gradual cast: {}", err_val),
+                    };
+                } else {
+                    // NOTE: Tradeoff: We need to look up the return expr from the location again.
+                    // This is to avoid having to deal with excessive expr return values. If
+                    // performance becomes an issue the full expr can be returned together with the
+                    // location in the type checker to avoid the need for this extra lookup.
+                    let return_expr: Rc<CExpr> = get_cexpr_from_loc(&clause.body, return_expr_loc);
+                    match try_add_gradual_cast(cast_env, return_expr_loc, clause_actual_return_type)
+                    {
+                        Ok() => (),
+                        Err(err_val) => {
+                            warnings.push(format!(
+                        "Wrong return type for function {}. Expected {:?} but found {:?} at {:?}. Furthermore attempt to add gradual casting failed due to {}",
+                        fun_name, clause.return_type, clause_actual_return_type, return_expr_loc, err_val
+                    ));
+                            overall_acceptance = false;
+                        }
+                    }
+                }
             }
 
             // Check result, i.e. everything that should be consumed, has been consumed

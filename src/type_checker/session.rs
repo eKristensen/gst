@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    cerl_parser::ast::{Atom, Lit, Var},
+    cerl_parser::ast::{Atom, CLoc, Lit, Var},
     contract_cerl::{
         ast::{CClause, CExpr, CModule, CPat, CType},
         types::{BaseType, ChoiceType, Label, SessionType, SessionTypesList},
@@ -19,12 +19,13 @@ pub fn gsp_new(
     module: &CModule,
     envs: &mut TypeEnvs,
     cast_env: &mut CastEnv,
+    loc: &Rc<CLoc>,
     server_pid: &CExpr,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     // TODO Call by value isolation!!!!! Important!!!
     let CType::New(session_type) =
         (match expr(module, &mut TypeEnvs(envs.0.clone()), cast_env, server_pid) {
-            Ok(ok_val) => ok_val,
+            Ok((_, ok_val)) => ok_val,
             Err(err_val) => return Err(format!("E_call gsp_new failed due to {}", err_val)),
         })
     else {
@@ -33,7 +34,7 @@ pub fn gsp_new(
 
     // let session_type = st_dual(&session_type)?;
 
-    Ok(CType::Consume(session_type))
+    Ok((loc.clone(), CType::Consume(session_type)))
 
     // Call by value, We need to argument type. Execution environment? Should I consider it isolated? I suppose?
     // The safest and more reasonable way to deal with the call-by-value is to assume it is like a let x (var-name) = expr type
@@ -50,16 +51,17 @@ pub fn gsp_sync_send(
     module: &CModule,
     envs: &mut TypeEnvs,
     cast_env: &mut CastEnv,
+    loc: &Rc<CLoc>,
     session_id: &CExpr,
     sending_expr: &CExpr,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     let CType::Base(sending_val) = (match expr(
         module,
         &mut TypeEnvs(envs.0.clone()),
         cast_env,
         sending_expr,
     ) {
-        Ok(ok_val) => ok_val,
+        Ok((_, ok_val)) => ok_val,
         Err(err_val) => return Err(format!("e_call gsp_sync_send failed because {}", err_val)),
     }) else {
         return Err("e_call gsp_sync_send can only send base values".to_string());
@@ -73,7 +75,7 @@ pub fn gsp_sync_send(
     };
     let CType::Consume(session_type) =
         (match expr(module, &mut TypeEnvs(envs.0.clone()), cast_env, session_id) {
-            Ok(ok_val) => ok_val,
+            Ok((_, ok_val)) => ok_val,
             Err(err_val) => {
                 return Err(format!(
                     "e_call gsp_sync_send failed because of {}",
@@ -107,7 +109,7 @@ pub fn gsp_sync_send(
                 session_var.clone(),
                 TypeEnv::Delta(SessionTypesList(tail.to_vec())),
             );
-            Ok(CType::Base(received.clone()))
+            Ok((loc.clone(), CType::Base(received.clone())))
         }
         [SessionType::Choice(ct, offers)] if *ct == ChoiceType::Make => {
             // Make choice
@@ -123,7 +125,7 @@ pub fn gsp_sync_send(
                     // TODO: Update ENV, gotta get session_var from argument.
                     envs.0
                         .insert(session_var.clone(), TypeEnv::Delta(continuation.clone()));
-                    Ok(CType::Consume(continuation.clone()))
+                    Ok((loc.clone(), CType::Consume(continuation.clone())))
                 }
                 None => Err("Trying to make choice not offered by session".to_string()),
             }
@@ -153,8 +155,9 @@ pub fn gsp_close(
     module: &CModule,
     envs: &mut TypeEnvs,
     cast_env: &mut CastEnv,
+    loc: &Rc<CLoc>,
     session_id: &CExpr,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     // Get current session
     let CExpr::Var(_loc, session_var) = session_id else {
         return Err(
@@ -163,7 +166,7 @@ pub fn gsp_close(
     };
     let CType::Consume(session_type) =
         (match expr(module, &mut TypeEnvs(envs.0.clone()), cast_env, session_id) {
-            Ok(ok_val) => ok_val,
+            Ok((_, ok_val)) => ok_val,
             Err(err_val) => return Err(format!("e_call gsp_close failed because of {}", err_val)),
         })
     else {
@@ -175,9 +178,10 @@ pub fn gsp_close(
             session_var.clone(),
             TypeEnv::Delta(SessionTypesList(vec![])),
         );
-        Ok(CType::Base(BaseType::Atom(
-            Atom("received".to_string()).into(),
-        )))
+        Ok((
+            loc.clone(),
+            CType::Base(BaseType::Atom(Atom("received".to_string()).into())),
+        ))
     } else {
         Err(format!(
             "e_call gsp_close requires session to be ready to be closed. Found {:?}",
@@ -191,9 +195,10 @@ pub fn e_case_offer(
     module: &CModule,
     envs: &TypeEnvs,
     cast_env: &mut CastEnv,
+    loc: &Rc<CLoc>,
     offers: &BTreeMap<Label, SessionTypesList>,
     clauses: &Vec<CClause>,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     // Return types
     // TODO: Find a way to compare it without needing to save all return values
     let mut common_return_type: Vec<CType> = Vec::new();
@@ -241,7 +246,7 @@ pub fn e_case_offer(
 
         // Add return type to check later
         // TODO: Check common_return_type in each iteration instead of later.
-        common_return_type.push(clause_res.clone().unwrap());
+        common_return_type.push(clause_res.clone().unwrap().1);
     }
 
     // Check return-type is the same.
@@ -250,7 +255,7 @@ pub fn e_case_offer(
         .iter()
         .all(|item| *item == *common_return_type_base);
 
-    Ok(common_return_type_base.clone())
+    Ok((loc.clone(), common_return_type_base.clone()))
 }
 
 // Check that all sessions are finished
@@ -301,7 +306,7 @@ pub fn must_st_consume_expr(
     current_envs: &mut TypeEnvs,
     cast_env: &mut CastEnv,
     e: &CExpr,
-) -> Result<CType, String> {
+) -> Result<(Rc<CLoc>, CType), String> {
     // Check e2 in double mark
     match expr(module, current_envs, cast_env, e) {
         Ok(return_type) => {
