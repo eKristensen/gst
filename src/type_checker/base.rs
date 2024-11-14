@@ -52,7 +52,9 @@ pub fn expr(
         }
         CExpr::Do(_, e1, e2) => e_do(module, envs, cast_env, e1, e2),
         CExpr::Fun(_, args, body) => e_fun(module, envs, cast_env, args, body),
-        CExpr::ApplyFun(_, _, _) => todo!(),
+        CExpr::ApplyFun(_, fun_name_var, args) => {
+            e_app_fun(module, envs, cast_env, fun_name_var, args)
+        }
     }
 }
 
@@ -191,16 +193,61 @@ fn e_fun(
     // Answer: Irrelevant as the fun check is prep + expr check on body, i.e. there is nothing to copy.
     // 1) Ensure all vars has a type otherwise assume dynamic
     // NOTE: Env isolation is required. We enter an isolated scobe that we need to typecheck.
+    let before_envs: TypeEnvs = TypeEnvs(envs.0.clone());
+    let mut current_envs: TypeEnvs = TypeEnvs(envs.0.clone());
+    let mut fun_ctype_in: Vec<BaseType> = Vec::new();
     for arg in args {
-        if !envs.0.contains_key(arg) {
-            todo!("Do this stuff. Assume dynamic type then? {:?}", arg)
+        if !current_envs.0.contains_key(arg) {
+            // TODO: Arg clone and then into... There must be a better way.
+            current_envs
+                .0
+                .insert((arg.clone()).into(), TypeEnv::Sigma(BaseType::Dynamic));
+            fun_ctype_in.push(BaseType::Dynamic)
         } else {
             todo!("Did not expect any bound variables here");
         }
     }
     // 2) Typecheck body
     // 3) Return CType is the last expr - No, the CType is the input to output function type.
-    expr(module, envs, cast_env, body)
+    match must_st_consume_expr(module, &before_envs, &mut current_envs, cast_env, body) {
+        Ok(CType::Base(ok_val)) => Ok(CType::Base(BaseType::Fun(
+            Some(fun_ctype_in),
+            Some(ok_val.into()),
+        ))),
+        Ok(_) => Err(format!(
+            "Current it is assumed that anonymous functions can only output base types."
+        )),
+        Err(err_val) => Err(format!("e_fun failed because {}", err_val)),
+    }
+}
+
+fn e_app_fun(
+    module: &CModule,
+    envs: &mut TypeEnvs,
+    cast_env: &mut CastEnv,
+    fun_name_var: &Rc<Var>,
+    args: &Vec<CExpr>,
+) -> Result<CType, String> {
+    // Check contract: Check args CType
+    match envs.0.get(fun_name_var) {
+        Some(fun_ctype) => {
+            match fun_ctype {
+                TypeEnv::Sigma(BaseType::Fun(fun_in,fun_out )) => {
+                    match (fun_in, fun_out) {
+                        (Some(fun_in), Some(fun_out)) => {
+                            todo!("Alright let me se those fun in and out types: {:?} {:?}", fun_in, fun_out)
+                        },
+                        _ => todo!("What to do when input/output types of an anonymous function is not defined?")
+                    }
+                }
+                _ => Err("Applying anonymous function is only supported if var name refers to a funciton base type".to_owned()),
+            }
+        }
+        None => return Err("Applying undefined anonymous function is not supported.".to_owned()),
+    }
+    // Insert casts if needed (Will it ever be needed?)
+    // Based on fun_name_var we get the output type
+    // We should not check the function body again. That is what e_fun is for.
 }
 
 fn e_do(

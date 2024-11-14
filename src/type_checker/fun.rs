@@ -36,6 +36,14 @@ pub fn bif_fun(
                 must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, val_in)?;
             if CType::Base(BaseType::Integer) == type_in {
                 Ok(CType::Base(BaseType::Integer))
+            } else if CType::Base(BaseType::Dynamic) == type_in {
+                add_gradual_cast(
+                    cast_env,
+                    &get_cexpr_loc(val_in),
+                    &CType::Base(BaseType::Dynamic),
+                    &CType::Base(BaseType::Integer),
+                )?;
+                Ok(CType::Base(BaseType::Integer))
             } else {
                 Err("Expected integer for erlang:- function.".to_string())
             }
