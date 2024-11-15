@@ -63,11 +63,19 @@ pub fn bif_fun(
                 must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, val_1)?;
             let type_2_in =
                 must_st_consume_expr(module, &TypeEnvs(envs.0.clone()), envs, cast_env, val_2)?;
-            if CType::Base(BaseType::Integer) == type_1_in.1 && type_1_in.1 == type_2_in.1 {
-                Ok((loc.clone(), CType::Base(BaseType::Integer)))
-            } else {
-                Err("Expected integer for erlang:+ function.".to_string())
-            }
+            add_gradual_cast(
+                cast_env,
+                &type_1_in.0,
+                &type_1_in.1,
+                &CType::Base(BaseType::Integer),
+            )?;
+            add_gradual_cast(
+                cast_env,
+                &type_2_in.0,
+                &type_2_in.1,
+                &CType::Base(BaseType::Integer),
+            )?;
+            Ok((loc.clone(), CType::Base(BaseType::Integer)))
         }
         ("gen_server_plus", "start_link") => {
             println!("Text-only warning: TODO: Proper return type when custom types are supported for gen_server_plus:start_link.");

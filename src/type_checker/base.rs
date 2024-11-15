@@ -254,10 +254,14 @@ fn e_app_fun(
                         _ => todo!("What to do when input/output types of an anonymous function is not defined?")
                     }
                 }
+                TypeEnv::Sigma(BaseType::Dynamic) => {
+                    // Any Dynamic type can be interpreted as a function
+                    todo!("Ready to do dynamic function!")
+                }
                 _ => Err("Applying anonymous function is only supported if var name refers to a funciton base type".to_owned()),
             }
         }
-        None => return Err("Applying undefined anonymous function is not supported.".to_owned()),
+        None => return Err(format!("Applying undefined anonymous function is not supported at {:?}. Current knowledge: {:?} ",loc, envs)),
     }
     // Insert casts if needed (Will it ever be needed?)
     // Based on fun_name_var we get the output type

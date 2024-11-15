@@ -204,11 +204,12 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
                     // performance becomes an issue the full expr can be returned together with the
                     // location in the type checker to avoid the need for this extra lookup.
                     // TODO: Avoid unwrap() here.
-                    let return_expr = get_cexpr_from_loc(&clause.body, &return_expr_loc).unwrap();
+                    let return_expr = get_cexpr_from_loc(&return_expr_loc, &clause.body).unwrap();
                     match try_add_gradual_cast(
                         &mut cast_env,
-                        &return_expr,
                         &clause_actual_return_type,
+                        &return_expr,
+                        &CType::Base(clause.return_type.clone()),
                     ) {
                         Ok(()) => (),
                         Err(err_val) => {

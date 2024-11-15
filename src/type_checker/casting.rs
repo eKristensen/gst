@@ -119,6 +119,39 @@ pub fn try_add_gradual_cast(
     // Really I try to repeat the type checker after the type checker! wut????
     // Maybe just a simple single layer check, yes.
     // Attemt direct, and lookup all item sin tuple. Keep CExpr as input for location info.
+
+    match (input_ctype, output) {
+        (
+            CType::Base(BaseType::Tuple(input_ctypes)),
+            CType::Base(BaseType::Tuple(output_ctypes)),
+        ) if input_ctypes.len() == output_ctypes.len() => {
+            // Manuel "zip" in input_cexpr
+            let CExpr::Tuple(_loc, input_cexprs) = input_cexpr else {
+                return Err(format!("Must be expr tuple"));
+            };
+            if input_cexprs.len() != input_ctypes.len() {
+                return Err(format!("Tuple must be same length"));
+            }
+            for (input_type, (input_expr, output_type)) in input_ctypes
+                .iter()
+                .zip(input_cexprs.iter().zip(output_ctypes))
+            {
+                if let Err(err_val) = try_add_gradual_cast(
+                    cast_env,
+                    &CType::Base(input_type.clone()),
+                    input_expr,
+                    &CType::Base(output_type.clone()),
+                ) {
+                    return Err(err_val);
+                }
+            }
+            Ok(())
+        }
+        (CType::Base(input_type), CType::Base(output_type)) if input_type == output_type => Ok(()),
+        (in_ctype, out_ctype) => {
+            add_gradual_cast(cast_env, &get_cexpr_loc(input_cexpr), in_ctype, out_ctype)
+        }
+    }
 }
 
 pub fn add_gradual_cast(
@@ -127,6 +160,10 @@ pub fn add_gradual_cast(
     input: &CType,
     output: &CType,
 ) -> Result<(), String> {
+    // No need to cast if input and output are the same
+    if input == output {
+        return Ok(());
+    }
     match (input, output) {
         (CType::Base(BaseType::Dynamic), CType::Base(BaseType::Integer)) => {
             if cast_env.0.contains_key(cloc) {
@@ -137,8 +174,13 @@ pub fn add_gradual_cast(
             cast_env.0.insert(cloc.clone(), Cast::DynToInt);
             Ok(())
         }
+        // We can always "cast" to dynamic. That requires no changes.
+        (_,CType::Base(BaseType::Dynamic)) => Ok(()),
         _ => Err(format!(
-            "Could not find any possbile cast for given input/output type",
+            "Could not find any possbile cast for given input/output type: Cannot cast {:?} to {:?} at {:?}",
+            input,
+            output,
+            cloc,
         )),
     }
 }
