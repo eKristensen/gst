@@ -10,7 +10,7 @@ use crate::{
 
 use super::{
     base::expr,
-    casting::add_gradual_cast,
+    casting::{add_gradual_cast, get_cexpr_from_loc, try_add_gradual_cast},
     env::{CastEnv, TypeEnvs},
     init::init_env,
     session::finished,
@@ -203,10 +203,14 @@ pub fn module(module: CModule) -> OptWarnings<bool> {
                     // This is to avoid having to deal with excessive expr return values. If
                     // performance becomes an issue the full expr can be returned together with the
                     // location in the type checker to avoid the need for this extra lookup.
-                    let return_expr: Rc<CExpr> = get_cexpr_from_loc(&clause.body, return_expr_loc);
-                    match try_add_gradual_cast(cast_env, return_expr_loc, clause_actual_return_type)
-                    {
-                        Ok() => (),
+                    // TODO: Avoid unwrap() here.
+                    let return_expr = get_cexpr_from_loc(&clause.body, &return_expr_loc).unwrap();
+                    match try_add_gradual_cast(
+                        &mut cast_env,
+                        &return_expr,
+                        &clause_actual_return_type,
+                    ) {
+                        Ok(()) => (),
                         Err(err_val) => {
                             warnings.push(format!(
                         "Wrong return type for function {}. Expected {:?} but found {:?} at {:?}. Furthermore attempt to add gradual casting failed due to {}",

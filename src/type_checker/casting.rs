@@ -15,11 +15,97 @@ use super::env::{Cast, CastEnv};
 
 // TODO: With multiple casts, how to ensure there are no conflicts in the code injection?
 
-pub fn get_cexpr_from_loc(e: &Rc<CExpr>, loc: &Rc<CLoc>) -> Result<Rc<CExpr>, String> {}
+// TODO: This function body is very WET (i.e. not DRY)
+pub fn get_cexpr_from_loc<'a>(loc: &Rc<CLoc>, e: &'a CExpr) -> Result<&'a CExpr, String> {
+    if get_cexpr_loc(e) == *loc {
+        Ok(e)
+    } else {
+        match e {
+            CExpr::Cons(_, c_expr) => {
+                for expr in c_expr {
+                    let res = get_cexpr_from_loc(loc, expr);
+                    if res.is_ok() {
+                        return Ok(res.unwrap());
+                    }
+                }
+            }
+            CExpr::Tuple(_, c_expr) => {
+                for expr in c_expr {
+                    let res = get_cexpr_from_loc(loc, expr);
+                    if res.is_ok() {
+                        return Ok(res.unwrap());
+                    }
+                }
+            }
+            CExpr::Let(_, _, e1, e2) => {
+                if let Ok(res) = get_cexpr_from_loc(loc, e1) {
+                    return Ok(res);
+                };
+                if let Ok(res) = get_cexpr_from_loc(loc, e2) {
+                    return Ok(res);
+                };
+            }
+            CExpr::Case(_, c_expr, clauses) => {
+                if let Ok(res) = get_cexpr_from_loc(loc, c_expr) {
+                    return Ok(res);
+                }
+                for clause in clauses {
+                    if let Ok(res) = get_cexpr_from_loc(loc, &clause.res) {
+                        return Ok(res);
+                    }
+                }
+            }
+            CExpr::PrimOp(_, _, c_exprs) => {
+                for expr in c_exprs {
+                    if let Ok(res) = get_cexpr_from_loc(loc, expr) {
+                        return Ok(res);
+                    }
+                }
+            }
+            CExpr::Apply(_, _, c_exprs) => {
+                for expr in c_exprs {
+                    if let Ok(res) = get_cexpr_from_loc(loc, expr) {
+                        return Ok(res);
+                    }
+                }
+            }
+            CExpr::Call(_, _, _, c_exprs) => {
+                for expr in c_exprs {
+                    if let Ok(res) = get_cexpr_from_loc(loc, expr) {
+                        return Ok(res);
+                    }
+                }
+            }
+            CExpr::Do(_, e1, e2) => {
+                if let Ok(res) = get_cexpr_from_loc(loc, e1) {
+                    return Ok(res);
+                };
+                if let Ok(res) = get_cexpr_from_loc(loc, e2) {
+                    return Ok(res);
+                };
+            }
+            CExpr::Fun(_, _, c_expr) => {
+                if let Ok(res) = get_cexpr_from_loc(loc, c_expr) {
+                    return Ok(res);
+                }
+            }
+            CExpr::ApplyFun(_, _, c_exprs) => {
+                for expr in c_exprs {
+                    if let Ok(res) = get_cexpr_from_loc(loc, expr) {
+                        return Ok(res);
+                    }
+                }
+            }
+            _ => (),
+        }
+        Err(format!("Could not find location"))
+    }
+}
 
 pub fn try_add_gradual_cast(
     cast_env: &mut CastEnv,
-    input: &Rc<CExpr>,
+    input_ctype: &CType,
+    input_cexpr: &CExpr,
     output: &CType,
 ) -> Result<(), String> {
     // Concept is to try to match a tuple or cons and do partial casting of struct, or on the whole
@@ -27,6 +113,12 @@ pub fn try_add_gradual_cast(
     // What is needed: Location for partial elements here. So "input expr" (because ctype has no
     // location info), and the target type. +
     // cast_env to add cast info
+
+    // Cases to cover... What to do.... ? To get ctype I wouldn't want to typecheck the expr
+    // again...
+    // Really I try to repeat the type checker after the type checker! wut????
+    // Maybe just a simple single layer check, yes.
+    // Attemt direct, and lookup all item sin tuple. Keep CExpr as input for location info.
 }
 
 pub fn add_gradual_cast(
