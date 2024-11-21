@@ -242,7 +242,7 @@ fn cast_insertion_expr(cast_env: &CastEnv, e: &Expr) -> Expr {
         // of expression
         Expr::Var(loc, v) if cast_env.0.contains_key(loc) => {
             println!("INFO: Cast code injection");
-            cast_code_injection(cast_env.0.get(loc).unwrap(), v)
+            cast_code_injection(loc, cast_env.0.get(loc).unwrap(), v)
         }
         Expr::Call(loc, module, name, args) => Expr::Call(
             loc.clone(),
@@ -263,7 +263,7 @@ fn cast_insertion_expr(cast_env: &CastEnv, e: &Expr) -> Expr {
     }
 }
 
-fn cast_code_injection(cast: &Cast, var: &Rc<Var>) -> Expr {
+fn cast_code_injection(sloc: &CLoc, cast: &Cast, var: &Rc<Var>) -> Expr {
     // TODO: Annotation could be like "gst type checker inserted" or something like that
     // Dummy location
     let dloc: Rc<CLoc> = CLoc {
@@ -411,7 +411,17 @@ fn cast_code_injection(cast: &Cast, var: &Rc<Var>) -> Expr {
                                     anno: Anno(None).into(),
                                     inner: Expr::AtomLit(
                                         dloc.clone(),
-                                        Lit::Atom(Atom("gst_bad_cast".to_string()).into()).into(),
+                                        Lit::Atom(
+                                            Atom(format!(
+                                                "gst_bad_cast_{}_{}_{}_{}",
+                                                sloc.start.line,
+                                                sloc.start.column,
+                                                sloc.end.line,
+                                                sloc.end.column
+                                            ))
+                                            .into(),
+                                        )
+                                        .into(),
                                     )
                                     .into(),
                                 }],
