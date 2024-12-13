@@ -1,6 +1,58 @@
- module 'gradual-base-02' [ 'bar'/1, 'foo'/1, 'module_info'/0, 'module_info'/1 ] attributes [ 'file' = [ { [ 116, 101, 115, 116, 115, 47, 116, 121, 112, 101, 95, 99, 104, 101, 99, 107, 101, 114, 47, 112, 97, 115, 115, 47, 103, 114, 97, 100, 117, 97, 108, 45, 98, 97, 115, 101, 45, 48, 50, 46, 101, 114, 108 ], 1 } ], 'type' = [ { 'new', { 'type', { 7, 16 }, 'tuple', [] }, [] } ], 'type' = [ { 'consume', { 'type', { 8, 20 }, 'tuple', [] }, [] } ], 'session' = [ 39, 102, 111, 111, 39, 40, 95, 41 ], 'session' = [ 39, 98, 97, 114, 39, 40, 95, 41 ], 'spec' = [ { { 'foo', 1 }, [ { 'type', { 13, 10 }, 'fun', [ { 'type', { 13, 10 }, 'product', [ { 'type', { 13, 11 }, 'dynamic', [] } ] }, { 'type', { 13, 25 }, 'integer', [] } ] } ] } ], 'spec' = [ { { 'bar', 1 }, [ { 'type', { 17, 10 }, 'fun', [ { 'type', { 17, 10 }, 'product', [ { 'type', { 17, 11 }, 'integer', [] } ] }, { 'type', { 17, 25 }, 'integer', [] } ] } ] } ] ] 'foo'/1 = ( fun ( _0 ) -> apply 'bar'/1 ( ( case _0 of < _0 > when call 'erlang':'is_integer' ( _0 ) -> _0
-< _0 > when 'true' -> call 'erlang':'error' ( 'gst_bad_cast' ) end -| [ { 'function', { 'foo', 1 } } ] ) ) -| [ { 'function', { 'foo', 1 } } ] )
-'bar'/1 = ( fun ( _0 ) -> ( _0 -| [ { 'function', { 'bar', 1 } } ] ) -| [ { 'function', { 'bar', 1 } } ] )
-'module_info'/0 = ( fun (  ) -> call 'erlang':'get_module_info' ( 'gradual-base-02' ) -| [ { 'function', { 'module_info', 0 } } ] )
-'module_info'/1 = ( fun ( _0 ) -> call 'erlang':'get_module_info' ( 'gradual-base-02', ( _0 -| [ { 'function', { 'module_info', 1 } } ] ) ) -| [ { 'function', { 'module_info', 1 } } ] ) end
-
+module 'gradual-base-02' ['bar'/1,
+			  'foo'/1,
+			  'module_info'/0,
+			  'module_info'/1]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[116|[101|[115|[116|[115|[47|[116|[121|[112|[101|[95|[99|[104|[101|[99|[107|[101|[114|[47|[112|[97|[115|[115|[47|[103|[114|[97|[100|[117|[97|[108|[45|[98|[97|[115|[101|[45|[48|[50|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],1}],
+		%% Line 7
+		'type' =
+		    %% Line 7
+		    [{'new',{'type',{7,16},'tuple',[]},[]}],
+		%% Line 8
+		'type' =
+		    %% Line 8
+		    [{'consume',{'type',{8,20},'tuple',[]},[]}],
+		%% Line 10
+		'session' =
+		    %% Line 10
+		    [39|[102|[111|[111|[39|[40|[95|[41]]]]]]]],
+		%% Line 11
+		'session' =
+		    %% Line 11
+		    [39|[98|[97|[114|[39|[40|[95|[41]]]]]]]],
+		%% Line 13
+		'spec' =
+		    %% Line 13
+		    [{{'foo',1},[{'type',{13,10},'fun',[{'type',{13,10},'product',[{'type',{13,11},'dynamic',[]}]}|[{'type',{13,25},'integer',[]}]]}]}],
+		%% Line 17
+		'spec' =
+		    %% Line 17
+		    [{{'bar',1},[{'type',{17,10},'fun',[{'type',{17,10},'product',[{'type',{17,11},'integer',[]}]}|[{'type',{17,25},'integer',[]}]]}]}]]
+'foo'/1 =
+    %% Line 14
+    ( fun (_0) ->
+	  %% Line 15
+	  apply 'bar'/1
+	      (( _0
+		 -| [{'function',{'foo',1}}] ))
+      -| [{'function',{'foo',1}}] )
+'bar'/1 =
+    %% Line 18
+    ( fun (_0) ->
+	  ( _0
+	    -| [{'function',{'bar',1}}] )
+      -| [{'function',{'bar',1}}] )
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('gradual-base-02')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('gradual-base-02', ( _0
+				    -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end

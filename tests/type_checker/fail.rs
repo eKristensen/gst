@@ -48,16 +48,16 @@ fn type_checker_fail_expect_rejection(resource: &str) {
     let module = gst::parse(resource, &src).unwrap();
     // Special case for some files
     match resource {
-        "tests/type_checker/fail/client.core" => assert_eq!(module.warnings.len(), 0),
-        "tests/type_checker/fail/client-over-use.core" => assert_eq!(module.warnings.len(), 0),
-        "tests/type_checker/fail/server.core" => assert_eq!(module.warnings.len(), 0),
-        "tests/type_checker/fail/wrong-return-type.core" => assert_eq!(module.warnings.len(), 0),
+        "tests/type_checker/fail/client.core" => assert_eq!(module.1.warnings.len(), 0),
+        "tests/type_checker/fail/client-over-use.core" => assert_eq!(module.1.warnings.len(), 0),
+        "tests/type_checker/fail/server.core" => assert_eq!(module.1.warnings.len(), 0),
+        "tests/type_checker/fail/wrong-return-type.core" => assert_eq!(module.1.warnings.len(), 0),
         "tests/type_checker/fail/fun-app-spec-mismatch.core" => {
-            assert_eq!(module.warnings.len(), 0)
+            assert_eq!(module.1.warnings.len(), 0)
         }
-        _ => assert!(!module.warnings.is_empty()),
+        _ => assert!(!module.1.warnings.is_empty()),
     }
-    let typed = gst::type_check(module.res);
+    let typed = gst::type_check(module.1.res);
     // Special case for some files
     match resource {
         "tests/type_checker/fail/client.core" => assert_eq!(typed.warnings.len(), 1),

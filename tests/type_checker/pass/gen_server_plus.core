@@ -1,0 +1,591 @@
+module 'gen_server_plus' ['behaviour_info'/1,
+			  'call'/3,
+			  'call'/4,
+			  'close'/2,
+			  'handle_call'/3,
+			  'handle_cast'/2,
+			  'init'/1,
+			  'module_info'/0,
+			  'module_info'/1,
+			  'new'/1,
+			  'start_link'/3]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[116|[101|[115|[116|[115|[47|[116|[121|[112|[101|[95|[99|[104|[101|[99|[107|[101|[114|[47|[112|[97|[115|[115|[47|[103|[101|[110|[95|[115|[101|[114|[118|[101|[114|[95|[112|[108|[117|[115|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],1}],
+		%% Line 2
+		'behavior' =
+		    %% Line 2
+		    ['gen_server'],
+		%% Line 38
+		'type' =
+		    %% Line 38
+		    [{'from',{'type',{38,17},'tuple',[{'ann_type',{38,18},[{'var',{38,18},'Client'}|[{'type',{38,28},'pid',[]}]]}|[{'ann_type',{38,35},[{'var',{38,35},'Tag'}|[{'user_type',{38,42},'reply_tag',[]}]]}]]},[]}],
+		%% Line 39
+		'opaque' =
+		    %% Line 39
+		    [{'reply_tag',{'remote_type',{39,24},[{'atom',{39,24},'gen'}|[{'atom',{39,28},'reply_tag'}|[[]]]]},[]}],
+		%% Line 43
+		'record' =
+		    %% Line 43
+		    [{'plus_state',[{'record_field',{43,22},{'atom',{43,22},'callback'}}|[{'record_field',{43,32},{'atom',{43,32},'global'}}|[{'record_field',{43,40},{'atom',{43,40},'sessions'}}]]]}],
+		%% Line 45
+		'callback' =
+		    %% Line 45
+		    [{{'handle_plus_call',4},[{'type',{45,27},'fun',[{'type',{45,27},'product',[{'ann_type',{45,28},[{'var',{45,28},'Request'}|[{'type',{45,39},'term',[]}]]}|[{'ann_type',{45,47},[{'var',{45,47},'From'}|[{'user_type',{45,55},'from',[]}]]}|[{'ann_type',{46,23},[{'var',{46,23},'SessionState'}|[{'type',{46,39},'term',[]}]]}|[{'ann_type',{46,47},[{'var',{46,47},'GlobalState'}|[{'type',{46,62},'term',[]}]]}]]]]}|[{'type',{47,5},'union',[{'type',{47,5},'tuple',[{'atom',{47,6},'reply'}|[{'ann_type',{47,13},[{'var',{47,13},'Reply'}|[{'type',{47,22},'term',[]}]]}|[{'ann_type',{47,30},[{'var',{47,30},'NewSessionState'}|[{'type',{47,49},'term',[]}]]}|[{'ann_type',{47,57},[{'var',{47,57},'NewGlobalState'}|[{'type',{47,75},'term',[]}]]}]]]]}|[{'type',{48,5},'tuple',[{'atom',{48,6},'reply'}|[{'ann_type',{48,13},[{'var',{48,13},'Reply'}|[{'type',{48,22},'term',[]}]]}|[{'ann_type',{48,30},[{'var',{48,30},'NewSessionState'}|[{'type',{48,49},'term',[]}]]}|[{'ann_type',{48,57},[{'var',{48,57},'NewGlobalState'}|[{'type',{48,75},'term',[]}]]}|[{'type',{48,83},'union',[{'type',{48,83},'timeout',[]}|[{'atom',{48,95},'hibernate'}|[{'type',{48,107},'tuple',[{'atom',{48,108},'continue'}|[{'type',{48,118},'term',[]}]]}]]]}]]]]]}|[{'type',{49,5},'tuple',[{'atom',{49,6},'noreply'}|[{'ann_type',{49,15},[{'var',{49,15},'NewSessionState'}|[{'type',{49,34},'term',[]}]]}|[{'ann_type',{49,42},[{'var',{49,42},'NewGlobalState'}|[{'type',{49,60},'term',[]}]]}]]]}|[{'type',{50,5},'tuple',[{'atom',{50,6},'noreply'}|[{'ann_type',{50,15},[{'var',{50,15},'NewSessionState'}|[{'type',{50,34},'term',[]}]]}|[{'ann_type',{50,42},[{'var',{50,42},'NewGlobalState'}|[{'type',{50,60},'term',[]}]]}|[{'type',{50,68},'union',[{'type',{50,68},'timeout',[]}|[{'atom',{50,80},'hibernate'}|[{'type',{50,92},'tuple',[{'atom',{50,93},'continue'}|[{'type',{50,103},'term',[]}]]}]]]}]]]]}|[{'type',{51,5},'tuple',[{'atom',{51,6},'stop'}|[{'ann_type',{51,12},[{'var',{51,12},'Reason'}|[{'type',{51,22},'term',[]}]]}|[{'ann_type',{51,30},[{'var',{51,30},'Reply'}|[{'type',{51,39},'term',[]}]]}|[{'ann_type',{51,47},[{'var',{51,47},'NewSessionState'}|[{'type',{51,66},'term',[]}]]}|[{'ann_type',{51,74},[{'var',{51,74},'NewGlobalState'}|[{'type',{51,92},'term',[]}]]}]]]]]}|[{'type',{52,5},'tuple',[{'atom',{52,6},'stop'}|[{'ann_type',{52,12},[{'var',{52,12},'Reason'}|[{'type',{52,22},'term',[]}]]}|[{'ann_type',{52,30},[{'var',{52,30},'NewSessionState'}|[{'type',{52,49},'term',[]}]]}|[{'ann_type',{52,57},[{'var',{52,57},'NewGlobalState'}|[{'type',{52,75},'term',[]}]]}]]]]}]]]]]]}]]}]}],
+		%% Line 53
+		'callback' =
+		    %% Line 53
+		    [{{'handle_plus_cast',3},[{'type',{53,27},'fun',[{'type',{53,27},'product',[{'ann_type',{53,28},[{'var',{53,28},'Request'}|[{'type',{53,39},'term',[]}]]}|[{'ann_type',{53,47},[{'var',{53,47},'SessionState'}|[{'type',{53,63},'term',[]}]]}|[{'ann_type',{53,71},[{'var',{53,71},'GlobalState'}|[{'type',{53,86},'term',[]}]]}]]]}|[{'type',{54,5},'union',[{'type',{54,5},'tuple',[{'atom',{54,6},'noreply'}|[{'ann_type',{54,15},[{'var',{54,15},'NewSessionState'}|[{'type',{54,34},'term',[]}]]}|[{'ann_type',{54,42},[{'var',{54,42},'NewGlobalState'}|[{'type',{54,60},'term',[]}]]}]]]}|[{'type',{55,5},'tuple',[{'atom',{55,6},'noreply'}|[{'ann_type',{55,15},[{'var',{55,15},'NewSessionState'}|[{'type',{55,34},'term',[]}]]}|[{'ann_type',{55,42},[{'var',{55,42},'NewGlobalState'}|[{'type',{55,60},'term',[]}]]}|[{'type',{55,68},'union',[{'type',{55,68},'timeout',[]}|[{'atom',{55,80},'hibernate'}|[{'type',{55,92},'tuple',[{'atom',{55,93},'continue'}|[{'type',{55,103},'term',[]}]]}]]]}]]]]}|[{'type',{56,5},'tuple',[{'atom',{56,6},'stop'}|[{'ann_type',{56,12},[{'var',{56,12},'Reason'}|[{'type',{56,22},'term',[]}]]}|[{'ann_type',{56,30},[{'var',{56,30},'NewSessionState'}|[{'type',{56,49},'term',[]}]]}|[{'ann_type',{56,57},[{'var',{56,57},'NewGlobalState'}|[{'type',{56,75},'term',[]}]]}]]]]}]]]}]]}]}],
+		%% Line 57
+		'callback' =
+		    %% Line 57
+		    [{{'handle_new_session_cast',3},[{'type',{57,34},'fun',[{'type',{57,34},'product',[{'ann_type',{57,35},[{'var',{57,35},'Request'}|[{'type',{57,46},'term',[]}]]}|[{'ann_type',{57,54},[{'var',{57,54},'SessionState'}|[{'type',{57,70},'term',[]}]]}|[{'ann_type',{57,78},[{'var',{57,78},'GlobalState'}|[{'type',{57,93},'term',[]}]]}]]]}|[{'type',{58,5},'union',[{'type',{58,5},'tuple',[{'atom',{58,6},'noreply'}|[{'ann_type',{58,15},[{'var',{58,15},'NewSessionState'}|[{'type',{58,34},'term',[]}]]}|[{'ann_type',{58,42},[{'var',{58,42},'NewGlobalState'}|[{'type',{58,60},'term',[]}]]}]]]}|[{'type',{59,5},'tuple',[{'atom',{59,6},'noreply'}|[{'ann_type',{59,15},[{'var',{59,15},'NewSessionState'}|[{'type',{59,34},'term',[]}]]}|[{'ann_type',{59,42},[{'var',{59,42},'NewGlobalState'}|[{'type',{59,60},'term',[]}]]}|[{'type',{59,68},'union',[{'type',{59,68},'timeout',[]}|[{'atom',{59,80},'hibernate'}|[{'type',{59,92},'tuple',[{'atom',{59,93},'continue'}|[{'type',{59,103},'term',[]}]]}]]]}]]]]}|[{'type',{60,5},'tuple',[{'atom',{60,6},'stop'}|[{'ann_type',{60,12},[{'var',{60,12},'Reason'}|[{'type',{60,22},'term',[]}]]}|[{'ann_type',{60,30},[{'var',{60,30},'NewSessionState'}|[{'type',{60,49},'term',[]}]]}|[{'ann_type',{60,57},[{'var',{60,57},'NewGlobalState'}|[{'type',{60,75},'term',[]}]]}]]]]}]]]}]]}]}]]
+'start_link'/3 =
+    %% Line 65
+    ( fun (_0,_1,_2) ->
+	  %% Line 67
+	  call 'gen_server':'start_link'
+	      ('gen_server_plus', _0, [])
+      -| [{'function',{'start_link',3}}] )
+'init'/1 =
+    %% Line 70
+    ( fun (_0) ->
+	  %% Line 71
+	  {'ok',{'plus_state',( _0
+				-| [{'function',{'init',1}}] ),'undefined',~{}~}}
+      -| [{'function',{'init',1}}] )
+'handle_call'/3 =
+    %% Line 74
+    ( fun (_0,_1,_2) ->
+	  ( case <_0,_1,_2> of
+	      <{'$gen_plus_call','new_fresh_session'},_X_From,State> when 'true' ->
+		  let <FreshSessionID> =
+		      call %% Line 75
+			   'erlang':%% Line 75
+				    'make_ref'
+			  ()
+		  in  let <_5> =
+			  case %% Line 77
+			       State of
+			    %% Line 77
+			    ( <( {'plus_state',_53,_54,_rec0}
+				 -| ['compiler_generated'] )> when 'true' ->
+				  _rec0
+			      -| ['compiler_generated'] )
+			    %% Line 77
+			    ( <_rec0> when 'true' ->
+				  ( primop 'match_fail'
+					(( {( 'badrecord'
+					      -| ['compiler_generated'] ),_rec0}
+					   -| ['compiler_generated'] ))
+				    -| ['compiler_generated'] )
+			      -| ['compiler_generated'] )
+			  end
+		      in  let <UpdatedSessions> =
+			      call %% Line 77
+				   'maps':%% Line 77
+					  'put'
+				  (%% Line 77
+				   FreshSessionID, %% Line 77
+						   {'start',{}}, %% Line 77
+								 _5)
+			  in  let <_8> =
+				  case %% Line 78
+				       State of
+				    %% Line 78
+				    ( <( {'plus_state',_55,_rec3,_56}
+					 -| ['compiler_generated'] )> when 'true' ->
+					  _rec3
+				      -| ['compiler_generated'] )
+				    %% Line 78
+				    ( <_rec3> when 'true' ->
+					  ( primop 'match_fail'
+						(( {( 'badrecord'
+						      -| ['compiler_generated'] ),_rec3}
+						   -| ['compiler_generated'] ))
+					    -| ['compiler_generated'] )
+				      -| ['compiler_generated'] )
+				  end
+			      in  let <_13> =
+				      case %% Line 78
+					   State of
+					%% Line 78
+					<{'plus_state',_57,_58,_59}> when 'true' ->
+					    let <_11> =
+						call 'erlang':'setelement'
+						    (4, State, UpdatedSessions)
+					    in  call 'erlang':'setelement'
+						    (3, _11, _8)
+					%% Line 78
+					( <( _60
+					     -| ['compiler_generated'] )> when 'true' ->
+					      ( primop 'match_fail'
+						    (( {( 'badrecord'
+							  -| ['compiler_generated'] ),State}
+						       -| ['compiler_generated'] ))
+						-| ['compiler_generated'] )
+					  -| ['compiler_generated'] )
+				      end
+				  in  %% Line 78
+				      {'reply',{'new_fresh_session',FreshSessionID},_13}
+	      %% Line 82
+	      <{'$gen_plus_call','end_session',SessionID},_X_From,State>
+		  when call 'erlang':'is_reference'
+			(SessionID) ->
+		  let <_15> =
+		      case %% Line 83
+			   State of
+			%% Line 83
+			( <( {'plus_state',_61,_62,_rec4}
+			     -| ['compiler_generated'] )> when 'true' ->
+			      _rec4
+			  -| ['compiler_generated'] )
+			%% Line 83
+			( <_rec4> when 'true' ->
+			      ( primop 'match_fail'
+				    (( {( 'badrecord'
+					  -| ['compiler_generated'] ),_rec4}
+				       -| ['compiler_generated'] ))
+				-| ['compiler_generated'] )
+			  -| ['compiler_generated'] )
+		      end
+		  in  %% Line 83
+		      case call 'maps':'find'
+			       (SessionID, _15) of
+			%% Line 84
+			<{'ok',_63}> when 'true' ->
+			    let <_17> =
+				case %% Line 85
+				     State of
+				  %% Line 85
+				  ( <( {'plus_state',_64,_65,_rec5}
+				       -| ['compiler_generated'] )> when 'true' ->
+					_rec5
+				    -| ['compiler_generated'] )
+				  %% Line 85
+				  ( <_rec5> when 'true' ->
+					( primop 'match_fail'
+					      (( {( 'badrecord'
+						    -| ['compiler_generated'] ),_rec5}
+						 -| ['compiler_generated'] ))
+					  -| ['compiler_generated'] )
+				    -| ['compiler_generated'] )
+				end
+			    in  let <UpdatedSessions> =
+				    call %% Line 85
+					 'maps':%% Line 85
+						'remove'
+					(%% Line 85
+					 SessionID, %% Line 85
+						    _17)
+				in  let <_20> =
+					case %% Line 86
+					     State of
+					  %% Line 86
+					  ( <( {'plus_state',_66,_rec8,_67}
+					       -| ['compiler_generated'] )> when 'true' ->
+						_rec8
+					    -| ['compiler_generated'] )
+					  %% Line 86
+					  ( <_rec8> when 'true' ->
+						( primop 'match_fail'
+						      (( {( 'badrecord'
+							    -| ['compiler_generated'] ),_rec8}
+							 -| ['compiler_generated'] ))
+						  -| ['compiler_generated'] )
+					    -| ['compiler_generated'] )
+					end
+				    in  let <_25> =
+					    case %% Line 86
+						 State of
+					      %% Line 86
+					      <{'plus_state',_68,_69,_70}> when 'true' ->
+						  let <_23> =
+						      call 'erlang':'setelement'
+							  (4, State, UpdatedSessions)
+						  in  call 'erlang':'setelement'
+							  (3, _23, _20)
+					      %% Line 86
+					      ( <( _71
+						   -| ['compiler_generated'] )> when 'true' ->
+						    ( primop 'match_fail'
+							  (( {( 'badrecord'
+								-| ['compiler_generated'] ),State}
+							     -| ['compiler_generated'] ))
+						      -| ['compiler_generated'] )
+						-| ['compiler_generated'] )
+					    end
+					in  %% Line 86
+					    {'reply',{'end_session',SessionID},_25}
+			%% Line 87
+			<_X_NoSession> when 'true' ->
+			    %% Line 88
+			    {'reply',{'error','session_id_not_found'},State}
+		      end
+	      %% Line 92
+	      <{'$gen_plus_call',SessionID,Payload},From,State>
+		  when call 'erlang':'is_reference'
+			(SessionID) ->
+		  do  %% Line 93
+		      call 'io':'format'
+			  ([68|[69|[66|[85|[71|[58|[32|[71|[101|[110|[80|[108|[117|[115|[46|[32|[83|[101|[115|[115|[105|[111|[110|[32|[67|[97|[108|[108|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+		      let <_28> =
+			  case %% Line 95
+			       State of
+			    %% Line 95
+			    ( <( {'plus_state',_72,_73,_rec9}
+				 -| ['compiler_generated'] )> when 'true' ->
+				  _rec9
+			      -| ['compiler_generated'] )
+			    %% Line 95
+			    ( <_rec9> when 'true' ->
+				  ( primop 'match_fail'
+					(( {( 'badrecord'
+					      -| ['compiler_generated'] ),_rec9}
+					   -| ['compiler_generated'] ))
+				    -| ['compiler_generated'] )
+			      -| ['compiler_generated'] )
+			  end
+		      in  %% Line 95
+			  case call 'maps':'find'
+				   (SessionID, _28) of
+			    %% Line 96
+			    <{'ok',{StateLabel,SessionState}}> when 'true' ->
+				let <_32> =
+				    case %% Line 97
+					 State of
+				      %% Line 97
+				      ( <( {'plus_state',_rec10,_74,_75}
+					   -| ['compiler_generated'] )> when 'true' ->
+					    _rec10
+					-| ['compiler_generated'] )
+				      %% Line 97
+				      ( <_rec10> when 'true' ->
+					    ( primop 'match_fail'
+						  (( {( 'badrecord'
+							-| ['compiler_generated'] ),_rec10}
+						     -| ['compiler_generated'] ))
+					      -| ['compiler_generated'] )
+					-| ['compiler_generated'] )
+				    end
+				in  let <_30> =
+					case %% Line 97
+					     State of
+					  %% Line 97
+					  ( <( {'plus_state',_76,_rec11,_77}
+					       -| ['compiler_generated'] )> when 'true' ->
+						_rec11
+					    -| ['compiler_generated'] )
+					  %% Line 97
+					  ( <_rec11> when 'true' ->
+						( primop 'match_fail'
+						      (( {( 'badrecord'
+							    -| ['compiler_generated'] ),_rec11}
+							 -| ['compiler_generated'] ))
+						  -| ['compiler_generated'] )
+					    -| ['compiler_generated'] )
+					end
+				    in  %% Line 97
+					case call _32:'handle_plus_call'
+						 (Payload, From, StateLabel, SessionState, _30) of
+					  %% Line 98
+					  <{Action,Msg,UpdatedStateLabel,UpdatedSessionState,UpdatedGlobalState}> when 'true' ->
+					      let <_34> =
+						  case %% Line 100
+						       State of
+						    %% Line 100
+						    ( <( {'plus_state',_78,_79,_rec12}
+							 -| ['compiler_generated'] )> when 'true' ->
+							  _rec12
+						      -| ['compiler_generated'] )
+						    %% Line 100
+						    ( <_rec12> when 'true' ->
+							  ( primop 'match_fail'
+								(( {( 'badrecord'
+								      -| ['compiler_generated'] ),_rec12}
+								   -| ['compiler_generated'] ))
+							    -| ['compiler_generated'] )
+						      -| ['compiler_generated'] )
+						  end
+					      in  let <UpdatedSessions> =
+						      call %% Line 100
+							   'maps':%% Line 100
+								  'put'
+							  (%% Line 100
+							   SessionID, %% Line 100
+								      {UpdatedStateLabel,UpdatedSessionState}, %% Line 100
+													       _34)
+						  in  let <_39> =
+							  case %% Line 102
+							       State of
+							    %% Line 102
+							    <{'plus_state',_80,_81,_82}> when 'true' ->
+								let <_37> =
+								    call 'erlang':'setelement'
+									(4, State, UpdatedSessions)
+								in  call 'erlang':'setelement'
+									(3, _37, UpdatedGlobalState)
+							    %% Line 102
+							    ( <( _83
+								 -| ['compiler_generated'] )> when 'true' ->
+								  ( primop 'match_fail'
+									(( {( 'badrecord'
+									      -| ['compiler_generated'] ),State}
+									   -| ['compiler_generated'] ))
+								    -| ['compiler_generated'] )
+							      -| ['compiler_generated'] )
+							  end
+						      in  %% Line 102
+							  {Action,Msg,_39}
+					  %% Line 103
+					  <_X_NotReply> when 'true' ->
+					      call 'erlang':'error'
+						  ('gen_server_plus_handle_call_reply_must_be_sent')
+					end
+			    %% Line 105
+			    <_X_NoSession> when 'true' ->
+				%% Line 106
+				{'reply',{'error','session_id_not_found'},State}
+			  end
+	      %% Line 110
+	      <Payload,From,State> when 'true' ->
+		  do  %% Line 111
+		      call 'io':'format'
+			  ([68|[69|[66|[85|[71|[58|[32|[71|[101|[110|[80|[108|[117|[115|[46|[32|[79|[116|[104|[101|[114|[32|[67|[97|[108|[108|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+		      let <_45> =
+			  case %% Line 113
+			       State of
+			    %% Line 113
+			    ( <( {'plus_state',_rec14,_84,_85}
+				 -| ['compiler_generated'] )> when 'true' ->
+				  _rec14
+			      -| ['compiler_generated'] )
+			    %% Line 113
+			    ( <_rec14> when 'true' ->
+				  ( primop 'match_fail'
+					(( {( 'badrecord'
+					      -| ['compiler_generated'] ),_rec14}
+					   -| ['compiler_generated'] ))
+				    -| ['compiler_generated'] )
+			      -| ['compiler_generated'] )
+			  end
+		      in  let <_43> =
+			      case %% Line 113
+				   State of
+				%% Line 113
+				( <( {'plus_state',_86,_rec15,_87}
+				     -| ['compiler_generated'] )> when 'true' ->
+				      _rec15
+				  -| ['compiler_generated'] )
+				%% Line 113
+				( <_rec15> when 'true' ->
+				      ( primop 'match_fail'
+					    (( {( 'badrecord'
+						  -| ['compiler_generated'] ),_rec15}
+					       -| ['compiler_generated'] ))
+					-| ['compiler_generated'] )
+				  -| ['compiler_generated'] )
+			      end
+			  in  %% Line 112
+			      case %% Line 113
+				   call _45:'handle_plus_call'
+				       (Payload, From, 'no_session', 'no_session_state', _43) of
+				<{Action,Msg,_88,_89,UpdatedGlobalState}> when 'true' ->
+				    let <_49> =
+					case %% Line 114
+					     State of
+					  %% Line 114
+					  <{'plus_state',_90,_91,_92}> when 'true' ->
+					      call 'erlang':'setelement'
+						  (3, State, UpdatedGlobalState)
+					  %% Line 114
+					  ( <( _93
+					       -| ['compiler_generated'] )> when 'true' ->
+						( primop 'match_fail'
+						      (( {( 'badrecord'
+							    -| ['compiler_generated'] ),State}
+							 -| ['compiler_generated'] ))
+						  -| ['compiler_generated'] )
+					    -| ['compiler_generated'] )
+					end
+				    in  %% Line 114
+					{Action,Msg,_49}
+				( <_46> when 'true' ->
+				      primop 'match_fail'
+					  ({'badmatch',_46})
+				  -| ['compiler_generated'] )
+			      end
+	    end
+	    -| [{'function',{'handle_call',3}}] )
+      -| [{'function',{'handle_call',3}}] )
+'handle_cast'/2 =
+    %% Line 117
+    ( fun (_0,_1) ->
+	  ( case <_0,_1> of
+	      <{'$gen_plus_call',_X_SessionID,_X_Payload},_X_State> when 'true' ->
+		  %% Line 118
+		  call 'erlang':'error'
+		      ('gen_server_plus_cast_not_yet_supported')
+	      %% Line 121
+	      <Payload,State> when 'true' ->
+		  do  %% Line 122
+		      call 'io':'format'
+			  ([68|[69|[66|[85|[71|[58|[32|[71|[101|[110|[80|[108|[117|[115|[46|[32|[79|[116|[104|[101|[114|[32|[67|[97|[115|[116|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+		      do  %% Line 123
+			  call 'io':'format'
+			      ([84|[79|[68|[79|[58|[32|[71|[101|[110|[80|[108|[117|[115|[32|[104|[97|[110|[100|[108|[101|[95|[99|[97|[115|[116|[58|[32|[73|[109|[112|[108|[101|[109|[101|[110|[116|[97|[116|[105|[111|[110|[32|[110|[111|[116|[32|[102|[105|[110|[105|[115|[104|[101|[100|[33|[126|[110]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+			  let <_5> =
+			      case %% Line 124
+				   State of
+				%% Line 124
+				( <( {'plus_state',_rec17,_8,_9}
+				     -| ['compiler_generated'] )> when 'true' ->
+				      _rec17
+				  -| ['compiler_generated'] )
+				%% Line 124
+				( <_rec17> when 'true' ->
+				      ( primop 'match_fail'
+					    (( {( 'badrecord'
+						  -| ['compiler_generated'] ),_rec17}
+					       -| ['compiler_generated'] ))
+					-| ['compiler_generated'] )
+				  -| ['compiler_generated'] )
+			      end
+			  in  let <_3> =
+				  case %% Line 124
+				       State of
+				    %% Line 124
+				    ( <( {'plus_state',_10,_rec18,_11}
+					 -| ['compiler_generated'] )> when 'true' ->
+					  _rec18
+				      -| ['compiler_generated'] )
+				    %% Line 124
+				    ( <_rec18> when 'true' ->
+					  ( primop 'match_fail'
+						(( {( 'badrecord'
+						      -| ['compiler_generated'] ),_rec18}
+						   -| ['compiler_generated'] ))
+					    -| ['compiler_generated'] )
+				      -| ['compiler_generated'] )
+				  end
+			      in  %% Line 124
+				  call _5:'handle_plus_cast'
+				      (Payload, 'other', _3)
+	    end
+	    -| [{'function',{'handle_cast',2}}] )
+      -| [{'function',{'handle_cast',2}}] )
+'new'/1 =
+    %% Line 127
+    ( fun (_0) ->
+	  ( case ( _0
+		   -| [{'function',{'new',1}}] ) of
+	      <ServerPid>
+		  when call 'erlang':'is_pid'
+			(( _0
+			   -| [{'function',{'new',1}}] )) ->
+		  %% Line 128
+		  call 'gen_server':'call'
+		      (ServerPid, {'$gen_plus_call','new_fresh_session'})
+	      ( <_1> when 'true' ->
+		    ( primop 'match_fail'
+			  (( {'function_clause',_1}
+			     -| [{'function',{'new',1}}] ))
+		      -| [{'function',{'new',1}}] )
+		-| ['compiler_generated'] )
+	    end
+	    -| [{'function',{'new',1}}] )
+      -| [{'function',{'new',1}}] )
+'close'/2 =
+    %% Line 130
+    ( fun (_0,_1) ->
+	  ( case <_0,_1> of
+	      <ServerPid,SessionID>
+		  when let <_2> =
+			call 'erlang':'is_pid'
+			    (ServerPid)
+		    in  let <_3> =
+			    call 'erlang':'is_reference'
+				(SessionID)
+			in  call 'erlang':'and'
+				(_2, _3) ->
+		  %% Line 131
+		  call 'gen_server':'call'
+		      (ServerPid, {'$gen_plus_call','end_session',SessionID})
+	      ( <_5,_4> when 'true' ->
+		    ( primop 'match_fail'
+			  (( {'function_clause',_5,_4}
+			     -| [{'function',{'close',2}}] ))
+		      -| [{'function',{'close',2}}] )
+		-| ['compiler_generated'] )
+	    end
+	    -| [{'function',{'close',2}}] )
+      -| [{'function',{'close',2}}] )
+'call'/3 =
+    %% Line 133
+    ( fun (_0,_1,_2) ->
+	  ( case <_0,_1,_2> of
+	      <ServerPid,SessionID,Request>
+		  when let <_3> =
+			call 'erlang':'is_pid'
+			    (ServerPid)
+		    in  let <_4> =
+			    call 'erlang':'is_reference'
+				(SessionID)
+			in  call 'erlang':'and'
+				(_3, _4) ->
+		  let <_5> =
+		      call %% Line 135
+			   'gen_server':%% Line 135
+					'call'
+			  (%% Line 135
+			   ServerPid, %% Line 135
+				      {'$gen_plus_call',SessionID,Request})
+		  in  %% Line 134
+		      {SessionID,%% Line 135
+				 _5}
+	      ( <_8,_7,_6> when 'true' ->
+		    ( primop 'match_fail'
+			  (( {'function_clause',_8,_7,_6}
+			     -| [{'function',{'call',3}}] ))
+		      -| [{'function',{'call',3}}] )
+		-| ['compiler_generated'] )
+	    end
+	    -| [{'function',{'call',3}}] )
+      -| [{'function',{'call',3}}] )
+'call'/4 =
+    %% Line 139
+    ( fun (_0,_1,_2,_3) ->
+	  %% Line 140
+	  call 'gen_server':'call'
+	      (_0, {'$gen_plus_call',_1,_2}, _3)
+      -| [{'function',{'call',4}}] )
+'behaviour_info'/1 =
+    ( fun (_0) ->
+	  ( case ( _0
+		   -| [{'function',{'behaviour_info',1}}] ) of
+	      <'callbacks'> when 'true' ->
+		  [{'handle_plus_call',4}|[{'handle_plus_cast',3}|[{'handle_new_session_cast',3}]]]
+	      <'optional_callbacks'> when 'true' ->
+		  []
+	      ( <_1> when 'true' ->
+		    ( primop 'match_fail'
+			  (( {'function_clause',_1}
+			     -| [{'function',{'behaviour_info',1}}] ))
+		      -| [{'function',{'behaviour_info',1}}] )
+		-| ['compiler_generated'] )
+	    end
+	    -| [{'function',{'behaviour_info',1}}] )
+      -| [{'function',{'behaviour_info',1}}] )
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('gen_server_plus')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('gen_server_plus', ( _0
+				    -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end

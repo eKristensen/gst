@@ -46,8 +46,8 @@ fn type_checker_pass_erlc_acceptance(resource: &str) {
 fn type_checker_pass_acceptance(resource: &str) {
     let src = std::fs::read_to_string(resource).unwrap();
     let module = gst::parse(resource, &src).unwrap();
-    assert!(module.warnings.is_empty());
-    let typed = gst::type_check(module.res);
+    assert!(module.1.warnings.is_empty());
+    let typed = gst::type_check(module.1.res);
     assert!(typed.warnings.is_empty());
     assert!(typed.res);
 }
