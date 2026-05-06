@@ -1,0 +1,7 @@
+
+# Build
+podman build -t gst .
+
+# Run typechecker
+podman run --rm   -v ~/code/gst:/data:z   gst   ./gst /data/tests/type_checker/pass/st_compute_server.erl
+
